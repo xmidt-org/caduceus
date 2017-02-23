@@ -38,6 +38,10 @@ func LoadConfiguration(serverConfigFilename string) (configuration *Configuratio
 func StartServer(inConfig *Configuration, inLogger logging.Logger) (outMux *mux.Router) {
 	serverWrapper := &ServerHandler{
 		logger: inLogger,
+		workerPool: WorkerPoolFactory{
+			NumWorkers: inConfig.NumWorkerThreads,
+			QueueSize:  inConfig.JobQueueSize,
+		}.New(),
 	}
 
 	validator := secure.Validators{
