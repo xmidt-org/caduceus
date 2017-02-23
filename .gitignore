@@ -13,7 +13,7 @@ src/caduceus/output
 src/caduceus/caduceus.cfg.json
 
 # Vim
-*.sw*
+*.swp
 
 # Folders
 _obj
