@@ -1,4 +1,37 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
 bin
 pkg
 src/vendor
+*.o
+*.a
+*.so
+src/caduceus/caduceus
+src/caduceus/debug
+src/caduceus/output
 
+# config
+src/caduceus/caduceus.cfg.json
+
+# Vim
+*.sw*
+
+# Folders
+_obj
+_test
+vendor
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+*.test
+*.prof
