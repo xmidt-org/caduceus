@@ -2,7 +2,9 @@
 *.o
 *.a
 *.so
-caduceus
+src/caduceus/caduceus
+src/caduceus/debug
+src/caduceus/output
 
 # Vim
 *.swp
