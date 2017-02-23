@@ -1,2 +1,2 @@
 # caduceus
-webpa server for delivering messages written in Goland
+WebPA server for delivering messages written in Go.

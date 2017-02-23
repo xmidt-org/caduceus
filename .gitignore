@@ -2,10 +2,20 @@
 *.o
 *.a
 *.so
+src/caduceus/caduceus
+src/caduceus/debug
+src/caduceus/output
+
+# config
+src/caduceus/caduceus.cfg.json
+
+# Vim
+*.swp
 
 # Folders
 _obj
 _test
+vendor
 
 # Architecture specific extensions/prefixes
 *.[568vq]
