@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/handler"
+	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/server"
@@ -81,6 +82,21 @@ func main() {
 	myMux := StartServer(configuration, logger)
 
 	os.Exit(func() int {
+		caduceusHealth := health.New(
+			configuration.HealthCheckInterval(),
+			logger,
+			handler.TotalRequestsReceived,
+			handler.TotalRequestSuccessfullyServiced,
+			handler.TotalRequestDenied,
+		)
+
+		healthServer := (&server.Builder{
+			Name:    "caduceus-health",
+			Address: configuration.HealthAddress(),
+			Logger:  logger,
+			Handler: caduceusHealth,
+		}).Build()
+
 		caduceusPrimaryServer := (&server.Builder{
 			Name:            "caduceus",
 			Address:         configuration.PrimaryAddress(),
@@ -91,6 +107,7 @@ func main() {
 		}).Build()
 
 		runnables := concurrent.RunnableSet{
+			healthServer,
 			caduceusPrimaryServer,
 		}
 
