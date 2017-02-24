@@ -11,11 +11,14 @@ before_install:
     - docker pull schmidtw/webpa.builder.centos6:latest
     - docker run -it -e BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -d --name build schmidtw/webpa.builder.centos6 bash
     - docker exec build git clone https://github.com/Comcast/caduceus.git
+    - docker exec build git clone https://github.com/Comcast/caduceus.git codecovio_build
 
 script:
-    - docker exec build bash -c "pushd caduceus; ./build_rpm.sh; popd"
+    - docker exec build bash -c "pushd codecovio_build; export GOPATH=`pwd` ; cd src; glide install && cd caduceus && go build caduceus; popd"
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec build bash -c "pushd caduceus; ./build_rpm.sh; popd"; fi'
 
 after_success:
+    - docker exec build bash <(curl -s https://codecov.io/bash) -s codecovio_build || echo "Codecov did not collect coverage reports"
     - docker cp build:/root/rpmbuild/RPMS/x86_64 .
     - docker cp build:/versionno.txt .
     - BINARY_NAME=`ls x86_64/`
@@ -27,4 +30,6 @@ deploy:
   api_key: $AUTH_TOKEN_BUILD
   file: x86_64/$BINARY_NAME
   skip_cleanup: true
+  on:
+    condition: "$TRAVIS_PULL_REQUEST = false"
 
