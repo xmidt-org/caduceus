@@ -1,0 +1,61 @@
+#!bin/bash
+#
+# caduceus Application Startup Script
+#
+# chkconfig: 345 90 14
+# description: Application Startup Script
+# config: /etc/caduceus/supervisord.conf
+# pidfile: /var/run/caduceus/caduceus.pid
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+RETVAL=0
+DAEMON_COREFILE_LIMIT=unlimited
+
+# Set limits here in addition to limits.conf
+ulimit -n 65535
+
+start() {
+	echo -n $"Starting caduceus: "
+	daemon supervisord -c /etc/caduceus/supervisord.conf
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/caduceus
+}
+
+stop() {
+	echo -n $"Stopping caduceus: "
+	killproc supervisord
+	echo
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/caduceus
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop) 
+	stop
+	;;
+  restart|force-reload|reload)
+	restart
+	;;
+  condrestart)
+	[ -f /var/lock/subsys/caduceus ] && restart
+	;;
+  status)
+	status supervisord
+	RETVAL=$?
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
+	exit 1
+esac
+
+exit $RETVAL
