@@ -1,0 +1,18 @@
+{
+	"primary": {
+		"address": ":8080"
+	},
+
+	"health": {
+		"address": ":9999"
+	},
+
+	"pprof": {
+		"address": ":9191"
+	},
+	
+	"log" : {
+		"file"      : "console",
+		"level"     : "DEBUG"
+	}
+}

@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/logging/golog"
-	"github.com/Comcast/webpa-common/server"
+	// "github.com/Comcast/webpa-common/server"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
@@ -12,7 +12,7 @@ type Configuration struct {
 	LoggerFactory    golog.LoggerFactory `json:"log"`
 	NumWorkerThreads int                 `json:"num_workers"`
 	JobQueueSize     int                 `json:"queue_size"`
-	server.Configuration
+	// server.Configuration
 }
 
 // Below is the struct that will implement our ServeHTTP method
