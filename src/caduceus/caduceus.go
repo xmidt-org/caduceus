@@ -1,13 +1,12 @@
-// TODO: figure out how to use the config file in this situation and adjust this file and caduceus_type.go accordingly
-
 package main
 
 import (
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
-	// "github.com/Comcast/webpa-common/secure"
+	"github.com/Comcast/webpa-common/handler"
+	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/server"
-	// "github.com/justinas/alice"
+	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"os"
@@ -34,6 +33,15 @@ func caduceus(arguments []string) int {
 	}
 
 	logger.Info("Using configuration file: %s", v.ConfigFileUsed())
+	logger.Info("Configuration file contents: %s", v.AllSettings())
+
+	configuration := new(Configuration)
+	err = v.Unmarshal(configuration)
+	if err != nil {
+		return 1
+	} else {
+		logger.Info("%v", configuration)
+	}
 
 	logger.Info("Caduceus is up and running!")
 	logger.Info("Finished reading config file and generating logger!")
@@ -41,27 +49,25 @@ func caduceus(arguments []string) int {
 	serverWrapper := &ServerHandler{
 		logger: logger,
 		workerPool: WorkerPoolFactory{
-			NumWorkers: 100,
-			QueueSize:  10,
-			// NumWorkers: inConfig.NumWorkerThreads,
-			// QueueSize:  inConfig.JobQueueSize,
+			NumWorkers: configuration.ServerValues.NumWorkerThreads,
+			QueueSize:  configuration.ServerValues.JobQueueSize,
 		}.New(),
 	}
 
-	// validator := secure.Validators{
-	// 	secure.ExactMatchValidator(inConfig.AuthHeader),
-	// }
+	validator := secure.Validators{
+		secure.ExactMatchValidator(configuration.ServerValues.AuthHeader),
+	}
 
-	// authHandler := handler.AuthorizationHandler{
-	// 	HeaderName:          "Authorization",
-	// 	ForbiddenStatusCode: 403,
-	// 	Validator:           validator,
-	// 	Logger:              inLogger,
-	// }
+	authHandler := handler.AuthorizationHandler{
+		HeaderName:          "Authorization",
+		ForbiddenStatusCode: 403,
+		Validator:           validator,
+		Logger:              logger,
+	}
 
-	// caduceusHandler := alice.New(authHandler.Decorate)
+	caduceusHandler := alice.New(authHandler.Decorate)
 
-	_, runnable := webPA.Prepare(logger, serverWrapper)
+	_, runnable := webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
