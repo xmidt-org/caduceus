@@ -10,7 +10,7 @@ src/caduceus/debug
 src/caduceus/output
 
 # config
-src/caduceus/caduceus.cfg.json
+src/caduceus/caduceus.json
 
 # Vim
 *.swp

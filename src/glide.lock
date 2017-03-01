@@ -1,17 +1,16 @@
-hash: ae21a2b667d51f074c9153fbf4509c6118b61596a5a17028475847fe54b04a88
-updated: 2017-02-23T11:23:39.773604349-08:00
+hash: 00c00be198f5a77e226a6586f9e3ee224eb9eabef52809c8fcc8641867d31dac
+updated: 2017-02-28T16:37:55.667237882-08:00
 imports:
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 021f929f39ca3521760bea0546071e45984f0ffc
+  version: e153d10f04a2c3e586eba1b0cf82526f8a59d52a
   subpackages:
   - concurrent
   - handler
   - logging
-  - logging/golog
   - secure
   - server
   - device
@@ -19,19 +18,29 @@ imports:
   - hash
   - health
   - secure/key
-  - types
+  - logging/golog
   - wrp
   - resource
+  - types
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
-- name: github.com/gorilla/context
-  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
-- name: github.com/gorilla/mux
-  version: 94e7d24fd285520f3d12ae998f7fdd6b5393d453
+- name: github.com/fsnotify/fsnotify
+  version: a904159b9206978bb6d53fcc7a769e5cd726c737
 - name: github.com/gorilla/websocket
-  version: 3f3e394da2b801fbe732a935ef40724762a67a07
+  version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
+- name: github.com/hashicorp/hcl
+  version: 630949a3c5fa3c613328e1b8256052cbc2327c9b
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/token
+  - json/parser
+  - hcl/scanner
+  - hcl/strconv
+  - json/scanner
+  - json/token
 - name: github.com/ian-kent/go-log
   version: 5731446c36ab9f716106ce0731f484c50fdf1ad1
   subpackages:
@@ -43,6 +52,14 @@ imports:
   version: 307ae868f90f4ee1b73ebe4596e0394237dacce8
 - name: github.com/justinas/alice
   version: 1051eaf52fcafdd87ead59d28b065f1fcb8274ec
+- name: github.com/magiconair/properties
+  version: b3b15ef068fd0b17ddf408a23669f20811d194d2
+- name: github.com/mitchellh/mapstructure
+  version: db1efb556f84b25a0a13a04aad883943538ad2e0
+- name: github.com/pelletier/go-buffruneio
+  version: c37440a7cf42ac63b919c752ca73a85067e05992
+- name: github.com/pelletier/go-toml
+  version: 361678322880708ac144df8575e6f01144ba1404
 - name: github.com/philhofer/fwd
   version: 98c11a7a6ec829d672b03833c3d69a7fae1ca972
 - name: github.com/pmezard/go-difflib
@@ -50,15 +67,27 @@ imports:
   subpackages:
   - difflib
 - name: github.com/SermoDigital/jose
-  version: 2bd9b81ac51d6d6134fcd4fd846bd2e7347a15f9
+  version: f6df55f235c24f236d11dbcf665249a59ac2021f
   subpackages:
+  - crypto
   - jws
   - jwt
-  - crypto
+- name: github.com/spf13/afero
+  version: 9be650865eab0c12963d8753212f4f9c66cdcf12
+  subpackages:
+  - mem
+- name: github.com/spf13/cast
+  version: f820543c3592e283e311a60d2a600a664e39f6f7
+- name: github.com/spf13/jwalterweatherman
+  version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
+- name: github.com/spf13/pflag
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+- name: github.com/spf13/viper
+  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
-  version: 4d4bfba8f1d1027c4fdbe371823030df51419987
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
   - mock
   - assert
@@ -67,15 +96,22 @@ imports:
   subpackages:
   - fluent
 - name: github.com/tinylib/msgp
-  version: 362bfb3384d53ae4d5dd745983a4d70b6d23628c
+  version: 38a6f61a768dc24552dad94611923841b53acc4f
   subpackages:
   - msgp
 - name: github.com/ugorji/go
-  version: c88ee250d0221a57af388746f5cf03768c21d6e2
+  version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
   - codec
-- name: golang.org/x/net
-  version: 6b27048ae5e6ad1ef927e72e437531493de612fe
+- name: golang.org/x/sys
+  version: 21f2569f6feb83b68a25c98c1b20eca5d4e1e6ae
   subpackages:
-  - context
+  - unix
+- name: golang.org/x/text
+  version: 0ad425fe45e885577bef05dc1c50f72e33188b16
+  subpackages:
+  - transform
+  - unicode/norm
+- name: gopkg.in/yaml.v2
+  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
 testImports: []
