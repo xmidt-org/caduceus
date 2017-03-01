@@ -11,12 +11,17 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 }
 
+type JSONPayload struct {
+	Payload string `json:"payload"`
+}
+
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
 	logger     logging.Logger
 	workerPool *WorkerPool
 }
 
+// Below is the struct and implementation of our worker pool factory
 type WorkerPoolFactory struct {
 	NumWorkers int
 	QueueSize  int
@@ -40,6 +45,7 @@ func (wpf WorkerPoolFactory) New() (wp *WorkerPool) {
 	return
 }
 
+// Below is the struct and implementation of our worker pool
 type WorkerPool struct {
 	jobs chan func(workerID int)
 }
