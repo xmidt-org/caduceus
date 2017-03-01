@@ -5,11 +5,7 @@ import (
 )
 
 // Below is the struct we're using to contain the data from a provided config file
-type Configuration struct {
-	ServerValues ServerValues
-}
-
-type ServerValues struct {
+type CaduceusConfig struct {
 	AuthHeader       string
 	NumWorkerThreads int
 	JobQueueSize     int

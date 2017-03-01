@@ -35,12 +35,12 @@ func caduceus(arguments []string) int {
 	logger.Info("Using configuration file: %s", v.ConfigFileUsed())
 	logger.Info("Configuration file contents: %s", v.AllSettings())
 
-	configuration := new(Configuration)
-	err = v.Unmarshal(configuration)
+	caduceusConfig := new(CaduceusConfig)
+	err = v.Unmarshal(caduceusConfig)
 	if err != nil {
 		return 1
 	} else {
-		logger.Info("%v", configuration)
+		logger.Info("%v", caduceusConfig)
 	}
 
 	logger.Info("Caduceus is up and running!")
@@ -49,13 +49,13 @@ func caduceus(arguments []string) int {
 	serverWrapper := &ServerHandler{
 		logger: logger,
 		workerPool: WorkerPoolFactory{
-			NumWorkers: configuration.ServerValues.NumWorkerThreads,
-			QueueSize:  configuration.ServerValues.JobQueueSize,
+			NumWorkers: caduceusConfig.NumWorkerThreads,
+			QueueSize:  caduceusConfig.JobQueueSize,
 		}.New(),
 	}
 
 	validator := secure.Validators{
-		secure.ExactMatchValidator(configuration.ServerValues.AuthHeader),
+		secure.ExactMatchValidator(caduceusConfig.AuthHeader),
 	}
 
 	authHandler := handler.AuthorizationHandler{
