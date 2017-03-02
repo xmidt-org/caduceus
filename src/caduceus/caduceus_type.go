@@ -11,8 +11,11 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 }
 
-type JSONPayload struct {
-	Payload string `json:"payload"`
+// Below is the struct we're using to create a request to caduceus
+type CaduceusRequest struct {
+	Payload     []byte
+	ContentType string
+	TargetURL   string
 }
 
 // Below is the struct that will implement our ServeHTTP method
