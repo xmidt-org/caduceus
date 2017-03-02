@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -10,11 +10,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	sh.logger.Info("Someone is saying hello!")
 	fmt.Fprintf(response, "%s", []byte("Heyo whaddup!\n"))
 
-	myBuf := new(bytes.Buffer)
-	myBuf.ReadFrom(request.Body)
-	myPayload := myBuf.Bytes()
+	myPayload, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		fmt.Fprintf(response, "%s", []byte("Unable to retrieve request body!\n"))
+	} else {
+		sh.workerPool.Send(func(workerID int) { sh.HandleRequest(workerID, myPayload) })
+	}
 
-	sh.workerPool.Send(func(workerID int) { sh.HandleRequest(workerID, myPayload) })
 	request.Body.Close()
 }
 
