@@ -14,7 +14,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	myPayload, err := ioutil.ReadAll(request.Body)
 	if err != nil {
-		fmt.Fprintf(response, "Unable to retrieve the request body: %s", err.Error())
+		statusMsg := "Unable to retrieve the request body: " + err.Error() + ".\n"
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte(statusMsg))
 		return
 	}
 
@@ -23,10 +25,12 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		if len(value) == 1 {
 			contentType = value[0]
 		} else {
-			fmt.Fprintf(response, "There cannot be more than one content type in the request header!")
+			response.WriteHeader(http.StatusBadRequest)
+			response.Write([]byte("Content-Type cannot have more than one specification.\n"))
 		}
 	} else {
-		fmt.Fprintf(response, "Content-Type must be set in the header!")
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte("Content-Type must be set in the header.\n"))
 	}
 
 	if contentType == "" {
@@ -41,7 +45,16 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		TargetURL:   targetURL,
 	}
 
-	sh.workerPool.Send(func(workerID int) { sh.HandleRequest(workerID, caduceusRequest) })
+	err = sh.workerPool.Send(func(workerID int) { sh.HandleRequest(workerID, caduceusRequest) })
+	if err != nil {
+		// return a 408
+		response.WriteHeader(http.StatusRequestTimeout)
+		response.Write([]byte("Unable to handle request at this time.\n"))
+	} else {
+		// return a 202
+		response.WriteHeader(http.StatusAccepted)
+		response.Write([]byte("Request placed on to queue.\n"))
+	}
 }
 
 func (sh *ServerHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {

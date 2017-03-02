@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"github.com/Comcast/webpa-common/logging"
 )
 
@@ -49,10 +50,17 @@ func (wpf WorkerPoolFactory) New() (wp *WorkerPool) {
 }
 
 // Below is the struct and implementation of our worker pool
+// It utilizes a non-blocking channel, so we throw away any requests that exceed
+// the channel's limit (indicated by its buffer size)
 type WorkerPool struct {
 	jobs chan func(workerID int)
 }
 
-func (wp *WorkerPool) Send(inFunc func(workerID int)) {
-	wp.jobs <- inFunc
+func (wp *WorkerPool) Send(inFunc func(workerID int)) error {
+	select {
+	case wp.jobs <- inFunc:
+		return nil
+	default:
+		return errors.New("Worker pool channel full.")
+	}
 }
