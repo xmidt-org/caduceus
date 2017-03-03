@@ -44,29 +44,29 @@ type CaduceusTimestamps struct {
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	logger        logging.Logger
-	workerPool    *WorkerPool
-	healthTracker HealthTracker
+	logger         logging.Logger
+	workerPool     *WorkerPool
+	caduceusHealth CaduceusHealth
 }
 
 // Below is the struct and implementation of how we're tracking health stuff
-type HealthTracker struct {
+type CaduceusHealth struct {
 	healthMonitor health.Monitor
 }
 
-func (ht *HealthTracker) Increment(inStat health.Stat) {
-	ht.healthMonitor.SendEvent(health.Inc(inStat, 1))
+func (ch *CaduceusHealth) Increment(inStat health.Stat) {
+	ch.healthMonitor.SendEvent(health.Inc(inStat, 1))
 }
 
-func (ht *HealthTracker) IncrementBucket(inSize int) {
+func (ch *CaduceusHealth) IncrementBucket(inSize int) {
 	if inSize < 100 {
-		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverZero, 1))
+		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverZero, 1))
 	} else if inSize < 1000 {
-		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverHundred, 1))
+		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverHundred, 1))
 	} else if inSize < 1000 {
-		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverThousand, 1))
+		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverThousand, 1))
 	} else {
-		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
+		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
 	}
 }
 

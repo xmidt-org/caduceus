@@ -58,13 +58,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
 		response.Write([]byte("Unable to handle request at this time.\n"))
-		sh.healthTracker.Increment(TotalMessagesDropped)
+		sh.caduceusHealth.Increment(TotalMessagesDropped)
 	} else {
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
-		sh.healthTracker.Increment(TotalMessagesAccepted)
-		sh.healthTracker.IncrementBucket(len(myPayload))
+		sh.caduceusHealth.Increment(TotalMessagesAccepted)
+		sh.caduceusHealth.IncrementBucket(len(myPayload))
 	}
 }
 
