@@ -33,7 +33,6 @@ func caduceus(arguments []string) int {
 	}
 
 	logger.Info("Using configuration file: %s", v.ConfigFileUsed())
-	logger.Info("Configuration file contents: %s", v.AllSettings())
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -44,7 +43,6 @@ func caduceus(arguments []string) int {
 	}
 
 	logger.Info("Caduceus is up and running!")
-	logger.Info("Finished reading config file and generating logger!")
 
 	serverWrapper := &ServerHandler{
 		logger: logger,
