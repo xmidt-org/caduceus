@@ -32,6 +32,14 @@ type CaduceusRequest struct {
 	Payload     []byte
 	ContentType string
 	TargetURL   string
+	Timestamps  CaduceusTimestamps
+}
+
+type CaduceusTimestamps struct {
+	TimeReceived        int64
+	TimeAccepted        int64
+	TimeProcessingStart int64
+	TimeProcessingEnd   int64
 }
 
 // Below is the struct that will implement our ServeHTTP method
