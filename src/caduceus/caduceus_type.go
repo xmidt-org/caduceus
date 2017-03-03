@@ -13,8 +13,6 @@ const (
 	PayloadsOverHundred     health.Stat = "PayloadsOverHundred"
 	PayloadsOverThousand    health.Stat = "PayloadsOverThousand"
 	PayloadsOverTenThousand health.Stat = "PayloadsOverTenThousand"
-	TotalMessagesAccepted   health.Stat = "TotalMessagesAccepted"
-	TotalMessagesDropped    health.Stat = "TotalMessagesDropped"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
