@@ -2,7 +2,14 @@ package main
 
 import (
 	"errors"
+	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+)
+
+const (
+	// Stuff we're looking at health-wise
+	TestHealthThis health.Stat = "TestHealthThis"
+	TestHealthThat health.Stat = "TestHealthThat"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
@@ -21,8 +28,9 @@ type CaduceusRequest struct {
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	logger     logging.Logger
-	workerPool *WorkerPool
+	logger        logging.Logger
+	healthMonitor health.Monitor
+	workerPool    *WorkerPool
 }
 
 // Below is the struct and implementation of our worker pool factory
