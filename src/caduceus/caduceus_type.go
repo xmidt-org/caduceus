@@ -8,15 +8,23 @@ import (
 
 const (
 	// Stuff we're looking at health-wise
-	TestHealthThis health.Stat = "TestHealthThis"
-	TestHealthThat health.Stat = "TestHealthThat"
+	// TODO: figure out how to add per IP buckets
+	PayloadsOverZero        health.Stat = "PayloadsOverZero"
+	PayloadsOverHundred     health.Stat = "PayloadsOverHundred"
+	PayloadsOverThousand    health.Stat = "PayloadsOverThousand"
+	PayloadsOverTenThousand health.Stat = "PayloadsOverTenThousand"
+	TotalMessagesAccepted   health.Stat = "TotalMessagesAccepted"
+	TotalMessagesDropped    health.Stat = "TotalMessagesDropped"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
+// TODO: Try to figure out how to make bucket ranges configurable
 type CaduceusConfig struct {
-	AuthHeader       string
-	NumWorkerThreads int
-	JobQueueSize     int
+	AuthHeader                          string
+	NumWorkerThreads                    int
+	JobQueueSize                        int
+	TotalIncomingPayloadSizeBuckets     []int
+	PerSourceIncomingPayloadSizeBuckets []int
 }
 
 // Below is the struct we're using to create a request to caduceus
@@ -29,8 +37,29 @@ type CaduceusRequest struct {
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
 	logger        logging.Logger
-	healthMonitor health.Monitor
 	workerPool    *WorkerPool
+	healthTracker HealthTracker
+}
+
+// Below is the struct and implementation of how we're tracking health stuff
+type HealthTracker struct {
+	healthMonitor health.Monitor
+}
+
+func (ht *HealthTracker) Increment(inStat health.Stat) {
+	ht.healthMonitor.SendEvent(health.Inc(inStat, 1))
+}
+
+func (ht *HealthTracker) IncrementBucket(inSize int) {
+	if inSize < 100 {
+		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverZero, 1))
+	} else if inSize < 1000 {
+		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverHundred, 1))
+	} else if inSize < 1000 {
+		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverThousand, 1))
+	} else {
+		ht.healthMonitor.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
+	}
 }
 
 // Below is the struct and implementation of our worker pool factory

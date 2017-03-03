@@ -74,7 +74,9 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	serverWrapper.healthMonitor = healthMonitor
+	serverWrapper.healthTracker = HealthTracker{
+		healthMonitor: healthMonitor,
+	}
 
 	var (
 		signals = make(chan os.Signal, 1)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/health"
 	"io/ioutil"
 	"net/http"
 )
@@ -51,12 +50,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
 		response.Write([]byte("Unable to handle request at this time.\n"))
+		sh.healthTracker.Increment(TotalMessagesDropped)
 	} else {
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
-		sh.healthMonitor.SendEvent(health.Inc(TestHealthThis, 1))
-		sh.healthMonitor.SendEvent(health.Inc(TestHealthThat, 2))
+		sh.healthTracker.Increment(TotalMessagesAccepted)
+		sh.healthTracker.IncrementBucket(len(myPayload))
 	}
 }
 
