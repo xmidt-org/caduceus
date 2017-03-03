@@ -53,7 +53,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	caduceusRequest.Timestamps.TimeAccepted = time.Now().UnixNano()
 
-	err = sh.workerPool.Send(func(workerID int) { sh.HandleRequest(workerID, caduceusRequest) })
+	err = sh.workerPool.Send(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
 	if err != nil {
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
@@ -64,16 +64,4 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.Write([]byte("Request placed on to queue.\n"))
 		sh.caduceusHealth.IncrementBucket(len(myPayload))
 	}
-}
-
-func (sh *ServerHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	inRequest.Timestamps.TimeProcessingStart = time.Now().UnixNano()
-
-	sh.logger.Info("Worker #%d received a request, payload:\t%s", workerID, string(inRequest.Payload))
-	sh.logger.Info("Worker #%d received a request, type:\t\t%s", workerID, inRequest.ContentType)
-	sh.logger.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
-
-	inRequest.Timestamps.TimeProcessingEnd = time.Now().UnixNano()
-
-	sh.logger.Info("Worker #%d printing elapsed message time:\t%v", workerID, inRequest.Timestamps)
 }
