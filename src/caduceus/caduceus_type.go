@@ -46,7 +46,12 @@ type CaduceusTimestamps struct {
 type ServerHandler struct {
 	logger         logging.Logger
 	workerPool     *WorkerPool
-	caduceusHealth CaduceusHealth
+	caduceusHealth HealthTracker
+}
+
+type HealthTracker interface {
+	Increment(inStat health.Stat)
+	IncrementBucket(inSize int)
 }
 
 // Below is the struct and implementation of how we're tracking health stuff

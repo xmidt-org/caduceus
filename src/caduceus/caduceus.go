@@ -74,7 +74,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	serverWrapper.caduceusHealth = CaduceusHealth{
+	serverWrapper.caduceusHealth = &CaduceusHealth{
 		healthMonitor: healthMonitor,
 	}
 
