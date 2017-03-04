@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
@@ -64,13 +63,11 @@ func TestServeHTTP(t *testing.T) {
 
 	res, err := http.Post(testServer.URL, "text/plain", buf)
 	assert.Nil(err)
+	defer res.Body.Close()
 
 	resMsg, err := ioutil.ReadAll(res.Body)
 	assert.Nil(err)
-
-	fmt.Println(string(resMsg))
-
-	res.Body.Close()
+	assert.Equal("Request placed on to queue.\n", string(resMsg))
 
 	fakeHandler.AssertExpectations(t)
 	fakeHealth.AssertExpectations(t)

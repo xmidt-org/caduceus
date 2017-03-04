@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -10,8 +9,7 @@ import (
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
-	sh.logger.Info("Someone is saying hello!")
-	fmt.Fprintf(response, "%s", []byte("Heyo whaddup!\n"))
+	sh.logger.Info("Receiving incoming post...")
 
 	timeStamps := CaduceusTimestamps{
 		TimeReceived: time.Now().UnixNano(),
