@@ -68,22 +68,22 @@ type HealthTracker interface {
 
 // Below is the struct and implementation of how we're tracking health stuff
 type CaduceusHealth struct {
-	healthMonitor health.Monitor
+	health.Monitor
 }
 
 func (ch *CaduceusHealth) Increment(inStat health.Stat) {
-	ch.healthMonitor.SendEvent(health.Inc(inStat, 1))
+	ch.SendEvent(health.Inc(inStat, 1))
 }
 
 func (ch *CaduceusHealth) IncrementBucket(inSize int) {
 	if inSize < 100 {
-		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverZero, 1))
+		ch.SendEvent(health.Inc(PayloadsOverZero, 1))
 	} else if inSize < 1000 {
-		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverHundred, 1))
+		ch.SendEvent(health.Inc(PayloadsOverHundred, 1))
 	} else if inSize < 10000 {
-		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverThousand, 1))
+		ch.SendEvent(health.Inc(PayloadsOverThousand, 1))
 	} else {
-		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
+		ch.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
 	}
 }
 

@@ -68,16 +68,17 @@ func caduceus(arguments []string) int {
 
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	healthMonitor, runnable := webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
+	caduceusHealth := &CaduceusHealth{}
+	var runnable concurrent.Runnable
+
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
 	}
 
-	serverWrapper.caduceusHealth = &CaduceusHealth{
-		healthMonitor: healthMonitor,
-	}
+	serverWrapper.caduceusHealth = caduceusHealth
 
 	var (
 		signals = make(chan os.Signal, 1)
