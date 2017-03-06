@@ -9,7 +9,7 @@ import (
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	logger          logging.Logger
+	logging.Logger
 	caduceusHandler RequestHandler
 	caduceusHealth  HealthTracker
 	workerPool      *WorkerPool
@@ -18,7 +18,7 @@ type ServerHandler struct {
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
-	sh.logger.Info("Receiving incoming post...")
+	sh.Info("Receiving incoming post...")
 
 	timeStamps := CaduceusTimestamps{
 		TimeReceived: time.Now(),

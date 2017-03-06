@@ -45,7 +45,7 @@ func caduceus(arguments []string) int {
 	logger.Info("Caduceus is up and running!")
 
 	serverWrapper := &ServerHandler{
-		logger: logger,
+		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
 			Logger: logger,
 		},
