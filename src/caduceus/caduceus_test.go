@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"io/ioutil"
-	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -56,18 +54,15 @@ func TestServeHTTP(t *testing.T) {
 		}.New(),
 	}
 
-	testServer := httptest.NewServer(serverWrapper)
-	defer testServer.Close()
+	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
 
-	buf := bytes.NewBufferString("Test message.")
+	serverWrapper.ServeHTTP(w, req)
 
-	res, err := http.Post(testServer.URL, "text/plain", buf)
-	assert.Nil(err)
-	defer res.Body.Close()
+	resp := w.Result()
 
-	resMsg, err := ioutil.ReadAll(res.Body)
-	assert.Nil(err)
-	assert.Equal("Request placed on to queue.\n", string(resMsg))
+	assert.Equal(202, resp.StatusCode)
 
 	fakeHandler.AssertExpectations(t)
 	fakeHealth.AssertExpectations(t)
