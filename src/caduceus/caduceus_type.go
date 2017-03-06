@@ -88,7 +88,7 @@ func (ch *CaduceusHealth) IncrementBucket(inSize int) {
 		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverZero, 1))
 	} else if inSize < 1000 {
 		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverHundred, 1))
-	} else if inSize < 1000 {
+	} else if inSize < 10000 {
 		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverThousand, 1))
 	} else {
 		ch.healthMonitor.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
