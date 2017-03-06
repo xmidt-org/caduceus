@@ -24,7 +24,7 @@ type mockHealthTracker struct {
 	mock.Mock
 }
 
-func (m *mockHealthTracker) Increment(inStat health.Stat) {
+func (m *mockHealthTracker) SendEvent(health.HealthFunc) {
 	return
 }
 

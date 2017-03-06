@@ -62,17 +62,13 @@ func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest
 }
 
 type HealthTracker interface {
-	Increment(inStat health.Stat)
+	SendEvent(health.HealthFunc)
 	IncrementBucket(inSize int)
 }
 
 // Below is the struct and implementation of how we're tracking health stuff
 type CaduceusHealth struct {
 	health.Monitor
-}
-
-func (ch *CaduceusHealth) Increment(inStat health.Stat) {
-	ch.SendEvent(health.Inc(inStat, 1))
 }
 
 func (ch *CaduceusHealth) IncrementBucket(inSize int) {
