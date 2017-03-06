@@ -41,14 +41,6 @@ type CaduceusTimestamps struct {
 	TimeProcessingEnd   int64
 }
 
-// Below is the struct that will implement our ServeHTTP method
-type ServerHandler struct {
-	logger          logging.Logger
-	caduceusHandler RequestHandler
-	caduceusHealth  HealthTracker
-	workerPool      *WorkerPool
-}
-
 type RequestHandler interface {
 	HandleRequest(workerID int, inRequest CaduceusRequest)
 }

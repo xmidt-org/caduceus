@@ -1,10 +1,19 @@
 package main
 
 import (
+	"github.com/Comcast/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
 	"time"
 )
+
+// Below is the struct that will implement our ServeHTTP method
+type ServerHandler struct {
+	logger          logging.Logger
+	caduceusHandler RequestHandler
+	caduceusHealth  HealthTracker
+	workerPool      *WorkerPool
+}
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
