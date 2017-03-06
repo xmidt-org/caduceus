@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
 
-	logger := &logging.LoggerWriter{ioutil.Discard}
+	logger := logging.DefaultLogger()
 	fakeHandler := &mockHandler{}
 	fakeHealth := &mockHealthTracker{}
 
@@ -72,3 +72,25 @@ func TestServeHTTP(t *testing.T) {
 	fakeHandler.AssertExpectations(t)
 	fakeHealth.AssertExpectations(t)
 }
+
+// func TestHandleRequest(t *testing.T) {
+// 	assert := assert.New(t)
+//
+// 	logger := logging.DefaultLogger()
+// 	testHandler := CaduceusHandler{
+// 		logger: logger,
+// 	}
+// 	testRequest := CaduceusRequest{
+// 		Payload:     []byte("Test payload."),
+// 		ContentType: "text/plain",
+// 		TargetURL:   "mytesturl",
+// 		Timestamps: CaduceusTimestamps{
+// 			TimeReceived:        0,
+// 			TimeAccepted:        1,
+// 			TimeProcessingStart: 2,
+// 			TimeProcessingEnd:   3,
+// 		},
+// 	}
+//
+// 	testHandler.HandleRequest(0, testRequest)
+// }
