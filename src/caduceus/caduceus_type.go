@@ -46,19 +46,19 @@ type RequestHandler interface {
 }
 
 type CaduceusHandler struct {
-	logger logging.Logger
+	logging.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
 	inRequest.Timestamps.TimeProcessingStart = time.Now()
 
-	ch.logger.Info("Worker #%d received a request, payload:\t%s", workerID, string(inRequest.Payload))
-	ch.logger.Info("Worker #%d received a request, type:\t\t%s", workerID, inRequest.ContentType)
-	ch.logger.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
+	ch.Info("Worker #%d received a request, payload:\t%s", workerID, string(inRequest.Payload))
+	ch.Info("Worker #%d received a request, type:\t\t%s", workerID, inRequest.ContentType)
+	ch.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
 
 	inRequest.Timestamps.TimeProcessingEnd = time.Now()
 
-	ch.logger.Info("Worker #%d printing message time stats:\t%v", workerID, inRequest.Timestamps)
+	ch.Info("Worker #%d printing message time stats:\t%v", workerID, inRequest.Timestamps)
 }
 
 type HealthTracker interface {

@@ -47,7 +47,7 @@ func caduceus(arguments []string) int {
 	serverWrapper := &ServerHandler{
 		logger: logger,
 		caduceusHandler: &CaduceusHandler{
-			logger: logger,
+			Logger: logger,
 		},
 		workerPool: WorkerPoolFactory{
 			NumWorkers: caduceusConfig.NumWorkerThreads,
