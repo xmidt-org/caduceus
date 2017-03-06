@@ -21,7 +21,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	sh.logger.Info("Receiving incoming post...")
 
 	timeStamps := CaduceusTimestamps{
-		TimeReceived: time.Now().UnixNano(),
+		TimeReceived: time.Now(),
 	}
 
 	myPayload, err := ioutil.ReadAll(request.Body)
@@ -58,7 +58,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		Timestamps:  timeStamps,
 	}
 
-	caduceusRequest.Timestamps.TimeAccepted = time.Now().UnixNano()
+	caduceusRequest.Timestamps.TimeAccepted = time.Now()
 
 	err = sh.workerPool.Send(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
 	if err != nil {

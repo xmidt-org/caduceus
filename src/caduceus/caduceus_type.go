@@ -35,10 +35,10 @@ type CaduceusRequest struct {
 }
 
 type CaduceusTimestamps struct {
-	TimeReceived        int64
-	TimeAccepted        int64
-	TimeProcessingStart int64
-	TimeProcessingEnd   int64
+	TimeReceived        time.Time
+	TimeAccepted        time.Time
+	TimeProcessingStart time.Time
+	TimeProcessingEnd   time.Time
 }
 
 type RequestHandler interface {
@@ -50,15 +50,15 @@ type CaduceusHandler struct {
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	inRequest.Timestamps.TimeProcessingStart = time.Now().UnixNano()
+	inRequest.Timestamps.TimeProcessingStart = time.Now()
 
 	ch.logger.Info("Worker #%d received a request, payload:\t%s", workerID, string(inRequest.Payload))
 	ch.logger.Info("Worker #%d received a request, type:\t\t%s", workerID, inRequest.ContentType)
 	ch.logger.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
 
-	inRequest.Timestamps.TimeProcessingEnd = time.Now().UnixNano()
+	inRequest.Timestamps.TimeProcessingEnd = time.Now()
 
-	ch.logger.Info("Worker #%d printing elapsed message time:\t%v", workerID, inRequest.Timestamps)
+	ch.logger.Info("Worker #%d printing message time stats:\t%v", workerID, inRequest.Timestamps)
 }
 
 type HealthTracker interface {
