@@ -54,16 +54,49 @@ func TestServeHTTP(t *testing.T) {
 		}.New(),
 	}
 
-	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
-	req.Header.Set("Content-Type", "text/plain")
-	w := httptest.NewRecorder()
+	t.Run("Test202", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
+		req.Header.Set("Content-Type", "text/plain")
+		w := httptest.NewRecorder()
 
-	serverWrapper.ServeHTTP(w, req)
+		serverWrapper.ServeHTTP(w, req)
 
-	resp := w.Result()
+		resp := w.Result()
 
-	assert.Equal(202, resp.StatusCode)
+		assert.Equal(202, resp.StatusCode)
 
-	fakeHandler.AssertExpectations(t)
-	fakeHealth.AssertExpectations(t)
+		fakeHandler.AssertExpectations(t)
+		fakeHealth.AssertExpectations(t)
+	})
+
+	t.Run("TestWrongHeader", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
+		req.Header.Set("Bad-Header", "not/real")
+		w := httptest.NewRecorder()
+
+		serverWrapper.ServeHTTP(w, req)
+
+		resp := w.Result()
+
+		assert.Equal(400, resp.StatusCode)
+
+		fakeHandler.AssertExpectations(t)
+		fakeHealth.AssertExpectations(t)
+	})
+
+	t.Run("TestTooManyHeaders", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
+		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Add("Content-Type", "too/many/headers")
+		w := httptest.NewRecorder()
+
+		serverWrapper.ServeHTTP(w, req)
+
+		resp := w.Result()
+
+		assert.Equal(400, resp.StatusCode)
+
+		fakeHandler.AssertExpectations(t)
+		fakeHealth.AssertExpectations(t)
+	})
 }
