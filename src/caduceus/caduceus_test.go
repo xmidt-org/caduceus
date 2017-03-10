@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
@@ -44,14 +45,16 @@ func TestServeHTTP(t *testing.T) {
 	fakeHandler := &mockHandler{}
 	fakeHealth := &mockHealthTracker{}
 
+	workerPool := WorkerPoolFactory{
+		NumWorkers: 1,
+		QueueSize:  1,
+	}.New()
+
 	serverWrapper := &ServerHandler{
 		Logger:          logger,
 		caduceusHandler: fakeHandler,
 		caduceusHealth:  fakeHealth,
-		workerPool: WorkerPoolFactory{
-			NumWorkers: 1,
-			QueueSize:  1,
-		}.New(),
+		doJob:           workerPool.Send,
 	}
 
 	t.Run("TestHappyPath", func(t *testing.T) {
@@ -95,6 +98,26 @@ func TestServeHTTP(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(400, resp.StatusCode)
+
+		fakeHandler.AssertExpectations(t)
+		fakeHealth.AssertExpectations(t)
+	})
+
+	t.Run("TestFullQueue", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
+		req.Header.Set("Content-Type", "text/plain")
+		w := httptest.NewRecorder()
+
+		requestTimeout := func(func(workerID int)) error {
+			return errors.New("Intentional error.")
+		}
+
+		serverWrapper.doJob = requestTimeout
+		serverWrapper.ServeHTTP(w, req)
+
+		resp := w.Result()
+
+		assert.Equal(408, resp.StatusCode)
 
 		fakeHandler.AssertExpectations(t)
 		fakeHealth.AssertExpectations(t)
