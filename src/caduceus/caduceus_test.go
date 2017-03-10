@@ -45,16 +45,15 @@ func TestServeHTTP(t *testing.T) {
 	fakeHandler := &mockHandler{}
 	fakeHealth := &mockHealthTracker{}
 
-	workerPool := WorkerPoolFactory{
-		NumWorkers: 1,
-		QueueSize:  1,
-	}.New()
+	requestSuccessful := func(func(workerID int)) error {
+		return nil
+	}
 
 	serverWrapper := &ServerHandler{
 		Logger:          logger,
 		caduceusHandler: fakeHandler,
 		caduceusHealth:  fakeHealth,
-		doJob:           workerPool.Send,
+		doJob:           requestSuccessful,
 	}
 
 	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
