@@ -38,6 +38,40 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestWorkerPool(t *testing.T) {
+	assert := assert.New(t)
+
+	workerPool := WorkerPoolFactory{
+		NumWorkers: 1,
+		QueueSize:  1,
+	}.New()
+
+	t.Run("TestWorkerPoolCreation", func(t *testing.T) {
+		assert.NotNil(workerPool)
+	})
+
+	t.Run("TestWorkerPoolSend", func(t *testing.T) {
+		err := workerPool.Send(func(workerID int) {
+			// do nothing
+		})
+
+		assert.Nil(err)
+	})
+
+	workerPool = WorkerPoolFactory{
+		NumWorkers: 1,
+		QueueSize:  0,
+	}.New()
+
+	t.Run("TestWorkerPoolFullQueue", func(t *testing.T) {
+		err := workerPool.Send(func(workerID int) {
+			// do nothing
+		})
+
+		assert.NotNil(err)
+	})
+}
+
 func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
 
