@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
+type Send func(inFunc func(workerID int)) error
+
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
 	logging.Logger
 	caduceusHandler RequestHandler
 	caduceusHealth  HealthTracker
-	workerPool      *WorkerPool
+	doJob           Send
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -60,7 +62,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	caduceusRequest.Timestamps.TimeAccepted = time.Now()
 
-	err = sh.workerPool.Send(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
+	err = sh.doJob(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
 	if err != nil {
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)

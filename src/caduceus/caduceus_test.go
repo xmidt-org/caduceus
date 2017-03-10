@@ -54,7 +54,7 @@ func TestServeHTTP(t *testing.T) {
 		}.New(),
 	}
 
-	t.Run("Test202", func(t *testing.T) {
+	t.Run("TestHappyPath", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
 		req.Header.Set("Content-Type", "text/plain")
 		w := httptest.NewRecorder()

@@ -44,15 +44,17 @@ func caduceus(arguments []string) int {
 
 	logger.Info("Caduceus is up and running!")
 
+	workerPool := WorkerPoolFactory{
+		NumWorkers: caduceusConfig.NumWorkerThreads,
+		QueueSize:  caduceusConfig.JobQueueSize,
+	}.New()
+
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
 			Logger: logger,
 		},
-		workerPool: WorkerPoolFactory{
-			NumWorkers: caduceusConfig.NumWorkerThreads,
-			QueueSize:  caduceusConfig.JobQueueSize,
-		}.New(),
+		doJob: workerPool.Send,
 	}
 
 	validator := secure.Validators{
