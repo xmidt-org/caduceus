@@ -24,6 +24,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if value, ok := request.Header["Content-Type"]; ok {
 		if len(value) == 1 {
 			contentType = value[0]
+			switch contentType {
+			case "application/json":
+			case "application/wrp":
+			default:
+				response.WriteHeader(http.StatusBadRequest)
+				response.Write([]byte("Only Content-Type values of \"application/json\" or \"application/wrp\" are supported.\n"))
+			}
 		} else {
 			response.WriteHeader(http.StatusBadRequest)
 			response.Write([]byte("Content-Type cannot have more than one specification.\n"))
