@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -8,7 +9,7 @@ import (
 	"fmt"
 	"hash"
 	"net/http"
-	URL "net/url"
+	"net/url"
 	"regexp"
 	"sync"
 	"time"
@@ -22,101 +23,118 @@ type OutboundRequest struct {
 	contentType string
 }
 
+type OutboundSenderFactory struct {
+	Url         string
+	ContentType string
+	Client      *http.Client
+	Secret      string
+	Until       int64
+	Events      []string
+	Matchers    map[string][]string
+	NumWorkers  int
+	QueueSize   int
+}
+
 type OutboundSender struct {
 	url          string
 	contentType  string
 	deliverUntil int64
 	dropUntil    int64
 	client       *http.Client
-	queue        chan OutboundRequest
-	maxItems     int
 	hmac         hash.Hash
 	events       []*regexp.Regexp
-	matcher      []*regexp.Regexp
-	workerWg     sync.WaitGroup
+	matcher      map[string][]*regexp.Regexp
+	queueSize    int
+	queue        chan OutboundRequest
+	wg           sync.WaitGroup
 }
 
-func NewOutboundSender(url, contentType string, secret []byte,
-	client *http.Client, events, deviceIdMatchers []string,
-	workerCount, queueSize, maxItems int) (obs *OutboundSender, err error) {
-
-	if _, err = URL.Parse(url); nil != err {
+func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
+	if _, err = url.ParseRequestURI(osf.Url); nil != err {
 		return
 	}
 
-	if nil == client {
+	if nil == osf.Client {
 		err = errors.New("nil http.Client")
 		return
 	}
 
-	if workerCount < 1 {
-		err = errors.New("not enough workers")
-		return
+	tmp := &OutboundSender{
+		url:          osf.Url,
+		contentType:  osf.ContentType,
+		client:       osf.Client,
+		deliverUntil: osf.Until,
+		queueSize:    osf.QueueSize,
 	}
 
-	if queueSize < 1 {
-		err = errors.New("not a large enough queueSize")
-		return
-	}
+	// Give us some head room so that we don't block when we get near the
+	// completely full point.
+	tmp.queue = make(chan OutboundRequest, osf.QueueSize+10)
 
-	var h hash.Hash
-	if nil != secret {
-		h = hmac.New(sha1.New, obs.Secret)
-	}
-
-	var eventRegexp []*regexp
-	for _, event := range events {
-		if re, e := regexp.Compile(event); nil != e {
+	// Create the event regex objects
+	for _, event := range osf.Events {
+		re, e := regexp.Compile(event)
+		if nil != e {
 			err = e
 			return
 		}
 
-		eventRegexp = append(eventRegexp, re)
+		tmp.events = append(tmp.events, re)
 	}
 
-	var matchRegexp []*regexp
-	matchAll := (nil == deviceIdMatchers)
-	for _, matcher := range deviceIdMatchers {
-		if ".*" == matcher {
-			matchAll = true
+	// Create the matcher regex objects
+	if nil != osf.Matchers {
+		tmp.matcher = make(map[string][]*regexp.Regexp)
+		for key, value := range osf.Matchers {
+			var list []*regexp.Regexp
+			for _, item := range value {
+				if ".*" == item {
+					// Match everything - skip the filtering
+					tmp.matcher = nil
+					break
+				}
+				re, e := regexp.Compile(item)
+				if nil != e {
+					err = e
+					return
+				}
+				list = append(list, re)
+			}
+
+			if nil == tmp.matcher {
+				break
+			}
+
+			tmp.matcher[key] = list
 		}
-		if re, e := regexp.Compile(matcher); nil != e {
-			err = e
-			return
-		}
-
-		matchRegexp = append(matchRegexp, re)
-	}
-	if true == matchAll {
-		matchRegexp = nil
 	}
 
-	obs = &OutboundSender{
-		url:         url,
-		contentType: contentType,
-		hmac:        h,
-		client:      client,
-		events:      regexpSlice,
-		matcher:     matchRegexp,
-		maxItems:    maxItems,
+	// Create the base sha1 hash object
+	if "" != osf.Secret {
+		tmp.hmac = hmac.New(sha1.New, []byte(osf.Secret))
 	}
 
-	obs.queue = make(chan OutboundRequest, queueSize)
-	obs.workerWg.Add(workerCount)
-	for i := 0; i < workerCount; i++ {
-		go obs.run()
+	tmp.wg.Add(osf.NumWorkers)
+	for i := 0; i < osf.NumWorkers; i++ {
+		go tmp.run(i)
 	}
 
+	obs = tmp
 	return
 }
 
 func (obs *OutboundSender) Extend(until int64) {
-	obs.deliverUntil = until
+	if obs.deliverUntil < until {
+		obs.deliverUntil = until
+	}
 }
 
-func (obs *OutboundSender) Shutdown() {
-	obs.deliverUntil = 0
-	obs.queue.close()
+func (obs *OutboundSender) Shutdown(gentle bool) {
+	close(obs.queue)
+	if false == gentle {
+		obs.deliverUntil = 0
+	}
+	obs.wg.Wait()
 }
 
 func (obs *OutboundSender) QueueWrp(req CaduceusRequest) {
@@ -129,14 +147,16 @@ func (obs *OutboundSender) QueueJson(req CaduceusRequest,
 	for _, eventRegex := range obs.events {
 		if eventRegex.MatchString(eventType) {
 			matchDevice := (nil == obs.matcher)
-			for _, deviceRegex := range obs.matcher {
-				if deviceRegex.MatchString(eventType) {
-					matchDevice = true
-					break
+			if nil != obs.matcher {
+				for _, deviceRegex := range obs.matcher["device_id"] {
+					if deviceRegex.MatchString(deviceId) {
+						matchDevice = true
+						break
+					}
 				}
 			}
 			if matchDevice {
-				if len(obs.queue) < obs.maxItems {
+				if len(obs.queue) < obs.queueSize {
 					or := OutboundRequest{req: req,
 						event:       eventType,
 						transId:     transId,
@@ -152,13 +172,16 @@ func (obs *OutboundSender) QueueJson(req CaduceusRequest,
 	}
 }
 
-func (obs *OutboundSender) run() {
+func (obs *OutboundSender) run(id int) {
+	defer obs.wg.Done()
+
 	// Make a local copy of the hmac
 	hmac := obs.hmac
 
 	for work := range obs.queue {
-		now := time.Time.Now().Unix()
+		now := time.Now().Unix()
 		if now < obs.deliverUntil && obs.dropUntil < now {
+			payload := bytes.NewReader(work.req.Payload)
 			req, err := http.NewRequest("POST", obs.url, payload)
 			if nil != err {
 				// ??? Should never happen
@@ -170,7 +193,7 @@ func (obs *OutboundSender) run() {
 
 			if nil != hmac {
 				hmac.Reset()
-				hmac.Write(payload)
+				hmac.Write(work.req.Payload)
 				sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(hmac.Sum(nil)))
 				req.Header.Set("X-Webpa-Signature", sig)
 			}
@@ -187,7 +210,6 @@ func (obs *OutboundSender) run() {
 			// Report drop
 		}
 	}
-	obs.workerWg.Done()
 }
 
 func (obs *OutboundSender) queueOverflow() {
