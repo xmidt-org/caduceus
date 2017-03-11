@@ -72,11 +72,11 @@ type CaduceusHealth struct {
 }
 
 func (ch *CaduceusHealth) IncrementBucket(inSize int) {
-	if inSize < 100 {
+	if inSize < 101 {
 		ch.SendEvent(health.Inc(PayloadsOverZero, 1))
-	} else if inSize < 1000 {
+	} else if inSize < 1001 {
 		ch.SendEvent(health.Inc(PayloadsOverHundred, 1))
-	} else if inSize < 10000 {
+	} else if inSize < 10001 {
 		ch.SendEvent(health.Inc(PayloadsOverThousand, 1))
 	} else {
 		ch.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
