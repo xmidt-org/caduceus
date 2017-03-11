@@ -21,7 +21,7 @@ type mockHandler struct {
 }
 
 func (m *mockHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	m.Called()
+	m.Called(workerID, inRequest)
 	return
 }
 
@@ -42,6 +42,7 @@ func (m *mockHealthTracker) ServeHTTP(response http.ResponseWriter, request *htt
 }
 
 func (m *mockHealthTracker) IncrementBucket(inSize int) {
+	m.Called(inSize)
 	return
 }
 
@@ -123,9 +124,13 @@ func TestServeHTTP(t *testing.T) {
 
 	logger := logging.DefaultLogger()
 	fakeHandler := new(mockHandler)
+	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"), mock.AnythingOfType("CaduceusRequest")).Return().Once()
+
 	fakeHealth := new(mockHealthTracker)
+	fakeHealth.On("IncrementBucket", mock.AnythingOfType("int")).Return().Once()
 
 	requestSuccessful := func(func(workerID int)) error {
+		fakeHandler.HandleRequest(0, CaduceusRequest{})
 		return nil
 	}
 
