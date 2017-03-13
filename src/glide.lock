@@ -1,12 +1,12 @@
-hash: ef03b5d892a62bd75e8f4de7f3806558703b9dd0847e9f5d608bfff5805135ed
-updated: 2017-03-03T13:11:43.219395121-08:00
+hash: 7bba4f8db11fa7f9dcb97b51579f537ae347c6a439a841fa1e02f3efd60e46d5
+updated: 2017-03-13T11:42:37.981341009-07:00
 imports:
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 082af11e001fc440ad0092e53e359488246d9059
+  version: 70019944a8b8ac26406f8c695592d9dc09e95031
   subpackages:
   - concurrent
   - handler
@@ -55,7 +55,7 @@ imports:
 - name: github.com/magiconair/properties
   version: b3b15ef068fd0b17ddf408a23669f20811d194d2
 - name: github.com/mitchellh/mapstructure
-  version: db1efb556f84b25a0a13a04aad883943538ad2e0
+  version: 53818660ed4955e899c0bcafa97299a388bd7c8e
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
@@ -77,7 +77,7 @@ imports:
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: df9611b94225ae6caad3f237aea7da77030bf780
+  version: ce135a4ebeee6cfe9a26c93ee0d37825f26113c7
 - name: github.com/spf13/jwalterweatherman
   version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
 - name: github.com/spf13/pflag
@@ -91,6 +91,7 @@ imports:
   subpackages:
   - mock
   - assert
+  - require
 - name: github.com/t-k/fluent-logger-golang
   version: 0f8ec08f2057a61574b6943e75045fffbeae894e
   subpackages:
@@ -104,7 +105,7 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: e48874b42435b4347fc52bdee0424a52abc974d7
+  version: 99f16d856c9836c42d24e7ab64ea72916925fa97
   subpackages:
   - unix
 - name: golang.org/x/text

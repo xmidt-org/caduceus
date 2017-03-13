@@ -14,3 +14,4 @@ import:
   subpackages:
   - mock
   - assert
+  - require
