@@ -6,6 +6,8 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -56,11 +58,8 @@ func TestWorkerPool(t *testing.T) {
 		QueueSize:  1,
 	}.New()
 
-	t.Run("TestWorkerPoolCreation", func(t *testing.T) {
-		assert.NotNil(workerPool)
-	})
-
 	t.Run("TestWorkerPoolSend", func(t *testing.T) {
+		require.NotNil(t, workerPool)
 		err := workerPool.Send(func(workerID int) {
 			// do nothing
 		})
@@ -74,6 +73,7 @@ func TestWorkerPool(t *testing.T) {
 	}.New()
 
 	t.Run("TestWorkerPoolFullQueue", func(t *testing.T) {
+		require.NotNil(t, workerPool)
 		err := workerPool.Send(func(workerID int) {
 			// do nothing
 		})
@@ -82,17 +82,20 @@ func TestWorkerPool(t *testing.T) {
 	})
 }
 
-func TestIncrementBucket(t *testing.T) {
+func TestCaduceusHealth(t *testing.T) {
 	assert := assert.New(t)
 
 	testData := []struct {
 		inSize       int
 		expectedStat health.Stat
 	}{
+		{inSize: -1, expectedStat: PayloadsOverZero},
+		{inSize: 0, expectedStat: PayloadsOverZero},
 		{inSize: 99, expectedStat: PayloadsOverZero},
 		{inSize: 999, expectedStat: PayloadsOverHundred},
 		{inSize: 9999, expectedStat: PayloadsOverThousand},
 		{inSize: 10001, expectedStat: PayloadsOverTenThousand},
+		{inSize: math.MaxInt32, expectedStat: PayloadsOverTenThousand},
 	}
 
 	t.Run("TestIncrementBucket", func(t *testing.T) {
@@ -115,7 +118,7 @@ func TestIncrementBucket(t *testing.T) {
 	})
 }
 
-func TestServeHTTP(t *testing.T) {
+func TestServeHandler(t *testing.T) {
 	assert := assert.New(t)
 
 	logger := logging.DefaultLogger()
@@ -139,7 +142,7 @@ func TestServeHTTP(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
 
-	t.Run("TestHappyPath", func(t *testing.T) {
+	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
 		req.Header.Set("Content-Type", "text/plain")
 
 		w := httptest.NewRecorder()
@@ -151,7 +154,7 @@ func TestServeHTTP(t *testing.T) {
 		fakeHealth.AssertExpectations(t)
 	})
 
-	t.Run("TestTooManyHeaders", func(t *testing.T) {
+	t.Run("TestServeHTTPTooManyHeaders", func(t *testing.T) {
 		req.Header.Add("Content-Type", "too/many/headers")
 
 		w := httptest.NewRecorder()
@@ -163,7 +166,7 @@ func TestServeHTTP(t *testing.T) {
 		fakeHealth.AssertExpectations(t)
 	})
 
-	t.Run("TestWrongHeader", func(t *testing.T) {
+	t.Run("TestServeHTTPWrongHeader", func(t *testing.T) {
 		req.Header.Del("Content-Type")
 
 		w := httptest.NewRecorder()
@@ -175,7 +178,7 @@ func TestServeHTTP(t *testing.T) {
 		fakeHealth.AssertExpectations(t)
 	})
 
-	t.Run("TestFullQueue", func(t *testing.T) {
+	t.Run("TestServeHTTPFullQueue", func(t *testing.T) {
 		req.Header.Set("Content-Type", "text/plain")
 
 		w := httptest.NewRecorder()
