@@ -33,7 +33,6 @@ func caduceus(arguments []string) int {
 	}
 
 	logger.Info("Using configuration file: %s", v.ConfigFileUsed())
-	logger.Info("Configuration file contents: %s", v.AllSettings())
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -44,14 +43,18 @@ func caduceus(arguments []string) int {
 	}
 
 	logger.Info("Caduceus is up and running!")
-	logger.Info("Finished reading config file and generating logger!")
+
+	workerPool := WorkerPoolFactory{
+		NumWorkers: caduceusConfig.NumWorkerThreads,
+		QueueSize:  caduceusConfig.JobQueueSize,
+	}.New()
 
 	serverWrapper := &ServerHandler{
-		logger: logger,
-		workerPool: WorkerPoolFactory{
-			NumWorkers: caduceusConfig.NumWorkerThreads,
-			QueueSize:  caduceusConfig.JobQueueSize,
-		}.New(),
+		Logger: logger,
+		caduceusHandler: &CaduceusHandler{
+			Logger: logger,
+		},
+		doJob: workerPool.Send,
 	}
 
 	validator := secure.Validators{
@@ -67,12 +70,17 @@ func caduceus(arguments []string) int {
 
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	_, runnable := webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
+	caduceusHealth := &CaduceusHealth{}
+	var runnable concurrent.Runnable
+
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
 	}
+
+	serverWrapper.caduceusHealth = caduceusHealth
 
 	var (
 		signals = make(chan os.Signal, 1)

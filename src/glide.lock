@@ -1,22 +1,22 @@
-hash: 00c00be198f5a77e226a6586f9e3ee224eb9eabef52809c8fcc8641867d31dac
-updated: 2017-02-28T16:37:55.667237882-08:00
+hash: ef03b5d892a62bd75e8f4de7f3806558703b9dd0847e9f5d608bfff5805135ed
+updated: 2017-03-03T13:11:43.219395121-08:00
 imports:
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: e153d10f04a2c3e586eba1b0cf82526f8a59d52a
+  version: 082af11e001fc440ad0092e53e359488246d9059
   subpackages:
   - concurrent
   - handler
   - logging
   - secure
   - server
+  - health
   - device
   - fact
   - hash
-  - health
   - secure/key
   - logging/golog
   - wrp
@@ -27,7 +27,7 @@ imports:
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
-  version: a904159b9206978bb6d53fcc7a769e5cd726c737
+  version: 7d7316ed6e1ed2de075aab8dfc76de5d158d66e1
 - name: github.com/gorilla/websocket
   version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
 - name: github.com/hashicorp/hcl
@@ -59,7 +59,7 @@ imports:
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
-  version: 361678322880708ac144df8575e6f01144ba1404
+  version: 13d49d4606eb801b8f01ae542b4afc4c6ee3d84a
 - name: github.com/philhofer/fwd
   version: 98c11a7a6ec829d672b03833c3d69a7fae1ca972
 - name: github.com/pmezard/go-difflib
@@ -77,7 +77,7 @@ imports:
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: f820543c3592e283e311a60d2a600a664e39f6f7
+  version: df9611b94225ae6caad3f237aea7da77030bf780
 - name: github.com/spf13/jwalterweatherman
   version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
 - name: github.com/spf13/pflag
@@ -104,11 +104,11 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: 21f2569f6feb83b68a25c98c1b20eca5d4e1e6ae
+  version: e48874b42435b4347fc52bdee0424a52abc974d7
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 0ad425fe45e885577bef05dc1c50f72e33188b16
+  version: f28f36722d5ef2f9655ad3de1f248e3e52ad5ebd
   subpackages:
   - transform
   - unicode/norm
