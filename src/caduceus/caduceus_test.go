@@ -22,7 +22,6 @@ type mockHandler struct {
 
 func (m *mockHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
 	m.Called(workerID, inRequest)
-	return
 }
 
 // mockHealthTracker needs to mock things from both the `HealthTracker`
@@ -33,17 +32,14 @@ type mockHealthTracker struct {
 
 func (m *mockHealthTracker) SendEvent(healthFunc health.HealthFunc) {
 	m.Called(healthFunc)
-	return
 }
 
 func (m *mockHealthTracker) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	m.Called(response, request)
-	return
 }
 
 func (m *mockHealthTracker) IncrementBucket(inSize int) {
 	m.Called(inSize)
-	return
 }
 
 // Begin test functions
