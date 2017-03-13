@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -59,11 +60,15 @@ func TestWorkerPool(t *testing.T) {
 	}.New()
 
 	t.Run("TestWorkerPoolSend", func(t *testing.T) {
+		testWG := new(sync.WaitGroup)
+		testWG.Add(1)
+
 		require.NotNil(t, workerPool)
 		err := workerPool.Send(func(workerID int) {
-			// do nothing
+			testWG.Done()
 		})
 
+		testWG.Wait()
 		assert.Nil(err)
 	})
 
@@ -75,7 +80,7 @@ func TestWorkerPool(t *testing.T) {
 	t.Run("TestWorkerPoolFullQueue", func(t *testing.T) {
 		require.NotNil(t, workerPool)
 		err := workerPool.Send(func(workerID int) {
-			// do nothing
+			assert.Fail("This should not execute because our worker queue is full.")
 		})
 
 		assert.NotNil(err)
