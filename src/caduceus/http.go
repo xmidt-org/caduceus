@@ -1,16 +1,30 @@
 package main
 
 import (
-	"fmt"
+	"github.com/Comcast/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
+
+type Send func(inFunc func(workerID int)) error
+
+// Below is the struct that will implement our ServeHTTP method
+type ServerHandler struct {
+	logging.Logger
+	caduceusHandler RequestHandler
+	caduceusHealth  HealthTracker
+	doJob           Send
+}
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
-	sh.logger.Info("Someone is saying hello!")
-	fmt.Fprintf(response, "%s", []byte("Heyo whaddup!\n"))
+	sh.Info("Receiving incoming post...")
+
+	timeStamps := CaduceusTimestamps{
+		TimeReceived: time.Now(),
+	}
 
 	myPayload, err := ioutil.ReadAll(request.Body)
 	if err != nil {
@@ -50,9 +64,12 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		Payload:     myPayload,
 		ContentType: contentType,
 		TargetURL:   targetURL,
+		Timestamps:  timeStamps,
 	}
 
-	err = sh.workerPool.Send(func(workerID int) { sh.HandleRequest(workerID, caduceusRequest) })
+	caduceusRequest.Timestamps.TimeAccepted = time.Now()
+
+	err = sh.doJob(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
 	if err != nil {
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
@@ -61,11 +78,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
+		sh.caduceusHealth.IncrementBucket(len(myPayload))
 	}
-}
-
-func (sh *ServerHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	sh.logger.Info("Worker #%d received a request, payload:\t%s", workerID, string(inRequest.Payload))
-	sh.logger.Info("Worker #%d received a request, type:\t\t%s", workerID, inRequest.ContentType)
-	sh.logger.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
 }

@@ -10,3 +10,8 @@ import:
 - package: github.com/justinas/alice
 - package: github.com/spf13/pflag
 - package: github.com/spf13/viper
+- package: github.com/stretchr/testify
+  subpackages:
+  - mock
+  - assert
+  - require

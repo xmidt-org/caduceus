@@ -3,6 +3,7 @@ bin
 pkg
 src/vendor
 *.o
+*.out
 *.a
 *.so
 src/caduceus/caduceus
