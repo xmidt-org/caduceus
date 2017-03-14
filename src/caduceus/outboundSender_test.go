@@ -4,19 +4,20 @@ import (
 	//"fmt"
 	"github.com/stretchr/testify/assert"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type transport struct {
-	i  int
+	i  int32
 	fn func(*http.Request, int) (*http.Response, error)
 }
 
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	r, err := t.fn(req, t.i)
-	t.i++
+	i := atomic.AddInt32(&t.i, 1)
+	r, err := t.fn(req, int(i))
 	return r, err
 }
 
@@ -56,7 +57,7 @@ func TestSimple(t *testing.T) {
 
 	obs.Shutdown(true)
 
-	assert.Equal(2, trans.i)
+	assert.Equal(int32(2), trans.i)
 }
 
 // Simple test that covers the normal successful case with extra matchers
@@ -99,7 +100,7 @@ func TestSimpleWithMatchers(t *testing.T) {
 
 	obs.Shutdown(true)
 
-	assert.Equal(2, trans.i)
+	assert.Equal(int32(2), trans.i)
 }
 
 // Simple test that covers the normal successful case with extra wildcard matcher
@@ -142,7 +143,7 @@ func TestSimpleWithWildcardMatchers(t *testing.T) {
 
 	obs.Shutdown(true)
 
-	assert.Equal(4, trans.i)
+	assert.Equal(int32(4), trans.i)
 }
 
 // Simple test that checks for invalid match regex

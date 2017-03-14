@@ -41,7 +41,7 @@ type OutboundSender struct {
 	deliverUntil int64
 	dropUntil    int64
 	client       *http.Client
-	hmac         hash.Hash
+	secret       []byte
 	events       []*regexp.Regexp
 	matcher      map[string][]*regexp.Regexp
 	queueSize    int
@@ -65,6 +65,10 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		client:       osf.Client,
 		deliverUntil: osf.Until,
 		queueSize:    osf.QueueSize,
+	}
+
+	if "" != osf.Secret {
+		tmp.secret = []byte(osf.Secret)
 	}
 
 	// Give us some head room so that we don't block when we get near the
@@ -107,11 +111,6 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 
 			tmp.matcher[key] = list
 		}
-	}
-
-	// Create the base sha1 hash object
-	if "" != osf.Secret {
-		tmp.hmac = hmac.New(sha1.New, []byte(osf.Secret))
 	}
 
 	tmp.wg.Add(osf.NumWorkers)
@@ -176,7 +175,12 @@ func (obs *OutboundSender) run(id int) {
 	defer obs.wg.Done()
 
 	// Make a local copy of the hmac
-	hmac := obs.hmac
+	var h hash.Hash
+
+	// Create the base sha1 hash object for each thread
+	if nil != obs.secret {
+		h = hmac.New(sha1.New, obs.secret)
+	}
 
 	for work := range obs.queue {
 		now := time.Now().Unix()
@@ -191,10 +195,10 @@ func (obs *OutboundSender) run(id int) {
 			req.Header.Set("X-Webpa-Transaction-Id", work.transId)
 			req.Header.Set("X-Webpa-Device-Id", work.deviceId)
 
-			if nil != hmac {
-				hmac.Reset()
-				hmac.Write(work.req.Payload)
-				sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(hmac.Sum(nil)))
+			if nil != h {
+				h.Reset()
+				h.Write(work.req.Payload)
+				sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
 				req.Header.Set("X-Webpa-Signature", sig)
 			}
 
