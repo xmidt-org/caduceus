@@ -150,7 +150,7 @@ func TestServeHandler(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
 
 	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
-		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
 		serverWrapper.ServeHTTP(w, req)
@@ -186,7 +186,7 @@ func TestServeHandler(t *testing.T) {
 	})
 
 	t.Run("TestServeHTTPFullQueue", func(t *testing.T) {
-		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
 		requestTimeout := func(func(workerID int)) error {
