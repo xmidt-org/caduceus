@@ -21,7 +21,8 @@ script:
     - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec build bash -c "pushd caduceus; ./build_rpm.sh; popd"; fi'
 
 after_success:
-    - docker exec build bash <(curl -s https://codecov.io/bash) -s codecovio_build || echo "Codecov did not collect coverage reports"
+    - docker exec build bash -c "ls -R codecovio_build"
+    - docker exec build bash -c "<(curl -s https://codecov.io/bash) -s codecovio_build"
     - docker cp build:/root/rpmbuild/RPMS/x86_64 .
     - docker cp build:/versionno.txt .
     - BINARY_NAME=`ls x86_64/`
