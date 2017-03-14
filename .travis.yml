@@ -13,8 +13,8 @@ before_install:
     - env
     - docker exec build git clone https://github.com/Comcast/caduceus.git
     - docker exec build git clone https://github.com/Comcast/caduceus.git codecovio_build
-    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec build bash -c "pushd caduceus; git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge && git checkout -qf FETCH_HEAD; popd"; fi'
-    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec build bash -c "pushd codecovio_build; git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge && git checkout -qf FETCH_HEAD; popd"; fi'
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "true" ]; then docker exec build bash -c "pushd caduceus; git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge && git checkout -qf FETCH_HEAD; popd"; fi'
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "true" ]; then docker exec build bash -c "pushd codecovio_build; git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge && git checkout -qf FETCH_HEAD; popd"; fi'
 
 script:
     - docker exec build bash -c "export GOPATH=/codecovio_build && pushd codecovio_build/src && glide install && cd caduceus && go build caduceus && go test && popd"
