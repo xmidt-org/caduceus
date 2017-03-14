@@ -73,20 +73,18 @@ func TestWorkerPool(t *testing.T) {
 	})
 
 	workerPool = WorkerPoolFactory{
-		NumWorkers: 1,
+		NumWorkers: 0,
 		QueueSize:  0,
 	}.New()
 
-	/* TODO: This test is broken.
 	t.Run("TestWorkerPoolFullQueue", func(t *testing.T) {
 		require.NotNil(t, workerPool)
 		err := workerPool.Send(func(workerID int) {
-			assert.Fail("This should not execute because our worker queue is full.")
+			assert.Fail("This should not execute because our worker queue is full and we have no workers.")
 		})
 
 		assert.NotNil(err)
 	})
-	*/
 }
 
 func TestCaduceusHealth(t *testing.T) {
