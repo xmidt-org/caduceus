@@ -21,9 +21,7 @@ script:
     - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec build bash -c "pushd caduceus; ./build_rpm.sh; popd"; fi'
 
 after_success:
-    - docker exec build bash -c "ls -R codecovio_build"
-    - docker exec build bash -c "pwd"
-    - docker exec build bash -e CODECOV_TOKEN=367ce3b3-857c-42f8-87f9-1140a83f3ab4 -c "<(curl -s https://codecov.io/bash) -s codecovio_build"
+    - docker exec build bash -c "pushd codecovio_build ; <(curl -s https://codecov.io/bash) ; popd"
     - docker cp build:/root/rpmbuild/RPMS/x86_64 .
     - docker cp build:/versionno.txt .
     - BINARY_NAME=`ls x86_64/`
