@@ -21,12 +21,7 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return r, err
 }
 
-// Simple test that covers the normal successful case with no extra matchers
-func TestSimple(t *testing.T) {
-
-	assert := assert.New(t)
-
-	trans := &transport{}
+func simpleSetup(trans *transport) (obs *OutboundSender, err error) {
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
@@ -34,16 +29,26 @@ func TestSimple(t *testing.T) {
 		return
 	}
 
-	obs, err := OutboundSenderFactory{
+	obs, err = OutboundSenderFactory{
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
 		Client:      &http.Client{Transport: trans},
 		Secret:      "123456",
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot", "test"},
 		NumWorkers:  10,
 		QueueSize:   10,
 	}.New()
+	return
+}
+
+// Simple test that covers the normal successful case with no extra matchers
+func TestSimple(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans)
 	assert.Nil(err)
 
 	req := CaduceusRequest{
@@ -80,7 +85,7 @@ func TestSimpleWithMatchers(t *testing.T) {
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
 		Client:      &http.Client{Transport: trans},
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot", "test"},
 		Matchers:    m,
 		NumWorkers:  10,
@@ -123,7 +128,7 @@ func TestSimpleWithWildcardMatchers(t *testing.T) {
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
 		Client:      &http.Client{Transport: trans},
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot", "test"},
 		Matchers:    m,
 		NumWorkers:  10,
@@ -158,7 +163,7 @@ func TestInvalidMatchRegex(t *testing.T) {
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
 		Client:      &http.Client{},
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot", "test"},
 		Matchers:    m,
 		NumWorkers:  10,
@@ -178,7 +183,7 @@ func TestInvalidEventRegex(t *testing.T) {
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
 		Client:      &http.Client{},
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"[[:123"},
 		NumWorkers:  10,
 		QueueSize:   10,
@@ -197,7 +202,7 @@ func TestInvalidUrl(t *testing.T) {
 		Url:         "invalid",
 		ContentType: "application/json",
 		Client:      &http.Client{},
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot"},
 		NumWorkers:  10,
 		QueueSize:   10,
@@ -208,7 +213,7 @@ func TestInvalidUrl(t *testing.T) {
 	obs, err = OutboundSenderFactory{
 		ContentType: "application/json",
 		Client:      &http.Client{},
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot"},
 		NumWorkers:  10,
 		QueueSize:   10,
@@ -226,7 +231,7 @@ func TestInvalidClient(t *testing.T) {
 	obs, err := OutboundSenderFactory{
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
-		Until:       time.Now().Unix() + 60,
+		Until:       time.Now().Add(60 * time.Second),
 		Events:      []string{"iot"},
 		NumWorkers:  10,
 		QueueSize:   10,
@@ -241,7 +246,7 @@ func TestExtend(t *testing.T) {
 
 	assert := assert.New(t)
 
-	now := time.Now().Unix()
+	now := time.Now()
 	obs, err := OutboundSenderFactory{
 		Url:         "http://localhost:9999/foo",
 		ContentType: "application/json",
@@ -254,10 +259,11 @@ func TestExtend(t *testing.T) {
 	assert.Nil(err)
 
 	assert.Equal(now, obs.deliverUntil, "Delivery should match previous value.")
-	obs.Extend(0)
+	obs.Extend(time.Time{})
 	assert.Equal(now, obs.deliverUntil, "Delivery should match previous value.")
-	obs.Extend(now + 10)
-	assert.Equal(now+10, obs.deliverUntil, "Delivery should match new value.")
+	extended := now.Add(10 * time.Second)
+	obs.Extend(extended)
+	assert.Equal(extended, obs.deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }

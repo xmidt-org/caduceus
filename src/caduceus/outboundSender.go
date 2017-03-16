@@ -28,7 +28,7 @@ type OutboundSenderFactory struct {
 	ContentType string
 	Client      *http.Client
 	Secret      string
-	Until       int64
+	Until       time.Time
 	Events      []string
 	Matchers    map[string][]string
 	NumWorkers  int
@@ -38,8 +38,8 @@ type OutboundSenderFactory struct {
 type OutboundSender struct {
 	url          string
 	contentType  string
-	deliverUntil int64
-	dropUntil    int64
+	deliverUntil time.Time
+	dropUntil    time.Time
 	client       *http.Client
 	secret       []byte
 	events       []*regexp.Regexp
@@ -59,7 +59,7 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		return
 	}
 
-	tmp := &OutboundSender{
+	obs = &OutboundSender{
 		url:          osf.Url,
 		contentType:  osf.ContentType,
 		client:       osf.Client,
@@ -68,62 +68,61 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 	}
 
 	if "" != osf.Secret {
-		tmp.secret = []byte(osf.Secret)
+		obs.secret = []byte(osf.Secret)
 	}
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
-	tmp.queue = make(chan OutboundRequest, osf.QueueSize+10)
+	obs.queue = make(chan OutboundRequest, osf.QueueSize+10)
 
 	// Create the event regex objects
 	for _, event := range osf.Events {
-		re, e := regexp.Compile(event)
-		if nil != e {
-			err = e
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); nil != err {
+			obs = nil
 			return
 		}
 
-		tmp.events = append(tmp.events, re)
+		obs.events = append(obs.events, re)
 	}
 
 	// Create the matcher regex objects
 	if nil != osf.Matchers {
-		tmp.matcher = make(map[string][]*regexp.Regexp)
+		obs.matcher = make(map[string][]*regexp.Regexp)
 		for key, value := range osf.Matchers {
 			var list []*regexp.Regexp
 			for _, item := range value {
 				if ".*" == item {
 					// Match everything - skip the filtering
-					tmp.matcher = nil
+					obs.matcher = nil
 					break
 				}
-				re, e := regexp.Compile(item)
-				if nil != e {
-					err = e
+				var re *regexp.Regexp
+				if re, err = regexp.Compile(item); nil != err {
+					obs = nil
 					return
 				}
 				list = append(list, re)
 			}
 
-			if nil == tmp.matcher {
+			if nil == obs.matcher {
 				break
 			}
 
-			tmp.matcher[key] = list
+			obs.matcher[key] = list
 		}
 	}
 
-	tmp.wg.Add(osf.NumWorkers)
+	obs.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
-		go tmp.run(i)
+		go obs.run(i)
 	}
 
-	obs = tmp
 	return
 }
 
-func (obs *OutboundSender) Extend(until int64) {
-	if obs.deliverUntil < until {
+func (obs *OutboundSender) Extend(until time.Time) {
+	if until.After(obs.deliverUntil) {
 		obs.deliverUntil = until
 	}
 }
@@ -131,7 +130,7 @@ func (obs *OutboundSender) Extend(until int64) {
 func (obs *OutboundSender) Shutdown(gentle bool) {
 	close(obs.queue)
 	if false == gentle {
-		obs.deliverUntil = 0
+		obs.deliverUntil = time.Time{}
 	}
 	obs.wg.Wait()
 }
@@ -183,8 +182,8 @@ func (obs *OutboundSender) run(id int) {
 	}
 
 	for work := range obs.queue {
-		now := time.Now().Unix()
-		if now < obs.deliverUntil && obs.dropUntil < now {
+		now := time.Now()
+		if now.Before(obs.deliverUntil) && now.After(obs.dropUntil) {
 			payload := bytes.NewReader(work.req.Payload)
 			req, err := http.NewRequest("POST", obs.url, payload)
 			if nil != err {
