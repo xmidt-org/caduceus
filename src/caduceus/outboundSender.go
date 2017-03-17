@@ -46,6 +46,7 @@ type OutboundSender struct {
 	matcher      map[string][]*regexp.Regexp
 	queueSize    int
 	queue        chan OutboundRequest
+	profiler     ServerRing
 	wg           sync.WaitGroup
 }
 
@@ -112,6 +113,8 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 			obs.matcher[key] = list
 		}
 	}
+
+	obs.profiler = NewCaduceusRing(100)
 
 	obs.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
@@ -207,6 +210,7 @@ func (obs *OutboundSender) run(id int) {
 				// Report failure
 			} else {
 				// Report result
+				obs.profiler.Add(work.req)
 			}
 
 		} else {
