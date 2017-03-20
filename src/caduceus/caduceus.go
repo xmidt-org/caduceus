@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/handler"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/server"
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -70,10 +71,13 @@ func caduceus(arguments []string) int {
 
 	caduceusHandler := alice.New(authHandler.Decorate)
 
+	mux := mux.NewRouter()
+	mux.Handle("/api/v1", caduceusHandler.Then(serverWrapper))
+
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
 
-	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, mux)
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)

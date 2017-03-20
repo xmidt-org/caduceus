@@ -1,12 +1,12 @@
-hash: 7bba4f8db11fa7f9dcb97b51579f537ae347c6a439a841fa1e02f3efd60e46d5
-updated: 2017-03-13T11:42:37.981341009-07:00
+hash: 9846f7296d58fb7d2171ad3dd246db255381ea2df1d40748a562e99e24381ce4
+updated: 2017-03-20T15:47:14.184270664-07:00
 imports:
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 70019944a8b8ac26406f8c695592d9dc09e95031
+  version: c64f5aa834f1f5923181ef5e64c38b0c50b34535
   subpackages:
   - concurrent
   - handler
@@ -28,6 +28,10 @@ imports:
   - spew
 - name: github.com/fsnotify/fsnotify
   version: 7d7316ed6e1ed2de075aab8dfc76de5d158d66e1
+- name: github.com/gorilla/context
+  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+- name: github.com/gorilla/mux
+  version: 599cba5e7b6137d46ddf58fb1765f5d928e69604
 - name: github.com/gorilla/websocket
   version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
 - name: github.com/hashicorp/hcl
@@ -53,13 +57,13 @@ imports:
 - name: github.com/justinas/alice
   version: 1051eaf52fcafdd87ead59d28b065f1fcb8274ec
 - name: github.com/magiconair/properties
-  version: b3b15ef068fd0b17ddf408a23669f20811d194d2
+  version: 097743ad3a4ce606d0209324a940c15add362d42
 - name: github.com/mitchellh/mapstructure
   version: 53818660ed4955e899c0bcafa97299a388bd7c8e
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
-  version: 13d49d4606eb801b8f01ae542b4afc4c6ee3d84a
+  version: fee7787d3f811af92276f5ff10107092e95b7a1d
 - name: github.com/philhofer/fwd
   version: 98c11a7a6ec829d672b03833c3d69a7fae1ca972
 - name: github.com/pmezard/go-difflib
