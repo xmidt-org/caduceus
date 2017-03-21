@@ -39,8 +39,6 @@ func caduceus(arguments []string) int {
 	err = v.Unmarshal(caduceusConfig)
 	if err != nil {
 		return 1
-	} else {
-		logger.Info("%v", caduceusConfig)
 	}
 
 	workerPool := WorkerPoolFactory{
@@ -49,9 +47,9 @@ func caduceus(arguments []string) int {
 	}.New()
 
 	serverProfiler := ServerProfilerFactory{
-		Duration:  10,
-		RingSize:  3,
-		QueueSize: 100,
+		Duration:  caduceusConfig.ProfilerDuration,
+		RingSize:  caduceusConfig.ProfilerSize,
+		QueueSize: caduceusConfig.ProfilerQueueSize,
 	}.New()
 
 	serverWrapper := &ServerHandler{

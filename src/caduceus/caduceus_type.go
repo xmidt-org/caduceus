@@ -22,6 +22,9 @@ type CaduceusConfig struct {
 	AuthHeader                          string
 	NumWorkerThreads                    int
 	JobQueueSize                        int
+	ProfilerDuration                    int
+	ProfilerSize                        int
+	ProfilerQueueSize                   int
 	TotalIncomingPayloadSizeBuckets     []int
 	PerSourceIncomingPayloadSizeBuckets []int
 }
