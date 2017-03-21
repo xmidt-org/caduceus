@@ -6,8 +6,8 @@ import (
 )
 
 type ServerProfilerFactory struct {
+	Frequency int
 	Duration  int
-	RingSize  int
 	QueueSize int
 }
 
@@ -15,8 +15,8 @@ type ServerProfilerFactory struct {
 // the gears in motion for aggregating data
 func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
 	newCaduceusProfiler := &caduceusProfiler{
-		ticker:       time.NewTicker(time.Duration(spf.Duration) * time.Second),
-		profilerRing: NewCaduceusRing(spf.RingSize),
+		ticker:       time.NewTicker(time.Duration(spf.Frequency) * time.Second),
+		profilerRing: NewCaduceusRing(spf.Duration),
 		inChan:       make(chan interface{}, spf.QueueSize),
 	}
 

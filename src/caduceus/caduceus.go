@@ -47,8 +47,8 @@ func caduceus(arguments []string) int {
 	}.New()
 
 	serverProfiler := ServerProfilerFactory{
+		Frequency: caduceusConfig.ProfilerFrequency,
 		Duration:  caduceusConfig.ProfilerDuration,
-		RingSize:  caduceusConfig.ProfilerSize,
 		QueueSize: caduceusConfig.ProfilerQueueSize,
 	}.New()
 
