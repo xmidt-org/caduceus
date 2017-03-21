@@ -64,9 +64,7 @@ func (cp *caduceusProfiler) aggregate() {
 		select {
 		case <-cp.ticker.C:
 			// add the data to the ring and clear the temporary structure
-			for _, value := range data {
-				cp.profilerRing.Add(value)
-			}
+			cp.profilerRing.Add(data)
 			data = nil
 		case inData := <-cp.inChan:
 			// add the data to a temporary structure
