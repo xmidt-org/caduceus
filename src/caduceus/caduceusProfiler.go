@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,7 @@ type caduceusProfiler struct {
 	ticker       *time.Ticker
 	profilerRing ServerRing
 	inChan       chan interface{}
+	rwMutex      sync.RWMutex
 }
 
 // Send will add data that we retrieve onto the
@@ -52,7 +54,10 @@ func (cp *caduceusProfiler) Send(inData interface{}) error {
 // Report will be used to retrieve data when the data the profiler
 // stores is ready to be collected
 func (cp *caduceusProfiler) Report() (values []interface{}) {
-	return cp.profilerRing.Snapshot()
+	cp.rwMutex.RLock()
+	values = cp.profilerRing.Snapshot()
+	cp.rwMutex.RUnlock()
+	return
 }
 
 // aggregate runs on a timer and will take in data until a certain amount
@@ -64,7 +69,9 @@ func (cp *caduceusProfiler) aggregate() {
 		select {
 		case <-cp.ticker.C:
 			// add the data to the ring and clear the temporary structure
+			cp.rwMutex.Lock()
 			cp.profilerRing.Add(data)
+			cp.rwMutex.Unlock()
 			data = nil
 		case inData := <-cp.inChan:
 			// add the data to a temporary structure
