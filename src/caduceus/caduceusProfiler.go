@@ -22,7 +22,7 @@ func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
 		quit:         make(chan struct{}),
 	}
 
-	go newCaduceusProfiler.aggregate()
+	go newCaduceusProfiler.aggregate(newCaduceusProfiler.quit)
 
 	serverProfiler = newCaduceusProfiler
 	return
@@ -70,11 +70,10 @@ func (cp *caduceusProfiler) Close() {
 
 // aggregate runs on a timer and will take in data until a certain amount
 // of time passes, then it will generate a report that it will share
-func (cp *caduceusProfiler) aggregate() {
+func (cp *caduceusProfiler) aggregate(quit <-chan struct{}) {
 	var data []interface{}
-	running := true
 
-	for running {
+	for {
 		select {
 		case <-cp.ticker.C:
 			// add the data to the ring and clear the temporary structure
@@ -85,9 +84,8 @@ func (cp *caduceusProfiler) aggregate() {
 		case inData := <-cp.inChan:
 			// add the data to a temporary structure
 			data = append(data, inData)
-		case <-cp.quit:
-			cp.ticker.Stop()
-			running = false
+		case <-quit:
+			return
 		}
 	}
 }
