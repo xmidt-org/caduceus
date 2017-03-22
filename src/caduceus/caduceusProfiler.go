@@ -19,6 +19,7 @@ func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
 		ticker:       time.NewTicker(time.Duration(spf.Frequency) * time.Second),
 		profilerRing: NewCaduceusRing(spf.Duration),
 		inChan:       make(chan interface{}, spf.QueueSize),
+		quit:         make(chan struct{}),
 	}
 
 	go newCaduceusProfiler.aggregate()
@@ -30,12 +31,14 @@ func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
 type ServerProfiler interface {
 	Send(interface{}) error
 	Report() []interface{}
+	Close()
 }
 
 type caduceusProfiler struct {
 	ticker       *time.Ticker
 	profilerRing ServerRing
 	inChan       chan interface{}
+	quit         chan struct{}
 	rwMutex      sync.RWMutex
 }
 
@@ -60,12 +63,18 @@ func (cp *caduceusProfiler) Report() (values []interface{}) {
 	return
 }
 
+// Close will terminate the running aggregate method and do any cleanup necessary
+func (cp *caduceusProfiler) Close() {
+	close(cp.quit)
+}
+
 // aggregate runs on a timer and will take in data until a certain amount
 // of time passes, then it will generate a report that it will share
 func (cp *caduceusProfiler) aggregate() {
 	var data []interface{}
+	running := true
 
-	for {
+	for running {
 		select {
 		case <-cp.ticker.C:
 			// add the data to the ring and clear the temporary structure
@@ -76,6 +85,9 @@ func (cp *caduceusProfiler) aggregate() {
 		case inData := <-cp.inChan:
 			// add the data to a temporary structure
 			data = append(data, inData)
+		case <-cp.quit:
+			cp.ticker.Stop()
+			running = false
 		}
 	}
 }
