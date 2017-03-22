@@ -16,10 +16,11 @@ type ServerProfilerFactory struct {
 // the gears in motion for aggregating data
 func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
 	newCaduceusProfiler := &caduceusProfiler{
-		ticker:       time.NewTicker(time.Duration(spf.Frequency) * time.Second),
+		frequency:    spf.Frequency,
 		profilerRing: NewCaduceusRing(spf.Duration),
 		inChan:       make(chan interface{}, spf.QueueSize),
 		quit:         make(chan struct{}),
+		rwMutex:      &sync.RWMutex{},
 	}
 
 	go newCaduceusProfiler.aggregate(newCaduceusProfiler.quit)
@@ -34,12 +35,15 @@ type ServerProfiler interface {
 	Close()
 }
 
+type Tick func(time.Duration) <-chan time.Time
+
 type caduceusProfiler struct {
-	ticker       *time.Ticker
+	frequency    int
+	tick         Tick
 	profilerRing ServerRing
 	inChan       chan interface{}
 	quit         chan struct{}
-	rwMutex      sync.RWMutex
+	rwMutex      *sync.RWMutex
 }
 
 // Send will add data that we retrieve onto the
@@ -72,10 +76,17 @@ func (cp *caduceusProfiler) Close() {
 // of time passes, then it will generate a report that it will share
 func (cp *caduceusProfiler) aggregate(quit <-chan struct{}) {
 	var data []interface{}
+	var ticker <-chan time.Time
+
+	if cp.tick == nil {
+		ticker = time.Tick(time.Duration(cp.frequency) * time.Second)
+	} else {
+		ticker = cp.tick(time.Duration(cp.frequency) * time.Second)
+	}
 
 	for {
 		select {
-		case <-cp.ticker.C:
+		case <-ticker:
 			// add the data to the ring and clear the temporary structure
 			cp.rwMutex.Lock()
 			cp.profilerRing.Add(data)

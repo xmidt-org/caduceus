@@ -102,5 +102,6 @@ func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	} else {
 		response.WriteHeader(http.StatusOK)
 		response.Write(b)
+		response.Write([]byte("\n"))
 	}
 }
