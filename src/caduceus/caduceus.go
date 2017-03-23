@@ -46,11 +46,12 @@ func caduceus(arguments []string) int {
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
-	// serverProfiler := ServerProfilerFactory{
+	// TODO: use the below to fill out the parts of what will eventually handle outboundSenders
+	// serverProfilerFactory := ServerProfilerFactory{
 	// 	Frequency: caduceusConfig.ProfilerFrequency,
 	// 	Duration:  caduceusConfig.ProfilerDuration,
 	// 	QueueSize: caduceusConfig.ProfilerQueueSize,
-	// }.New()
+	// }
 
 	serverWrapper := &ServerHandler{
 		Logger: logger,
