@@ -166,6 +166,12 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		}
 	}
 
+	if osf.Profiler == nil {
+		obs = nil
+		err = errors.New("A ServerProfiler must be provided for an outboundSender to start.")
+		return
+	}
+
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
 	obs.queue = make(chan outboundRequest, osf.QueueSize+10)

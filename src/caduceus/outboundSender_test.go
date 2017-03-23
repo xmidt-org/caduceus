@@ -314,6 +314,25 @@ func TestInvalidEvents(t *testing.T) {
 	assert.NotNil(err)
 }
 
+// Simple test that checks for no profiler
+func TestInvalidProfiler(t *testing.T) {
+	assert := assert.New(t)
+	obs, err := OutboundSenderFactory{
+		URL:          "http://localhost:9999/foo",
+		Client:       &http.Client{},
+		ContentType:  "application/json",
+		Until:        time.Now(),
+		Events:       []string{"iot", "test"},
+		CutOffPeriod: time.Second,
+		NumWorkers:   10,
+		QueueSize:    10,
+		Logger:       getLogger(),
+	}.New()
+
+	assert.Nil(obs)
+	assert.NotNil(err)
+}
+
 // Simple test that ensures that Extend() only does that
 func TestExtend(t *testing.T) {
 	assert := assert.New(t)
