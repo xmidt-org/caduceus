@@ -15,8 +15,8 @@ func NewCaduceusRing(inSize int) (myServerRing ServerRing) {
 
 // methods that we allow the user of a caduceusRing to access
 type ServerRing interface {
-	Add(inValue interface{})
-	Snapshot() (values []interface{})
+	Add(interface{})
+	Snapshot() []interface{}
 }
 
 // underlying implementation of the ring
