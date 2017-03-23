@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	testServerProfiler = ServerProfilerFactory{
+	testServerProfiler, _ = ServerProfilerFactory{
 		Frequency: 10,
 		Duration:  6,
 		QueueSize: 100,
