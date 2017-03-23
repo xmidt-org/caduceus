@@ -472,14 +472,15 @@ func TestOverflow(t *testing.T) {
 	loggerFactory := logging.DefaultLoggerFactory{&output}
 	logger, _ := loggerFactory.NewLogger("test")
 
-	block := true
+	var block int32
+	block = 0
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		if req.URL.String() == "http://localhost:9999/foo" {
 			assert.Equal([]string{"01234"}, req.Header["X-Webpa-Transaction-Id"])
 
 			// Sleeping until we're told to return
-			for true == block {
+			for 0 == atomic.LoadInt32(&block) {
 				time.Sleep(time.Microsecond)
 			}
 		}
@@ -515,7 +516,7 @@ func TestOverflow(t *testing.T) {
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01236")
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01237")
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01238")
-	block = false
+	atomic.AddInt32(&block, 1)
 	obs.Shutdown(false)
 
 	assert.Equal("[ERROR] Able to send cut-off notification (http://localhost:12345/bar) status: 200 OK\n", output.String())

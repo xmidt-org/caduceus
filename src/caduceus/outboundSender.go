@@ -107,6 +107,7 @@ type OutboundSender struct {
 	cutOffPeriod time.Duration
 	failureMsg   FailureMessage
 	logger       logging.Logger
+	mutex        sync.RWMutex
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -223,9 +224,11 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 // specified time.  The new delivery cutoff time must be after the previously
 // set delivery cutoff time.
 func (obs *OutboundSender) Extend(until time.Time) {
+	obs.mutex.Lock()
 	if until.After(obs.deliverUntil) {
 		obs.deliverUntil = until
 	}
+	obs.mutex.Unlock()
 }
 
 // Shutdown causes the OutboundSender to stop it's activities either gently or
@@ -233,11 +236,16 @@ func (obs *OutboundSender) Extend(until time.Time) {
 // messages will be dropped without an attempt to send made.
 func (obs *OutboundSender) Shutdown(gentle bool) {
 	close(obs.queue)
+	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
 	}
+	obs.mutex.Unlock()
 	obs.wg.Wait()
+
+	obs.mutex.Lock()
 	obs.deliverUntil = time.Time{}
+	obs.mutex.Unlock()
 }
 
 // QueueWrp is given a request to evaluate and optionally enqueue in the list
@@ -254,8 +262,14 @@ func (obs *OutboundSender) QueueWrp(req CaduceusRequest) {
 func (obs *OutboundSender) QueueJSON(req CaduceusRequest,
 	eventType, deviceID, transID string) {
 
+	obs.mutex.RLock()
+	deliverUntil := obs.deliverUntil
+	dropUntil := obs.dropUntil
+	obs.mutex.RUnlock()
+
 	now := time.Now()
-	if now.Before(obs.deliverUntil) && now.After(obs.dropUntil) {
+
+	if now.Before(deliverUntil) && now.After(dropUntil) {
 		for _, eventRegex := range obs.events {
 			if eventRegex.MatchString(eventType) {
 				matchDevice := (nil == obs.matcher)
@@ -301,8 +315,13 @@ func (obs *OutboundSender) worker(id int) {
 	}
 
 	for work := range obs.queue {
+		obs.mutex.RLock()
+		deliverUntil := obs.deliverUntil
+		dropUntil := obs.dropUntil
+		obs.mutex.RUnlock()
+
 		now := time.Now()
-		if now.Before(obs.deliverUntil) && now.After(obs.dropUntil) {
+		if now.Before(deliverUntil) && now.After(dropUntil) {
 			payload := bytes.NewReader(work.req.Payload)
 			req, err := http.NewRequest("POST", obs.url, payload)
 			if nil != err {
@@ -328,10 +347,10 @@ func (obs *OutboundSender) worker(id int) {
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
-						obs.profiler.Add(work.req)
+						// obs.profiler.Add(work.req) <-- Race condition!
 					} else {
 						// Report partial success
-						obs.profiler.Add(work.req)
+						// obs.profiler.Add(work.req) <-- Race condition!
 					}
 				}
 			}
@@ -344,7 +363,9 @@ func (obs *OutboundSender) worker(id int) {
 
 // queueOverflow handles the logic of what to do when a queue overflows
 func (obs *OutboundSender) queueOverflow() {
+	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
+	obs.mutex.Unlock()
 
 	// Send a "you've been cut off" warning message
 	if nil != obs.failureURL {
