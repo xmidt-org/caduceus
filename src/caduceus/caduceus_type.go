@@ -22,6 +22,9 @@ type CaduceusConfig struct {
 	AuthHeader                          string
 	NumWorkerThreads                    int
 	JobQueueSize                        int
+	ProfilerFrequency                   int
+	ProfilerDuration                    int
+	ProfilerQueueSize                   int
 	TotalIncomingPayloadSizeBuckets     []int
 	PerSourceIncomingPayloadSizeBuckets []int
 }
@@ -47,6 +50,7 @@ type RequestHandler interface {
 
 type CaduceusHandler struct {
 	logging.Logger
+	caduceusProfiler ServerProfiler
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
@@ -57,6 +61,9 @@ func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest
 	ch.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
 
 	inRequest.Timestamps.TimeProcessingEnd = time.Now()
+
+	// TODO: temporarily adding the whole request to a profiler for testing purposes
+	ch.caduceusProfiler.Send(inRequest)
 
 	ch.Info("Worker #%d printing message time stats:\t%v", workerID, inRequest.Timestamps)
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/Comcast/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
@@ -38,6 +39,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if value, ok := request.Header["Content-Type"]; ok {
 		if len(value) == 1 {
 			contentType = value[0]
+			switch contentType {
+			case "application/json":
+			case "application/wrp":
+			default:
+				response.WriteHeader(http.StatusBadRequest)
+				response.Write([]byte("Only Content-Type values of \"application/json\" or \"application/wrp\" are supported.\n"))
+			}
 		} else {
 			response.WriteHeader(http.StatusBadRequest)
 			response.Write([]byte("Content-Type cannot have more than one specification.\n"))
@@ -72,5 +80,28 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
 		sh.caduceusHealth.IncrementBucket(len(myPayload))
+	}
+}
+
+type ProfileHandler struct {
+	logging.Logger
+	caduceusProfiler ServerProfiler
+}
+
+// TODO: temporarily adding this to check and see if we're getting what we expect
+func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	defer request.Body.Close()
+
+	ph.Info("Receiving request for server stats...")
+	stats := ph.caduceusProfiler.Report()
+	b, err := json.Marshal(stats)
+
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte("Error marshalling the data into a JSON object."))
+	} else {
+		response.WriteHeader(http.StatusOK)
+		response.Write(b)
+		response.Write([]byte("\n"))
 	}
 }
