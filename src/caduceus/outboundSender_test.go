@@ -12,6 +12,14 @@ import (
 	"time"
 )
 
+var (
+	testServerProfilerFactory = ServerProfilerFactory{
+		Frequency: 10,
+		Duration:  6,
+		QueueSize: 100,
+	}
+)
+
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type transport struct {
 	i  int32
@@ -40,17 +48,18 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[strin
 	}
 
 	obs, err = OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{Transport: trans},
-		Secret:       "123456",
-		Until:        time.Now().Add(60 * time.Second),
-		Events:       []string{"iot", "test"},
-		Matchers:     matcher,
-		CutOffPeriod: cutOffPeriod,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       getLogger(),
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{Transport: trans},
+		Secret:          "123456",
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"iot", "test"},
+		Matchers:        matcher,
+		CutOffPeriod:    cutOffPeriod,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	return
 }
@@ -167,14 +176,15 @@ func TestInvalidEventRegex(t *testing.T) {
 	assert := assert.New(t)
 
 	obs, err := OutboundSenderFactory{
-		URL:         "http://localhost:9999/foo",
-		ContentType: "application/json",
-		Client:      &http.Client{},
-		Until:       time.Now().Add(60 * time.Second),
-		Events:      []string{"[[:123"},
-		NumWorkers:  10,
-		QueueSize:   10,
-		Logger:      getLogger(),
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{},
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"[[:123"},
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -187,26 +197,28 @@ func TestInvalidUrl(t *testing.T) {
 	assert := assert.New(t)
 
 	obs, err := OutboundSenderFactory{
-		URL:         "invalid",
-		ContentType: "application/json",
-		Client:      &http.Client{},
-		Until:       time.Now().Add(60 * time.Second),
-		Events:      []string{"iot"},
-		NumWorkers:  10,
-		QueueSize:   10,
-		Logger:      getLogger(),
+		URL:             "invalid",
+		ContentType:     "application/json",
+		Client:          &http.Client{},
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"iot"},
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
 
 	obs, err = OutboundSenderFactory{
-		ContentType: "application/json",
-		Client:      &http.Client{},
-		Until:       time.Now().Add(60 * time.Second),
-		Events:      []string{"iot"},
-		NumWorkers:  10,
-		QueueSize:   10,
-		Logger:      getLogger(),
+		ContentType:     "application/json",
+		Client:          &http.Client{},
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"iot"},
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -217,14 +229,15 @@ func TestInvalidUrl(t *testing.T) {
 func TestInvalidClient(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Until:        time.Now().Add(60 * time.Second),
-		Events:       []string{"iot"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       getLogger(),
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"iot"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -234,14 +247,15 @@ func TestInvalidClient(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		Client:       &http.Client{},
-		ContentType:  "application/json",
-		Until:        time.Now().Add(60 * time.Second),
-		Events:       []string{"iot"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
+		URL:             "http://localhost:9999/foo",
+		Client:          &http.Client{},
+		ContentType:     "application/json",
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"iot"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -251,16 +265,17 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		Client:       &http.Client{},
-		ContentType:  "application/json",
-		Until:        time.Now().Add(60 * time.Second),
-		Events:       []string{"iot"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       getLogger(),
-		FailureURL:   "invalid",
+		URL:             "http://localhost:9999/foo",
+		Client:          &http.Client{},
+		ContentType:     "application/json",
+		Until:           time.Now().Add(60 * time.Second),
+		Events:          []string{"iot"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		Logger:          getLogger(),
+		FailureURL:      "invalid",
+		ProfilerFactory: testServerProfilerFactory,
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -270,29 +285,51 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		Client:       &http.Client{},
-		ContentType:  "application/json",
-		Until:        time.Now().Add(60 * time.Second),
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       getLogger(),
+		URL:             "http://localhost:9999/foo",
+		Client:          &http.Client{},
+		ContentType:     "application/json",
+		Until:           time.Now().Add(60 * time.Second),
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
 
 	obs, err = OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		Client:       &http.Client{},
-		ContentType:  "application/json",
-		Until:        time.Now().Add(60 * time.Second),
-		CutOffPeriod: time.Second,
-		Events:       []string{"iot(.*"},
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       getLogger(),
+		URL:             "http://localhost:9999/foo",
+		Client:          &http.Client{},
+		ContentType:     "application/json",
+		Until:           time.Now().Add(60 * time.Second),
+		CutOffPeriod:    time.Second,
+		Events:          []string{"iot(.*"},
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
+	assert.Nil(obs)
+	assert.NotNil(err)
+}
+
+// Simple test that checks for no profiler
+func TestInvalidProfilerFactory(t *testing.T) {
+	assert := assert.New(t)
+	obs, err := OutboundSenderFactory{
+		URL:             "http://localhost:9999/foo",
+		Client:          &http.Client{},
+		ContentType:     "application/json",
+		Until:           time.Now(),
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: ServerProfilerFactory{},
+		Logger:          getLogger(),
+	}.New()
+
 	assert.Nil(obs)
 	assert.NotNil(err)
 }
@@ -303,15 +340,16 @@ func TestExtend(t *testing.T) {
 
 	now := time.Now()
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{},
-		Until:        now,
-		Events:       []string{"iot", "test"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       getLogger(),
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{},
+		Until:           now,
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(err)
 
@@ -334,15 +372,16 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	logger, _ := loggerFactory.NewLogger("test")
 
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{},
-		Until:        time.Now(),
-		Events:       []string{"iot", "test"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       logger,
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{},
+		Until:           time.Now(),
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          logger,
 	}.New()
 	assert.Nil(err)
 
@@ -373,16 +412,17 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{Transport: trans},
-		Until:        time.Now(),
-		Events:       []string{"iot", "test"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       logger,
-		FailureURL:   "http://localhost:12345/bar",
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{Transport: trans},
+		Until:           time.Now(),
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          logger,
+		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 
@@ -413,17 +453,18 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{Transport: trans},
-		Until:        time.Now(),
-		Secret:       "123456",
-		Events:       []string{"iot", "test"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       logger,
-		FailureURL:   "http://localhost:12345/bar",
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{Transport: trans},
+		Until:           time.Now(),
+		Secret:          "123456",
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          logger,
+		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 
@@ -447,16 +488,17 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{Transport: trans},
-		Until:        time.Now(),
-		Events:       []string{"iot", "test"},
-		CutOffPeriod: time.Second,
-		NumWorkers:   10,
-		QueueSize:    10,
-		Logger:       logger,
-		FailureURL:   "http://localhost:12345/bar",
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{Transport: trans},
+		Until:           time.Now(),
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    time.Second,
+		NumWorkers:      10,
+		QueueSize:       10,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          logger,
+		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 
@@ -492,16 +534,17 @@ func TestOverflow(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:          "http://localhost:9999/foo",
-		ContentType:  "application/json",
-		Client:       &http.Client{Transport: trans},
-		Until:        time.Now().Add(30 * time.Second),
-		Events:       []string{"iot", "test"},
-		CutOffPeriod: 4 * time.Second,
-		NumWorkers:   1,
-		QueueSize:    2,
-		Logger:       logger,
-		FailureURL:   "http://localhost:12345/bar",
+		URL:             "http://localhost:9999/foo",
+		ContentType:     "application/json",
+		Client:          &http.Client{Transport: trans},
+		Until:           time.Now().Add(30 * time.Second),
+		Events:          []string{"iot", "test"},
+		CutOffPeriod:    4 * time.Second,
+		NumWorkers:      1,
+		QueueSize:       2,
+		ProfilerFactory: testServerProfilerFactory,
+		Logger:          logger,
+		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 

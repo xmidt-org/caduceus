@@ -14,13 +14,18 @@ type ServerProfilerFactory struct {
 
 // New will be used to initialize a new server profiler for caduceus and get
 // the gears in motion for aggregating data
-func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
+func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler, err error) {
+	if spf.Frequency < 1 || spf.Duration < 1 || spf.QueueSize < 1 {
+		err = errors.New("No parameter to the ServerProfilerFactory can be less than 1.")
+		return
+	}
+
 	newCaduceusProfiler := &caduceusProfiler{
 		frequency:    spf.Frequency,
 		profilerRing: NewCaduceusRing(spf.Duration),
 		inChan:       make(chan interface{}, spf.QueueSize),
 		quit:         make(chan struct{}),
-		rwMutex:      &sync.RWMutex{},
+		rwMutex:      new(sync.RWMutex),
 	}
 
 	go newCaduceusProfiler.aggregate(newCaduceusProfiler.quit)

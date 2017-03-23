@@ -41,8 +41,17 @@ func TestCaduceusProfilerFactory(t *testing.T) {
 
 	t.Run("TestCaduceusProfilerFactoryNew", func(t *testing.T) {
 		require.NotNil(t, testFactory)
-		testProfiler := testFactory.New()
+		testProfiler, err := testFactory.New()
 		assert.NotNil(testProfiler)
+		assert.Nil(err)
+	})
+
+	t.Run("TestCaduceusProfilerFactoryNewInvalidParameters", func(t *testing.T) {
+		require.NotNil(t, testFactory)
+		testFactory.Frequency = 0
+		testProfiler, err := testFactory.New()
+		assert.Nil(testProfiler)
+		assert.NotNil(err)
 	})
 }
 

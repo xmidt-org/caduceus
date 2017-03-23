@@ -85,6 +85,10 @@ type OutboundSenderFactory struct {
 	// Must be greater then 0 seconds
 	CutOffPeriod time.Duration
 
+	// The factory that we'll use to make new ServerProfilers on a per
+	// outboundSender basis
+	ProfilerFactory ServerProfilerFactory
+
 	// The logger to use.
 	Logger logging.Logger
 }
@@ -102,7 +106,7 @@ type OutboundSender struct {
 	matcher      map[string][]*regexp.Regexp
 	queueSize    int
 	queue        chan outboundRequest
-	profiler     ServerRing
+	profiler     ServerProfiler
 	wg           sync.WaitGroup
 	cutOffPeriod time.Duration
 	failureMsg   FailureMessage
@@ -162,6 +166,12 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		}
 	}
 
+	obs.profiler, err = osf.ProfilerFactory.New()
+	if err != nil {
+		obs = nil
+		return
+	}
+
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
 	obs.queue = make(chan outboundRequest, osf.QueueSize+10)
@@ -209,8 +219,6 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 			obs.matcher[key] = list
 		}
 	}
-
-	obs.profiler = NewCaduceusRing(100)
 
 	obs.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
@@ -347,10 +355,10 @@ func (obs *OutboundSender) worker(id int) {
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
-						// obs.profiler.Add(work.req) <-- Race condition!
+						obs.profiler.Send(work.req)
 					} else {
 						// Report partial success
-						// obs.profiler.Add(work.req) <-- Race condition!
+						obs.profiler.Send(work.req)
 					}
 				}
 			}

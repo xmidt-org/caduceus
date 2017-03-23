@@ -46,24 +46,23 @@ func caduceus(arguments []string) int {
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
-	serverProfiler := ServerProfilerFactory{
-		Frequency: caduceusConfig.ProfilerFrequency,
-		Duration:  caduceusConfig.ProfilerDuration,
-		QueueSize: caduceusConfig.ProfilerQueueSize,
-	}.New()
+	// TODO: use the below to fill out the parts of what will eventually handle outboundSenders
+	// serverProfilerFactory := ServerProfilerFactory{
+	// 	Frequency: caduceusConfig.ProfilerFrequency,
+	// 	Duration:  caduceusConfig.ProfilerDuration,
+	// 	QueueSize: caduceusConfig.ProfilerQueueSize,
+	// }
 
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
-			Logger:           logger,
-			caduceusProfiler: serverProfiler,
+			Logger: logger,
 		},
 		doJob: workerPool.Send,
 	}
 
 	profileWrapper := &ProfileHandler{
-		Logger:           logger,
-		caduceusProfiler: serverProfiler,
+		Logger: logger,
 	}
 
 	validator := secure.Validators{
