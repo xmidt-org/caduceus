@@ -46,11 +46,11 @@ func caduceus(arguments []string) int {
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
-	serverProfiler := ServerProfilerFactory{
-		Frequency: caduceusConfig.ProfilerFrequency,
-		Duration:  caduceusConfig.ProfilerDuration,
-		QueueSize: caduceusConfig.ProfilerQueueSize,
-	}.New()
+	// serverProfiler := ServerProfilerFactory{
+	// 	Frequency: caduceusConfig.ProfilerFrequency,
+	// 	Duration:  caduceusConfig.ProfilerDuration,
+	// 	QueueSize: caduceusConfig.ProfilerQueueSize,
+	// }.New()
 
 	serverWrapper := &ServerHandler{
 		Logger: logger,
@@ -61,8 +61,7 @@ func caduceus(arguments []string) int {
 	}
 
 	profileWrapper := &ProfileHandler{
-		Logger:           logger,
-		caduceusProfiler: serverProfiler,
+		Logger: logger,
 	}
 
 	validator := secure.Validators{
