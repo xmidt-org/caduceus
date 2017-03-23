@@ -172,6 +172,8 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		return
 	}
 
+	obs.profiler = osf.Profiler
+
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
 	obs.queue = make(chan outboundRequest, osf.QueueSize+10)
@@ -219,8 +221,6 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 			obs.matcher[key] = list
 		}
 	}
-
-	obs.profiler = osf.Profiler
 
 	obs.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
