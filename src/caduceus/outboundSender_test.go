@@ -12,6 +12,14 @@ import (
 	"time"
 )
 
+var (
+	testServerProfiler = ServerProfilerFactory{
+		Frequency: 10,
+		Duration:  6,
+		QueueSize: 100,
+	}.New()
+)
+
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type transport struct {
 	i  int32
@@ -50,6 +58,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[strin
 		CutOffPeriod: cutOffPeriod,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       getLogger(),
 	}.New()
 	return
@@ -174,6 +183,7 @@ func TestInvalidEventRegex(t *testing.T) {
 		Events:      []string{"[[:123"},
 		NumWorkers:  10,
 		QueueSize:   10,
+		Profiler:    testServerProfiler,
 		Logger:      getLogger(),
 	}.New()
 	assert.Nil(obs)
@@ -194,6 +204,7 @@ func TestInvalidUrl(t *testing.T) {
 		Events:      []string{"iot"},
 		NumWorkers:  10,
 		QueueSize:   10,
+		Profiler:    testServerProfiler,
 		Logger:      getLogger(),
 	}.New()
 	assert.Nil(obs)
@@ -206,6 +217,7 @@ func TestInvalidUrl(t *testing.T) {
 		Events:      []string{"iot"},
 		NumWorkers:  10,
 		QueueSize:   10,
+		Profiler:    testServerProfiler,
 		Logger:      getLogger(),
 	}.New()
 	assert.Nil(obs)
@@ -224,6 +236,7 @@ func TestInvalidClient(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       getLogger(),
 	}.New()
 	assert.Nil(obs)
@@ -242,6 +255,7 @@ func TestInvalidLogger(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -261,6 +275,7 @@ func TestFailureURL(t *testing.T) {
 		QueueSize:    10,
 		Logger:       getLogger(),
 		FailureURL:   "invalid",
+		Profiler:     testServerProfiler,
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -277,6 +292,7 @@ func TestInvalidEvents(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       getLogger(),
 	}.New()
 	assert.Nil(obs)
@@ -291,6 +307,7 @@ func TestInvalidEvents(t *testing.T) {
 		Events:       []string{"iot(.*"},
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       getLogger(),
 	}.New()
 	assert.Nil(obs)
@@ -311,6 +328,7 @@ func TestExtend(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       getLogger(),
 	}.New()
 	assert.Nil(err)
@@ -342,6 +360,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       logger,
 	}.New()
 	assert.Nil(err)
@@ -381,6 +400,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       logger,
 		FailureURL:   "http://localhost:12345/bar",
 	}.New()
@@ -422,6 +442,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       logger,
 		FailureURL:   "http://localhost:12345/bar",
 	}.New()
@@ -455,6 +476,7 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		CutOffPeriod: time.Second,
 		NumWorkers:   10,
 		QueueSize:    10,
+		Profiler:     testServerProfiler,
 		Logger:       logger,
 		FailureURL:   "http://localhost:12345/bar",
 	}.New()
@@ -500,6 +522,7 @@ func TestOverflow(t *testing.T) {
 		CutOffPeriod: 4 * time.Second,
 		NumWorkers:   1,
 		QueueSize:    2,
+		Profiler:     testServerProfiler,
 		Logger:       logger,
 		FailureURL:   "http://localhost:12345/bar",
 	}.New()

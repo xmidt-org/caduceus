@@ -55,8 +55,7 @@ func caduceus(arguments []string) int {
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
-			Logger:           logger,
-			caduceusProfiler: serverProfiler,
+			Logger: logger,
 		},
 		doJob: workerPool.Send,
 	}

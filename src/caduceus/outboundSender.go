@@ -85,6 +85,10 @@ type OutboundSenderFactory struct {
 	// Must be greater then 0 seconds
 	CutOffPeriod time.Duration
 
+	// The server profiler that we want to be calling whenever
+	// we service a request.
+	Profiler ServerProfiler
+
 	// The logger to use.
 	Logger logging.Logger
 }
@@ -102,7 +106,7 @@ type OutboundSender struct {
 	matcher      map[string][]*regexp.Regexp
 	queueSize    int
 	queue        chan outboundRequest
-	profiler     ServerRing
+	profiler     ServerProfiler
 	wg           sync.WaitGroup
 	cutOffPeriod time.Duration
 	failureMsg   FailureMessage
@@ -210,7 +214,7 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		}
 	}
 
-	obs.profiler = NewCaduceusRing(100)
+	obs.profiler = osf.Profiler
 
 	obs.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
@@ -347,10 +351,10 @@ func (obs *OutboundSender) worker(id int) {
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
-						obs.profiler.Add(work.req)
+						obs.profiler.Send(work.req)
 					} else {
 						// Report partial success
-						obs.profiler.Add(work.req)
+						obs.profiler.Send(work.req)
 					}
 				}
 			}
