@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/handler"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/server"
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -38,23 +39,31 @@ func caduceus(arguments []string) int {
 	err = v.Unmarshal(caduceusConfig)
 	if err != nil {
 		return 1
-	} else {
-		logger.Info("%v", caduceusConfig)
 	}
-
-	logger.Info("Caduceus is up and running!")
 
 	workerPool := WorkerPoolFactory{
 		NumWorkers: caduceusConfig.NumWorkerThreads,
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
+	serverProfiler := ServerProfilerFactory{
+		Frequency: caduceusConfig.ProfilerFrequency,
+		Duration:  caduceusConfig.ProfilerDuration,
+		QueueSize: caduceusConfig.ProfilerQueueSize,
+	}.New()
+
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
-			Logger: logger,
+			Logger:           logger,
+			caduceusProfiler: serverProfiler,
 		},
 		doJob: workerPool.Send,
+	}
+
+	profileWrapper := &ProfileHandler{
+		Logger:           logger,
+		caduceusProfiler: serverProfiler,
 	}
 
 	validator := secure.Validators{
@@ -70,17 +79,23 @@ func caduceus(arguments []string) int {
 
 	caduceusHandler := alice.New(authHandler.Decorate)
 
+	mux := mux.NewRouter()
+	mux.Handle("/api/v1/run", caduceusHandler.Then(serverWrapper))
+	mux.Handle("/api/v1/profile", caduceusHandler.Then(profileWrapper))
+
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
 
-	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, caduceusHandler.Then(serverWrapper))
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, mux)
+	serverWrapper.caduceusHealth = caduceusHealth
+
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
 	}
 
-	serverWrapper.caduceusHealth = caduceusHealth
+	logger.Info("Caduceus is up and running!")
 
 	var (
 		signals = make(chan os.Signal, 1)
