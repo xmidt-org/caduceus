@@ -20,7 +20,7 @@ func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler) {
 		profilerRing: NewCaduceusRing(spf.Duration),
 		inChan:       make(chan interface{}, spf.QueueSize),
 		quit:         make(chan struct{}),
-		rwMutex:      &sync.RWMutex{},
+		rwMutex:      new(sync.RWMutex),
 	}
 
 	go newCaduceusProfiler.aggregate(newCaduceusProfiler.quit)

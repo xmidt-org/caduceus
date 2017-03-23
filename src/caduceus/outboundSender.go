@@ -347,10 +347,10 @@ func (obs *OutboundSender) worker(id int) {
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
-						// obs.profiler.Add(work.req) <-- Race condition!
+						obs.profiler.Add(work.req)
 					} else {
 						// Report partial success
-						// obs.profiler.Add(work.req) <-- Race condition!
+						obs.profiler.Add(work.req)
 					}
 				}
 			}
