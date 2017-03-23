@@ -115,19 +115,8 @@ func TestCaduceusProfiler(t *testing.T) {
 		testWG.Wait()
 		testResults := testProfiler.Report()
 
-		found := false
-		for _, value := range testResults {
-			if assertedValue, ok := value.(string); ok {
-				if assertedValue == testMsg {
-					found = true
-					break
-				}
-			}
-		}
-
-		if !found {
-			assert.Fail("The data that we put on to the profiler was not picked up.")
-		}
+		assert.Equal(1, len(testResults))
+		assert.Equal("test", testResults[0].(string))
 
 		fakeRing.AssertExpectations(t)
 	})
