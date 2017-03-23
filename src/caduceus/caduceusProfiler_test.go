@@ -20,8 +20,12 @@ func (m *mockRing) Add(inValue interface{}) {
 }
 
 func (m *mockRing) Snapshot() (values []interface{}) {
-	m.Called()
-	return nil
+	arguments := m.Called()
+	if arguments.Get(0) == nil {
+		return nil
+	}
+
+	return arguments.Get(0).([]interface{})
 }
 
 // Begin test functions
@@ -48,6 +52,7 @@ func TestCaduceusProfiler(t *testing.T) {
 	testData := make([]interface{}, 0)
 	testData = append(testData, testMsg)
 
+	// channel that we'll send random stuff to to trigger things in the aggregate method
 	testChan := make(chan time.Time, 1)
 	var testFunc Tick
 	testFunc = func(time.Duration) <-chan time.Time {
@@ -56,6 +61,7 @@ func TestCaduceusProfiler(t *testing.T) {
 
 	testWG := new(sync.WaitGroup)
 
+	// used to mock out a ring that the server profiler uses
 	fakeRing := new(mockRing)
 	fakeRing.On("Add", mock.AnythingOfType("[]interface {}")).Run(
 		func(args mock.Arguments) {
@@ -63,6 +69,7 @@ func TestCaduceusProfiler(t *testing.T) {
 		}).Once()
 	fakeRing.On("Snapshot").Return(testData).Once()
 
+	// what we'll use for most of the tests
 	testProfiler := caduceusProfiler{
 		frequency:    1,
 		tick:         testFunc,
@@ -72,6 +79,7 @@ func TestCaduceusProfiler(t *testing.T) {
 		rwMutex:      new(sync.RWMutex),
 	}
 
+	// start this up for later
 	go testProfiler.aggregate(testProfiler.quit)
 
 	t.Run("TestCaduceusProfilerSend", func(t *testing.T) {
@@ -107,12 +115,9 @@ func TestCaduceusProfiler(t *testing.T) {
 		testWG.Wait()
 		testResults := testProfiler.Report()
 
-		t.Log(testResults)
-
 		found := false
 		for _, value := range testResults {
 			if assertedValue, ok := value.(string); ok {
-				t.Log(assertedValue)
 				if assertedValue == testMsg {
 					found = true
 					break
@@ -126,4 +131,6 @@ func TestCaduceusProfiler(t *testing.T) {
 
 		fakeRing.AssertExpectations(t)
 	})
+
+	testProfiler.Close()
 }
