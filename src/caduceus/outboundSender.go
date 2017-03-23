@@ -85,9 +85,9 @@ type OutboundSenderFactory struct {
 	// Must be greater then 0 seconds
 	CutOffPeriod time.Duration
 
-	// The server profiler that we want to be calling whenever
-	// we service a request.
-	Profiler ServerProfiler
+	// The factory that we'll use to make new ServerProfilers on a per
+	// outboundSender basis
+	ProfilerFactory ServerProfilerFactory
 
 	// The logger to use.
 	Logger logging.Logger
@@ -166,13 +166,11 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		}
 	}
 
-	if osf.Profiler == nil {
+	obs.profiler, err = osf.ProfilerFactory.New()
+	if err != nil {
 		obs = nil
-		err = errors.New("A ServerProfiler must be provided for an outboundSender to start.")
 		return
 	}
-
-	obs.profiler = osf.Profiler
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
