@@ -39,7 +39,7 @@ type outboundRequest struct {
 // when we have to cut and endpoint off.
 type FailureMessage struct {
 	Text         string              `json:"text"`
-	Original     whl.WebHookListener `json:"original_request"`
+	Original     whl.WebHookListener `json:"webhook_registration"`
 	CutOffPeriod string              `json:"cut_off_period"`
 	QueueSize    int                 `json:"queue_size"`
 	Workers      int                 `json:"worker_count"`
@@ -113,6 +113,7 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		client:       osf.Client,
 		queueSize:    osf.QueueSize,
 		cutOffPeriod: osf.CutOffPeriod,
+		deliverUntil: osf.Listener.Until,
 		logger:       osf.Logger,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
@@ -136,7 +137,7 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
-	obs.queue = make(chan outboundRequest, osf.QueueSize+10)
+	obs.queue = make(chan outboundRequest, osf.QueueSize)
 
 	// Create the event regex objects
 	for _, event := range osf.Listener.Events {
