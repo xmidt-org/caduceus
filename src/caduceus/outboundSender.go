@@ -221,6 +221,16 @@ func (obs *OutboundSender) Shutdown(gentle bool) {
 	obs.mutex.Unlock()
 }
 
+// RetiredSince returns the time the OutboundSender retired (which could be in
+// the future).
+func (obs *OutboundSender) RetiredSince() time.Time {
+	obs.mutex.RLock()
+	deliverUntil := obs.deliverUntil
+	obs.mutex.RUnlock()
+
+	return deliverUntil
+}
+
 // QueueWrp is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
