@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	whl "github.com/Comcast/webpa-common/webhooklisteners"
 	"hash"
 	"net/http"
 	"net/url"
@@ -37,42 +38,20 @@ type outboundRequest struct {
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	URL          string              `json:"url"`
 	Text         string              `json:"text"`
-	Events       []string            `json:"events"`
-	Matchers     map[string][]string `json:"matchers,omitempty"`
-	CutOffPeriod string              `json:"cut-off-period"`
-	QueueSize    int                 `json:"queue-size"`
-	Workers      int                 `json:"worker-count"`
+	Original     whl.WebHookListener `json:"original_request"`
+	CutOffPeriod string              `json:"cut_off_period"`
+	QueueSize    int                 `json:"queue_size"`
+	Workers      int                 `json:"worker_count"`
 }
 
 // OutboundSenderFactory is a configurable factory for OutboundSender objects.
 type OutboundSenderFactory struct {
-	// The URL to deliver messages to.
-	URL string
-
-	// The URL to notify when we cut off a client due to overflow.
-	// Optional, set to "" to disable behavior
-	FailureURL string
-
-	// The content-type to set the messages to (unless specified by WRP).
-	ContentType string
+	// The WebHookListener to service
+	Listener whl.WebHookListener
 
 	// The http client to use for requests.
 	Client *http.Client
-
-	// The secret to use for the SHA1 HMAC.
-	// Optional, set to "" to disable behavior.
-	Secret string
-
-	// The time when message delivery is cut off.
-	Until time.Time
-
-	// The list of regular expressions to match event type against.
-	Events []string
-
-	// The list of regular expressions to match against the metadata.
-	Matchers map[string][]string
 
 	// The number of delivery workers to create and use.
 	NumWorkers int
@@ -95,9 +74,7 @@ type OutboundSenderFactory struct {
 
 // OutboundSender is the outbound sender object.
 type OutboundSender struct {
-	url          string
-	failureURL   *string
-	contentType  string
+	listener     whl.WebHookListener
 	deliverUntil time.Time
 	dropUntil    time.Time
 	client       *http.Client
@@ -116,7 +93,7 @@ type OutboundSender struct {
 
 // New creates a new OutboundSender object from the factory, or returns an error.
 func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
-	if _, err = url.ParseRequestURI(osf.URL); nil != err {
+	if _, err = url.ParseRequestURI(osf.Listener.URL); nil != err {
 		return
 	}
 
@@ -136,31 +113,26 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 	}
 
 	obs = &OutboundSender{
-		url:          osf.URL,
-		contentType:  osf.ContentType,
+		listener:     osf.Listener,
 		client:       osf.Client,
-		deliverUntil: osf.Until,
 		queueSize:    osf.QueueSize,
 		cutOffPeriod: osf.CutOffPeriod,
 		logger:       osf.Logger,
 		failureMsg: FailureMessage{
-			URL:          osf.URL,
+			Original:     osf.Listener,
 			Text:         failureText,
-			Events:       osf.Events,
-			Matchers:     osf.Matchers,
 			CutOffPeriod: osf.CutOffPeriod.String(),
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
 	}
 
-	if "" != osf.Secret {
-		obs.secret = []byte(osf.Secret)
+	if "" != osf.Listener.Secret {
+		obs.secret = []byte(osf.Listener.Secret)
 	}
 
-	if "" != osf.FailureURL {
-		obs.failureURL = &osf.FailureURL
-		if _, err = url.ParseRequestURI(osf.FailureURL); nil != err {
+	if "" != osf.Listener.FailureURL {
+		if _, err = url.ParseRequestURI(osf.Listener.FailureURL); nil != err {
 			obs = nil
 			return
 		}
@@ -177,7 +149,7 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 	obs.queue = make(chan outboundRequest, osf.QueueSize+10)
 
 	// Create the event regex objects
-	for _, event := range osf.Events {
+	for _, event := range osf.Listener.Events {
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(event); nil != err {
 			obs = nil
@@ -193,9 +165,9 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 	}
 
 	// Create the matcher regex objects
-	if nil != osf.Matchers {
+	if nil != osf.Listener.Matchers {
 		obs.matcher = make(map[string][]*regexp.Regexp)
-		for key, value := range osf.Matchers {
+		for key, value := range osf.Listener.Matchers {
 			var list []*regexp.Regexp
 			for _, item := range value {
 				if ".*" == item {
@@ -331,10 +303,10 @@ func (obs *OutboundSender) worker(id int) {
 		now := time.Now()
 		if now.Before(deliverUntil) && now.After(dropUntil) {
 			payload := bytes.NewReader(work.req.Payload)
-			req, err := http.NewRequest("POST", obs.url, payload)
+			req, err := http.NewRequest("POST", obs.listener.URL, payload)
 			if nil != err {
 				// Report drop
-				obs.logger.Error("http.NewRequest(\"POST\", '%s', payload) failed: %s", obs.url, err)
+				obs.logger.Error("http.NewRequest(\"POST\", '%s', payload) failed: %s", obs.listener.URL, err)
 			} else {
 				req.Header.Set("Content-Type", work.contentType)
 				req.Header.Set("X-Webpa-Event", work.event)
@@ -376,7 +348,7 @@ func (obs *OutboundSender) queueOverflow() {
 	obs.mutex.Unlock()
 
 	// Send a "you've been cut off" warning message
-	if nil != obs.failureURL {
+	if "" != obs.listener.FailureURL {
 		msg, err := json.Marshal(obs.failureMsg)
 
 		if nil != err {
@@ -384,7 +356,7 @@ func (obs *OutboundSender) queueOverflow() {
 		} else {
 
 			payload := bytes.NewReader(msg)
-			req, err := http.NewRequest("POST", *obs.failureURL, payload)
+			req, err := http.NewRequest("POST", obs.listener.FailureURL, payload)
 			req.Header.Set("Content-Type", "application/json")
 
 			if nil != obs.secret {
@@ -397,14 +369,14 @@ func (obs *OutboundSender) queueOverflow() {
 			resp, err := obs.client.Do(req)
 			if nil != err {
 				// Failure
-				obs.logger.Error("Unable to send cut-off notification (%s) err: %s", *obs.failureURL, err)
+				obs.logger.Error("Unable to send cut-off notification (%s) err: %s", obs.listener.FailureURL, err)
 			} else {
 				if nil == resp {
 					// Failure
-					obs.logger.Error("Unable to send cut-off notification (%s) nil response", *obs.failureURL)
+					obs.logger.Error("Unable to send cut-off notification (%s) nil response", obs.listener.FailureURL)
 				} else {
 					// Success
-					obs.logger.Error("Able to send cut-off notification (%s) status: %s", *obs.failureURL, resp.Status)
+					obs.logger.Error("Able to send cut-off notification (%s) status: %s", obs.listener.FailureURL, resp.Status)
 				}
 			}
 		}
