@@ -1,51 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	whl "github.com/Comcast/webpa-common/webhooklisteners"
 	"net/http"
 	"sync"
 	"time"
 )
-
-// WebpaWebHookListener is the structure that represents the Webhook listener
-// data we share.
-type WebpaWebHookListener struct {
-	URL         string
-	ContentType string
-	Secret      string
-	Events      []string
-	Matchers    map[string][]string
-	Duration    time.Duration
-	Until       time.Time
-	Address     string
-}
-
-// ID creates the canonical string identifing a WebpaWebhookListener
-func (w *WebpaWebHookListener) ID() string {
-
-	events := ""
-	comma := ""
-	for _, v := range w.Events {
-		events += comma + v
-		comma = ","
-	}
-
-	matcher := ""
-	if 0 < len(w.Matchers) {
-		comma = ""
-		for k, mVal := range w.Matchers {
-			for _, v := range mVal {
-				matcher += comma + k + "-" + v
-				comma = ","
-			}
-		}
-	} else {
-		matcher = "none"
-	}
-
-	return fmt.Sprintf("%s|%s|%s|%s", w.URL, w.Secret, events, matcher)
-}
 
 // SenderWrapperFactory configures the SenderWrapper for creation
 type SenderWrapperFactory struct {
@@ -91,7 +52,7 @@ func (swf SenderWrapperFactory) New() (sw *SenderWrapper, err error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *SenderWrapper) Update(list []WebpaWebHookListener) {
+func (sw *SenderWrapper) Update(list []whl.WebHookListener) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Client:       sw.client,
@@ -102,7 +63,7 @@ func (sw *SenderWrapper) Update(list []WebpaWebHookListener) {
 	}
 
 	ids := make([]struct {
-		Listener WebpaWebHookListener
+		Listener whl.WebHookListener
 		ID       string
 	}, len(list))
 
@@ -111,19 +72,13 @@ func (sw *SenderWrapper) Update(list []WebpaWebHookListener) {
 		ids[i].ID = v.ID()
 	}
 
-	now := time.Now()
 	sw.mutex.Lock()
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
 		if true == ok {
-			sender.Extend(now.Add(inValue.Listener.Duration))
+			sender.Extend(inValue.Listener.Until)
 		} else {
-			osf.URL = inValue.Listener.URL
-			osf.ContentType = inValue.Listener.ContentType
-			osf.Secret = inValue.Listener.Secret
-			osf.Events = inValue.Listener.Events
-			osf.Matchers = inValue.Listener.Matchers
-			osf.Until = now.Add(inValue.Listener.Duration)
+			osf.Listener = inValue.Listener
 			obs, err := osf.New()
 			if nil == err {
 				sw.senders[inValue.ID] = obs
