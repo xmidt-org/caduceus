@@ -26,6 +26,10 @@ type SenderWrapperFactory struct {
 	// shutting them down and cleaning up the resources associated with them.
 	Linger time.Duration
 
+	// The factory that we'll use to make new ServerProfilers on a per
+	// outboundSender basis
+	ProfilerFactory ServerProfilerFactory
+
 	// The logger implementation to share with OutboundSenders.
 	Logger logging.Logger
 
@@ -43,6 +47,7 @@ type SenderWrapper struct {
 	logger              logging.Logger
 	mutex               sync.RWMutex
 	senders             map[string]*OutboundSender
+	profilerFactory     ServerProfilerFactory
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 }
@@ -55,7 +60,9 @@ func (swf SenderWrapperFactory) New() (sw *SenderWrapper, err error) {
 		queueSizePerSender:  swf.QueueSizePerSender,
 		cutOffPeriod:        swf.CutOffPeriod,
 		linger:              swf.Linger,
-		logger:              swf.Logger}
+		logger:              swf.Logger,
+		profilerFactory:     swf.ProfilerFactory,
+	}
 
 	if swf.Linger <= 0 {
 		err = errors.New("Linger must be positive.")
@@ -78,11 +85,12 @@ func (swf SenderWrapperFactory) New() (sw *SenderWrapper, err error) {
 func (sw *SenderWrapper) Update(list []whl.WebHookListener) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Client:       sw.client,
-		CutOffPeriod: sw.cutOffPeriod,
-		NumWorkers:   sw.numWorkersPerSender,
-		QueueSize:    sw.queueSizePerSender,
-		Logger:       sw.logger,
+		Client:          sw.client,
+		CutOffPeriod:    sw.cutOffPeriod,
+		NumWorkers:      sw.numWorkersPerSender,
+		QueueSize:       sw.queueSizePerSender,
+		ProfilerFactory: sw.profilerFactory,
+		Logger:          sw.logger,
 	}
 
 	ids := make([]struct {
