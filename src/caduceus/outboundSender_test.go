@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
-	whl "github.com/Comcast/webpa-common/webhooklisteners"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -49,7 +49,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[strin
 	}
 
 	obs, err = OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Secret:      "123456",
@@ -181,7 +181,7 @@ func TestInvalidEventRegex(t *testing.T) {
 	assert := assert.New(t)
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -204,7 +204,7 @@ func TestInvalidUrl(t *testing.T) {
 	assert := assert.New(t)
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "invalid",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -220,7 +220,7 @@ func TestInvalidUrl(t *testing.T) {
 	assert.NotNil(err)
 
 	obs, err = OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
 			Events:      []string{"iot"},
@@ -240,7 +240,7 @@ func TestInvalidUrl(t *testing.T) {
 func TestInvalidClient(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -260,7 +260,7 @@ func TestInvalidClient(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -280,7 +280,7 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -302,7 +302,7 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -318,7 +318,7 @@ func TestInvalidEvents(t *testing.T) {
 	assert.NotNil(err)
 
 	obs, err = OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(60 * time.Second),
@@ -340,7 +340,7 @@ func TestInvalidEvents(t *testing.T) {
 func TestInvalidProfilerFactory(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now(),
@@ -364,7 +364,7 @@ func TestExtend(t *testing.T) {
 
 	now := time.Now()
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       now,
@@ -398,7 +398,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	logger, _ := loggerFactory.NewLogger("test")
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now(),
@@ -441,7 +441,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now(),
@@ -485,7 +485,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now(),
@@ -522,7 +522,7 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now(),
@@ -570,7 +570,7 @@ func TestOverflow(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		Listener: whl.WebHookListener{
+		Listener: webhook.W{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
 			Until:       time.Now().Add(30 * time.Second),

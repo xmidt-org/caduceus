@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
-	whl "github.com/Comcast/webpa-common/webhooklisteners"
+	"github.com/Comcast/webpa-common/webhook"
 	"hash"
 	"net/http"
 	"net/url"
@@ -38,17 +38,17 @@ type outboundRequest struct {
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text         string              `json:"text"`
-	Original     whl.WebHookListener `json:"webhook_registration"`
-	CutOffPeriod string              `json:"cut_off_period"`
-	QueueSize    int                 `json:"queue_size"`
-	Workers      int                 `json:"worker_count"`
+	Text         string    `json:"text"`
+	Original     webhook.W `json:"webhook_registration"`
+	CutOffPeriod string    `json:"cut_off_period"`
+	QueueSize    int       `json:"queue_size"`
+	Workers      int       `json:"worker_count"`
 }
 
 // OutboundSenderFactory is a configurable factory for OutboundSender objects.
 type OutboundSenderFactory struct {
 	// The WebHookListener to service
-	Listener whl.WebHookListener
+	Listener webhook.W
 
 	// The http client to use for requests.
 	Client *http.Client
@@ -74,7 +74,7 @@ type OutboundSenderFactory struct {
 
 // OutboundSender is the outbound sender object.
 type OutboundSender struct {
-	listener     whl.WebHookListener
+	listener     webhook.W
 	deliverUntil time.Time
 	dropUntil    time.Time
 	client       *http.Client

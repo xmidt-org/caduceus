@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
-	whl "github.com/Comcast/webpa-common/webhooklisteners"
+	"github.com/Comcast/webpa-common/webhook"
 	"net/http"
 	"net/url"
 	"strings"
@@ -82,7 +82,7 @@ func (swf SenderWrapperFactory) New() (sw *SenderWrapper, err error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *SenderWrapper) Update(list []whl.WebHookListener) {
+func (sw *SenderWrapper) Update(list []webhook.W) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Client:          sw.client,
@@ -94,7 +94,7 @@ func (sw *SenderWrapper) Update(list []whl.WebHookListener) {
 	}
 
 	ids := make([]struct {
-		Listener whl.WebHookListener
+		Listener webhook.W
 		ID       string
 	}, len(list))
 

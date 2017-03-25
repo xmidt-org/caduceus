@@ -4,7 +4,7 @@ import (
 	//"bytes"
 	//"fmt"
 	"github.com/Comcast/webpa-common/logging"
-	whl "github.com/Comcast/webpa-common/webhooklisteners"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/stretchr/testify/assert"
 	//"io/ioutil"
 	"net/http"
@@ -60,6 +60,11 @@ func TestInvalidLinger(t *testing.T) {
 		CutOffPeriod:        30 * time.Second,
 		Logger:              swGetLogger(),
 		Linger:              0 * time.Second,
+		ProfilerFactory: ServerProfilerFactory{
+			Frequency: 10,
+			Duration:  6,
+			QueueSize: 100,
+		},
 	}.New()
 
 	assert := assert.New(t)
@@ -88,6 +93,11 @@ func TestSwSimple(t *testing.T) {
 		Client:              &http.Client{Transport: trans},
 		Logger:              swGetLogger(),
 		Linger:              1 * time.Second,
+		ProfilerFactory: ServerProfilerFactory{
+			Frequency: 10,
+			Duration:  6,
+			QueueSize: 100,
+		},
 	}.New()
 
 	assert := assert.New(t)
@@ -103,7 +113,7 @@ func TestSwSimple(t *testing.T) {
 	assert.Equal(int32(0), trans.i)
 
 	// Add 2 listeners
-	list := []whl.WebHookListener{
+	list := []webhook.W{
 		{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
@@ -137,7 +147,7 @@ func TestSwSimple(t *testing.T) {
 	assert.Equal(int32(3), atomic.LoadInt32(&trans.i))
 
 	// We get a registration
-	list = []whl.WebHookListener{
+	list = []webhook.W{
 		{
 			URL:         "http://localhost:9999/foo",
 			ContentType: "application/json",
