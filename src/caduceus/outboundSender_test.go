@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -48,13 +49,16 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[strin
 	}
 
 	obs, err = OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Secret:      "123456",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot", "test"},
+			Matchers:    matcher,
+		},
+
 		Client:          &http.Client{Transport: trans},
-		Secret:          "123456",
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"iot", "test"},
-		Matchers:        matcher,
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -81,6 +85,7 @@ func TestSimple(t *testing.T) {
 
 	trans := &transport{}
 	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.NotNil(obs)
 	assert.Nil(err)
 
 	req := simpleRequest()
@@ -176,11 +181,13 @@ func TestInvalidEventRegex(t *testing.T) {
 	assert := assert.New(t)
 
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"[[:123"},
+		},
 		Client:          &http.Client{},
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"[[:123"},
 		NumWorkers:      10,
 		QueueSize:       10,
 		ProfilerFactory: testServerProfilerFactory,
@@ -197,11 +204,13 @@ func TestInvalidUrl(t *testing.T) {
 	assert := assert.New(t)
 
 	obs, err := OutboundSenderFactory{
-		URL:             "invalid",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "invalid",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot"},
+		},
 		Client:          &http.Client{},
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"iot"},
 		NumWorkers:      10,
 		QueueSize:       10,
 		ProfilerFactory: testServerProfilerFactory,
@@ -211,10 +220,12 @@ func TestInvalidUrl(t *testing.T) {
 	assert.NotNil(err)
 
 	obs, err = OutboundSenderFactory{
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot"},
+		},
 		Client:          &http.Client{},
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"iot"},
 		NumWorkers:      10,
 		QueueSize:       10,
 		ProfilerFactory: testServerProfilerFactory,
@@ -229,10 +240,12 @@ func TestInvalidUrl(t *testing.T) {
 func TestInvalidClient(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"iot"},
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot"},
+		},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -247,11 +260,13 @@ func TestInvalidClient(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot"},
+		},
 		Client:          &http.Client{},
-		ContentType:     "application/json",
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"iot"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -265,17 +280,19 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot"},
+			FailureURL:  "invalid",
+		},
 		Client:          &http.Client{},
-		ContentType:     "application/json",
-		Until:           time.Now().Add(60 * time.Second),
-		Events:          []string{"iot"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
-		Logger:          getLogger(),
-		FailureURL:      "invalid",
 		ProfilerFactory: testServerProfilerFactory,
+		Logger:          getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -285,10 +302,12 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+		},
 		Client:          &http.Client{},
-		ContentType:     "application/json",
-		Until:           time.Now().Add(60 * time.Second),
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -299,17 +318,20 @@ func TestInvalidEvents(t *testing.T) {
 	assert.NotNil(err)
 
 	obs, err = OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(60 * time.Second),
+			Events:      []string{"iot(.*"},
+		},
 		Client:          &http.Client{},
-		ContentType:     "application/json",
-		Until:           time.Now().Add(60 * time.Second),
 		CutOffPeriod:    time.Second,
-		Events:          []string{"iot(.*"},
 		NumWorkers:      10,
 		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
 		Logger:          getLogger(),
+		ProfilerFactory: testServerProfilerFactory,
 	}.New()
+
 	assert.Nil(obs)
 	assert.NotNil(err)
 }
@@ -318,16 +340,18 @@ func TestInvalidEvents(t *testing.T) {
 func TestInvalidProfilerFactory(t *testing.T) {
 	assert := assert.New(t)
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now(),
+			Events:      []string{"iot", "test"},
+		},
 		Client:          &http.Client{},
-		ContentType:     "application/json",
-		Until:           time.Now(),
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
-		ProfilerFactory: ServerProfilerFactory{},
 		Logger:          getLogger(),
+		ProfilerFactory: ServerProfilerFactory{},
 	}.New()
 
 	assert.Nil(obs)
@@ -340,11 +364,13 @@ func TestExtend(t *testing.T) {
 
 	now := time.Now()
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       now,
+			Events:      []string{"iot", "test"},
+		},
 		Client:          &http.Client{},
-		Until:           now,
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -372,16 +398,18 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	logger, _ := loggerFactory.NewLogger("test")
 
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now(),
+			Events:      []string{"iot", "test"},
+		},
 		Client:          &http.Client{},
-		Until:           time.Now(),
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
 		Logger:          logger,
+		ProfilerFactory: testServerProfilerFactory,
 	}.New()
 	assert.Nil(err)
 
@@ -403,7 +431,8 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		assert.Equal([]string{"application/json"}, req.Header["Content-Type"])
 		assert.Nil(req.Header["X-Webpa-Signature"])
 		payload, _ := ioutil.ReadAll(req.Body)
-		assert.Equal(`{"url":"http://localhost:9999/foo","text":"Unfortunately, your endpoint is not able to keep up with the traffic being sent to it.  Due to this circumstance, all notification traffic is being cut off and dropped for a period of time.  Please increase your capacity to handle notifications, or reduce the number of notifications you have requested.","events":["iot","test"],"cut-off-period":"1s","queue-size":10,"worker-count":10}`, string(payload))
+		// There is a timestamp in the body, so it's not worth trying to do a string comparison
+		assert.NotNil(payload)
 
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
@@ -412,17 +441,19 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now(),
+			Events:      []string{"iot", "test"},
+			FailureURL:  "http://localhost:12345/bar",
+		},
 		Client:          &http.Client{Transport: trans},
-		Until:           time.Now(),
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
 		ProfilerFactory: testServerProfilerFactory,
 		Logger:          logger,
-		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 
@@ -442,9 +473,10 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		assert.Equal("POST", req.Method)
 		assert.Equal([]string{"application/json"}, req.Header["Content-Type"])
-		assert.Equal([]string{"sha1=9a436f9f7c4722e5be86812456f65aa07bada4df"}, req.Header["X-Webpa-Signature"])
+		// There is a timestamp in the body, so it's not worth trying to do a string comparison
+		assert.NotNil(req.Header["X-Webpa-Signature"])
 		payload, _ := ioutil.ReadAll(req.Body)
-		assert.Equal(`{"url":"http://localhost:9999/foo","text":"Unfortunately, your endpoint is not able to keep up with the traffic being sent to it.  Due to this circumstance, all notification traffic is being cut off and dropped for a period of time.  Please increase your capacity to handle notifications, or reduce the number of notifications you have requested.","events":["iot","test"],"cut-off-period":"1s","queue-size":10,"worker-count":10}`, string(payload))
+		assert.NotNil(payload)
 
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
@@ -453,18 +485,20 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now(),
+			Secret:      "123456",
+			Events:      []string{"iot", "test"},
+			FailureURL:  "http://localhost:12345/bar",
+		},
 		Client:          &http.Client{Transport: trans},
-		Until:           time.Now(),
-		Secret:          "123456",
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
 		ProfilerFactory: testServerProfilerFactory,
 		Logger:          logger,
-		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 
@@ -488,17 +522,19 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now(),
+			Events:      []string{"iot", "test"},
+			FailureURL:  "http://localhost:12345/bar",
+		},
 		Client:          &http.Client{Transport: trans},
-		Until:           time.Now(),
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
 		Logger:          logger,
-		FailureURL:      "http://localhost:12345/bar",
+		ProfilerFactory: testServerProfilerFactory,
 	}.New()
 	assert.Nil(err)
 
@@ -534,17 +570,19 @@ func TestOverflow(t *testing.T) {
 	}
 
 	obs, err := OutboundSenderFactory{
-		URL:             "http://localhost:9999/foo",
-		ContentType:     "application/json",
+		Listener: webhook.W{
+			URL:         "http://localhost:9999/foo",
+			ContentType: "application/json",
+			Until:       time.Now().Add(30 * time.Second),
+			Events:      []string{"iot", "test"},
+			FailureURL:  "http://localhost:12345/bar",
+		},
 		Client:          &http.Client{Transport: trans},
-		Until:           time.Now().Add(30 * time.Second),
-		Events:          []string{"iot", "test"},
 		CutOffPeriod:    4 * time.Second,
 		NumWorkers:      1,
 		QueueSize:       2,
 		ProfilerFactory: testServerProfilerFactory,
 		Logger:          logger,
-		FailureURL:      "http://localhost:12345/bar",
 	}.New()
 	assert.Nil(err)
 
