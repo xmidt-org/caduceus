@@ -1,5 +1,5 @@
 hash: 6684fdfcee777e1e8e3c2467479ef051a3db07d6c07a66506d1f859fa495ae06
-updated: 2017-03-24T18:07:33.499476257-07:00
+updated: 2017-03-27T13:24:14.343069944-07:00
 imports:
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
@@ -9,22 +9,22 @@ imports:
   version: b210bf658a81f6389d14ef2d99aa3a9454f49b5b
   subpackages:
   - concurrent
+  - handler
+  - logging
+  - secure
+  - server
+  - webhook
+  - health
   - device
   - fact
-  - handler
   - hash
-  - health
-  - logging
-  - logging/golog
-  - resource
-  - secure
   - secure/key
-  - server
-  - types
-  - webhook
+  - logging/golog
   - wrp
+  - resource
+  - types
 - name: github.com/davecgh/go-spew
-  version: 346938d642f2ec3594ed81d874461961cd0faa76
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
@@ -34,16 +34,16 @@ imports:
 - name: github.com/gorilla/mux
   version: 599cba5e7b6137d46ddf58fb1765f5d928e69604
 - name: github.com/gorilla/websocket
-  version: a91eba7f97777409bc2c443f5534d41dd20c5720
+  version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
 - name: github.com/hashicorp/hcl
   version: 630949a3c5fa3c613328e1b8256052cbc2327c9b
   subpackages:
   - hcl/ast
   - hcl/parser
-  - hcl/scanner
-  - hcl/strconv
   - hcl/token
   - json/parser
+  - hcl/scanner
+  - hcl/strconv
   - json/scanner
   - json/token
 - name: github.com/ian-kent/go-log
@@ -68,11 +68,11 @@ imports:
 - name: github.com/philhofer/fwd
   version: 98c11a7a6ec829d672b03833c3d69a7fae1ca972
 - name: github.com/pmezard/go-difflib
-  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
 - name: github.com/SermoDigital/jose
-  version: 2bd9b81ac51d6d6134fcd4fd846bd2e7347a15f9
+  version: f6df55f235c24f236d11dbcf665249a59ac2021f
   subpackages:
   - crypto
   - jws
@@ -88,29 +88,29 @@ imports:
 - name: github.com/spf13/pflag
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: github.com/spf13/viper
-  version: 84f94806c67f59dd7ae87bc5351f7a9c94a4558d
+  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
 - name: github.com/stretchr/objx
-  version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
+  version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
-  version: 4d4bfba8f1d1027c4fdbe371823030df51419987
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
-  - assert
   - mock
+  - assert
   - require
 - name: github.com/t-k/fluent-logger-golang
   version: 0f8ec08f2057a61574b6943e75045fffbeae894e
   subpackages:
   - fluent
 - name: github.com/tinylib/msgp
-  version: 362bfb3384d53ae4d5dd745983a4d70b6d23628c
+  version: 38a6f61a768dc24552dad94611923841b53acc4f
   subpackages:
   - msgp
 - name: github.com/ugorji/go
-  version: 708a42d246822952f38190a8d8c4e6b16a0e600c
+  version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: 8fd966b47dbdd4faa03de0d06e3d733baeb9a1a9
+  version: afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd
   subpackages:
   - unix
 - name: golang.org/x/text

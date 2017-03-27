@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"os/signal"
+	"time"
 )
 
 const (
@@ -38,6 +39,7 @@ func caduceus(arguments []string) int {
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to unmarshal configuration data into struct: %s\n", err)
 		return 1
 	}
 
@@ -46,23 +48,50 @@ func caduceus(arguments []string) int {
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
-	// TODO: use the below to fill out the parts of what will eventually handle outboundSenders
-	// serverProfilerFactory := ServerProfilerFactory{
-	// 	Frequency: caduceusConfig.ProfilerFrequency,
-	// 	Duration:  caduceusConfig.ProfilerDuration,
-	// 	QueueSize: caduceusConfig.ProfilerQueueSize,
-	// }
+	caduceusProfilerFactory := ServerProfilerFactory{
+		Frequency: caduceusConfig.ProfilerFrequency,
+		Duration:  caduceusConfig.ProfilerDuration,
+		QueueSize: caduceusConfig.ProfilerQueueSize,
+	}
+
+	// declare a new sender wrapper and pass it a profiler factory so that it can create
+	// unique profilers on a per outboundSender basis
+	caduceusSenderWrapper, err := SenderWrapperFactory{
+		NumWorkersPerSender: caduceusConfig.SenderNumWorkersPerSender,
+		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
+		CutOffPeriod:        time.Duration(caduceusConfig.SenderCutOffPeriod) * time.Second,
+		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
+		ProfilerFactory:     caduceusProfilerFactory,
+		Logger:              logger,
+		// TODO: ask Wes how I should be setting this
+		// Client: ,
+	}.New()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to initialize new caduceus sender wrapper: %s\n", err)
+		return 1
+	}
+
+	// here we create a profiler specifically for our main server handler
+	caduceusHandlerProfiler, err := caduceusProfilerFactory.New()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to profiler for main caduceus handler: %s\n", err)
+		return 1
+	}
 
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
-			Logger: logger,
+			handlerProfiler: caduceusHandlerProfiler,
+			senderWrapper:   caduceusSenderWrapper,
+			Logger:          logger,
 		},
 		doJob: workerPool.Send,
 	}
 
 	profileWrapper := &ProfileHandler{
-		Logger: logger,
+		profilerData: caduceusHandlerProfiler,
+		Logger:       logger,
 	}
 
 	validator := secure.Validators{
@@ -104,6 +133,9 @@ func caduceus(arguments []string) int {
 	<-signals
 	close(shutdown)
 	waitGroup.Wait()
+
+	// shutdown the sender wrapper gently so that all queued messages get serviced
+	caduceusSenderWrapper.Shutdown(true)
 
 	return 0
 }
