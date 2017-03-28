@@ -15,11 +15,13 @@ src/caduceus/caduceus.json
 
 # Vim
 *.swp
+*.out
 
 # Folders
 _obj
 _test
 vendor
+coverage*
 
 # Architecture specific extensions/prefixes
 *.[568vq]
