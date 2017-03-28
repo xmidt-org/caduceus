@@ -26,6 +26,7 @@ type CaduceusConfig struct {
 	SenderQueueSizePerSender            int
 	SenderCutOffPeriod                  int
 	SenderLinger                        int
+	SenderClientTimeout                 int
 	ProfilerFrequency                   int
 	ProfilerDuration                    int
 	ProfilerQueueSize                   int

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/handler"
@@ -10,6 +11,7 @@ import (
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -54,6 +56,9 @@ func caduceus(arguments []string) int {
 		QueueSize: caduceusConfig.ProfilerQueueSize,
 	}
 
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
+
 	// declare a new sender wrapper and pass it a profiler factory so that it can create
 	// unique profilers on a per outboundSender basis
 	caduceusSenderWrapper, err := SenderWrapperFactory{
@@ -63,8 +68,7 @@ func caduceus(arguments []string) int {
 		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
 		ProfilerFactory:     caduceusProfilerFactory,
 		Logger:              logger,
-		// TODO: ask Wes how I should be setting this
-		// Client: ,
+		Client:              &http.Client{Transport: tr, Timeout: timeout},
 	}.New()
 
 	if err != nil {
