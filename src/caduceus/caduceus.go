@@ -61,6 +61,7 @@ func caduceus(arguments []string) int {
 
 	// declare a new sender wrapper and pass it a profiler factory so that it can create
 	// unique profilers on a per outboundSender basis
+	// TODO: need to add `Update` method into the code
 	caduceusSenderWrapper, err := SenderWrapperFactory{
 		NumWorkersPerSender: caduceusConfig.SenderNumWorkersPerSender,
 		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
