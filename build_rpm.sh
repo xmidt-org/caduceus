@@ -43,7 +43,12 @@ mv caduceus-$new_release.tar.gz /root/rpmbuild/SOURCES
 rm -rf caduceus-$release
 popd
 
-rpmbuild -ba --sign --define "_ver $release" --define "_releaseno ${BUILD_NUMBER}" --define "_fullver $new_release" caduceus.spec
+rpmbuild -ba --sign \
+    --define "_gpg_name Comcast Webpa Team <CHQSV-Webpa-Gpg@comcast.com>" \
+    --define "_ver $release" \
+    --define "_releaseno ${BUILD_NUMBER}" \
+    --define "_fullver $new_release" \
+    caduceus.spec
 
 pushd ..
 echo "$new_release" > versionno.txt
