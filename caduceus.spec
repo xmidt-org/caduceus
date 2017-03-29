@@ -102,4 +102,3 @@ if [ $1 = 0 ]; then
 fi
 
 %changelog
-

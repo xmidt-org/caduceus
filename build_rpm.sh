@@ -45,6 +45,9 @@ mv ${NAME}-$new_release.tar.gz /root/rpmbuild/SOURCES
 rm -rf ${NAME}-$release
 popd
 
+# Merge the changelog into the spec file so we're consistent
+cat ChangeLog >> ${NAME}.spec
+
 yes "" | rpmbuild -ba --sign \
     --define "_signature gpg" \
     --define "_gpg_name Comcast Webpa Team <CHQSV-Webpa-Gpg@comcast.com>" \
