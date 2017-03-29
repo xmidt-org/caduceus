@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
@@ -43,6 +44,29 @@ func (m *mockHealthTracker) ServeHTTP(response http.ResponseWriter, request *htt
 
 func (m *mockHealthTracker) IncrementBucket(inSize int) {
 	m.Called(inSize)
+}
+
+// mockServerProfiler needs to mock things that the `ServerProfiler` does
+type mockServerProfiler struct {
+	mock.Mock
+}
+
+func (m *mockServerProfiler) Send(inData interface{}) error {
+	arguments := m.Called(inData)
+	return arguments.Error(0)
+}
+
+func (m *mockServerProfiler) Report() (values []interface{}) {
+	arguments := m.Called()
+	if arguments.Get(0) == nil {
+		return nil
+	}
+
+	return arguments.Get(0).([]interface{})
+}
+
+func (m *mockServerProfiler) Close() {
+	m.Called()
 }
 
 // Begin test functions
@@ -123,7 +147,7 @@ func TestCaduceusHealth(t *testing.T) {
 	})
 }
 
-func TestServeHandler(t *testing.T) {
+func TestServerHandler(t *testing.T) {
 	assert := assert.New(t)
 
 	logger := logging.DefaultLogger()
@@ -197,5 +221,40 @@ func TestServeHandler(t *testing.T) {
 		assert.Equal(408, resp.StatusCode)
 		fakeHandler.AssertExpectations(t)
 		fakeHealth.AssertExpectations(t)
+	})
+}
+
+func TestProfilerHandler(t *testing.T) {
+	assert := assert.New(t)
+
+	var testData []interface{}
+	testData = append(testData, "passed")
+
+	logger := logging.DefaultLogger()
+	fakeProfiler := new(mockServerProfiler)
+	fakeProfiler.On("Report").Return(testData).Once()
+
+	testProfilerWrapper := ProfileHandler{
+		profilerData: fakeProfiler,
+		Logger:       logger,
+	}
+
+	req := httptest.NewRequest("GET", "localhost:8080", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		testProfilerWrapper.ServeHTTP(w, req)
+		resp := w.Result()
+
+		var testResults []interface{}
+		dec := json.NewDecoder(resp.Body)
+		err := dec.Decode(&testResults)
+		assert.Nil(err)
+
+		assert.Equal(200, resp.StatusCode)
+		assert.Equal(1, len(testResults))
+		assert.Equal("passed", testResults[0].(string))
+		fakeProfiler.AssertExpectations(t)
 	})
 }

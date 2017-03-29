@@ -41,7 +41,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			contentType = value[0]
 			switch contentType {
 			case "application/json":
+				// ok contentType
 			case "application/wrp":
+				// ok contentType
 			default:
 				response.WriteHeader(http.StatusBadRequest)
 				response.Write([]byte("Only Content-Type values of \"application/json\" or \"application/wrp\" are supported.\n"))
