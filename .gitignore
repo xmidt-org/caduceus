@@ -12,6 +12,7 @@ src/caduceus/output
 
 # config
 src/caduceus/caduceus.json
+keys/*.private
 
 # Vim
 *.swp
