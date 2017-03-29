@@ -3,7 +3,7 @@
 Name:       caduceus
 Version:    %{_ver}
 Release:    %{_releaseno}%{?dist}
-Summary:    The WebPA HTTP redirector component.
+Summary:    The Webpa event delivery server.
 
 Group:      System Environment/Daemons
 License:    ASL 2.0
@@ -14,7 +14,7 @@ BuildRequires:  golang >= 1.7
 Requires:       supervisor
 
 %description
-Webpa notifications delivery server.
+The Webpa server for delivering events written in Go.
 
 %prep
 %setup -q
