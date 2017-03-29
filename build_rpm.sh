@@ -43,9 +43,6 @@ mv caduceus-$new_release.tar.gz /root/rpmbuild/SOURCES
 rm -rf caduceus-$release
 popd
 
-gpg --list-keys
-ls -la
-
 yes "" | rpmbuild -ba --sign \
     --define "_signature gpg" \
     --define "_gpg_name Comcast Webpa Team <CHQSV-Webpa-Gpg@comcast.com>" \
