@@ -1,5 +1,7 @@
 #!/bin/bash
 
+NAME=caduceus
+
 echo "Adjusting build number..."
 
 OIFS=$IFS
@@ -34,13 +36,13 @@ release=`echo "$release" | awk -F'v' '{print $2}'`
 echo "Issuing release $new_release..."
 echo "New base version: $release..."
 
-echo "Building the caduceus rpm..."
+echo "Building the ${NAME} rpm..."
 
 pushd ..
-cp -r caduceus caduceus-$release
-tar -czvf caduceus-$new_release.tar.gz caduceus-$release
-mv caduceus-$new_release.tar.gz /root/rpmbuild/SOURCES
-rm -rf caduceus-$release
+cp -r ${NAME} ${NAME}-$release
+tar -czvf ${NAME}-$new_release.tar.gz ${NAME}-$release
+mv ${NAME}-$new_release.tar.gz /root/rpmbuild/SOURCES
+rm -rf ${NAME}-$release
 popd
 
 yes "" | rpmbuild -ba --sign \
@@ -49,7 +51,7 @@ yes "" | rpmbuild -ba --sign \
     --define "_ver $release" \
     --define "_releaseno ${BUILD_NUMBER}" \
     --define "_fullver $new_release" \
-    caduceus.spec
+    ${NAME}.spec
 
 pushd ..
 echo "$new_release" > versionno.txt
