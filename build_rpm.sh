@@ -44,6 +44,7 @@ rm -rf caduceus-$release
 popd
 
 yes "" | rpmbuild -ba --sign \
+    --define "_signature gpg" \
     --define "_gpg_name Comcast Webpa Team <CHQSV-Webpa-Gpg@comcast.com>" \
     --define "_ver $release" \
     --define "_releaseno ${BUILD_NUMBER}" \
