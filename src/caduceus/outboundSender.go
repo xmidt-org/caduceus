@@ -239,6 +239,51 @@ func (obs *OutboundSender) RetiredSince() time.Time {
 	return deliverUntil
 }
 
+// QueueJSON is given a request to evaluate and optionally enqueue in the list
+// of messages to deliver.  The request is checked to see if it matches the
+// criteria before being accepted or silently dropped.
+func (obs *OutboundSender) QueueJSON(req CaduceusRequest,
+	eventType, deviceID, transID string) {
+
+	obs.mutex.RLock()
+	deliverUntil := obs.deliverUntil
+	dropUntil := obs.dropUntil
+	obs.mutex.RUnlock()
+
+	now := time.Now()
+
+	if now.Before(deliverUntil) && now.After(dropUntil) {
+		for _, eventRegex := range obs.events {
+			if eventRegex.MatchString(eventType) {
+				matchDevice := (nil == obs.matcher)
+				if nil != obs.matcher {
+					for _, deviceRegex := range obs.matcher["device_id"] {
+						if deviceRegex.MatchString(deviceID) {
+							matchDevice = true
+							break
+						}
+					}
+				}
+				if matchDevice {
+					if len(obs.queue) < obs.queueSize {
+						outboundReq := outboundRequest{req: req,
+							event:       eventType,
+							transID:     transID,
+							deviceID:    deviceID,
+							contentType: "application/json",
+						}
+						obs.queue <- outboundReq
+					} else {
+						obs.queueOverflow()
+					}
+				}
+			}
+		}
+	} else {
+		// Report drop
+	}
+}
+
 // QueueWrp is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
@@ -291,51 +336,6 @@ func (obs *OutboundSender) QueueWrp(req CaduceusRequest, metaData map[string]str
 							transID:     transID,
 							deviceID:    deviceID,
 							contentType: "application/wrp",
-						}
-						obs.queue <- outboundReq
-					} else {
-						obs.queueOverflow()
-					}
-				}
-			}
-		}
-	} else {
-		// Report drop
-	}
-}
-
-// QueueJSON is given a request to evaluate and optionally enqueue in the list
-// of messages to deliver.  The request is checked to see if it matches the
-// criteria before being accepted or silently dropped.
-func (obs *OutboundSender) QueueJSON(req CaduceusRequest,
-	eventType, deviceID, transID string) {
-
-	obs.mutex.RLock()
-	deliverUntil := obs.deliverUntil
-	dropUntil := obs.dropUntil
-	obs.mutex.RUnlock()
-
-	now := time.Now()
-
-	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range obs.events {
-			if eventRegex.MatchString(eventType) {
-				matchDevice := (nil == obs.matcher)
-				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher["device_id"] {
-						if deviceRegex.MatchString(deviceID) {
-							matchDevice = true
-							break
-						}
-					}
-				}
-				if matchDevice {
-					if len(obs.queue) < obs.queueSize {
-						outboundReq := outboundRequest{req: req,
-							event:       eventType,
-							transID:     transID,
-							deviceID:    deviceID,
-							contentType: "application/json",
 						}
 						obs.queue <- outboundReq
 					} else {
