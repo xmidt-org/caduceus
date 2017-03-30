@@ -281,7 +281,7 @@ func TestInvalidWrpMetadata(t *testing.T) {
 
 	obs.Shutdown(true)
 
-	assert.Equal(int32(2), trans.i)
+	assert.Equal(int32(0), trans.i)
 }
 
 // Simple test that checks for invalid match regex
