@@ -158,26 +158,131 @@ func TestSimpleJSONWithWildcardMatchers(t *testing.T) {
 	assert.Equal(int32(4), trans.i)
 }
 
-// // Simple test that covers the normal successful case with no extra matchers
-// func TestSimpleWrp(t *testing.T) {
-//
-// 	assert := assert.New(t)
-//
-// 	trans := &transport{}
-// 	obs, err := simpleSetup(trans, time.Second, nil)
-// 	assert.NotNil(obs)
-// 	assert.Nil(err)
-//
-// 	req := simpleJSONRequest()
-//
-// 	obs.QueueWrp(req, nil, "iot", "mac:112233445566", "1234")
-// 	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
-// 	obs.QueueWrp(req, nil, "no-match", "mac:112233445566", "1234")
-//
-// 	obs.Shutdown(true)
-//
-// 	assert.Equal(int32(2), trans.i)
-// }
+// Simple test that covers the normal successful case with no extra matchers
+func TestSimpleWrp(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.NotNil(obs)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	obs.QueueWrp(req, nil, "iot", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "no-match", "mac:112233445566", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra matchers
+func TestSimpleWrpWithMatchers(t *testing.T) {
+
+	assert := assert.New(t)
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	obs.QueueWrp(req, nil, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra wildcard matcher
+func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", ".*"}
+
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	obs.QueueWrp(req, nil, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(4), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra matchers
+func TestSimpleWrpWithMetadata(t *testing.T) {
+
+	assert := assert.New(t)
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+	m["metadata"] = []string{"cheese", "crackers"}
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	wrpMeta := make(map[string]string)
+	wrpMeta["metadata"] = "crackers"
+
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra matchers
+func TestInvalidWrpMetadata(t *testing.T) {
+
+	assert := assert.New(t)
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+	m["metadata"] = []string{"cheese", "crackers"}
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	wrpMeta := make(map[string]string)
+	wrpMeta["metadata"] = "notpresent"
+
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
 
 // Simple test that checks for invalid match regex
 func TestInvalidMatchRegex(t *testing.T) {
