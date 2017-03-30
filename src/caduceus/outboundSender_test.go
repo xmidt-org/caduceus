@@ -40,7 +40,7 @@ func getLogger() logging.Logger {
 	return logger
 }
 
-func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[string][]string) (obs *OutboundSender, err error) {
+func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[string][]string) (obs OutboundSender, err error) {
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
@@ -515,12 +515,16 @@ func TestExtend(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	assert.Equal(now, obs.deliverUntil, "Delivery should match previous value.")
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match previous value.")
 	obs.Extend(time.Time{})
-	assert.Equal(now, obs.deliverUntil, "Delivery should match previous value.")
+	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match previous value.")
 	extended := now.Add(10 * time.Second)
 	obs.Extend(extended)
-	assert.Equal(extended, obs.deliverUntil, "Delivery should match new value.")
+	assert.Equal(extended, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }
@@ -549,7 +553,11 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] No cut-off notification URL specified.\n", output.String())
 }
 
@@ -593,7 +601,11 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] Able to send cut-off notification (http://localhost:12345/bar) status: 200 OK\n", output.String())
 }
 
@@ -638,7 +650,11 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] Able to send cut-off notification (http://localhost:12345/bar) status: 200 OK\n", output.String())
 }
 
@@ -674,7 +690,11 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] Unable to send cut-off notification (http://localhost:12345/bar) err: Post http://localhost:12345/bar: My Error.\n", output.String())
 }
 

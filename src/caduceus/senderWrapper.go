@@ -53,7 +53,7 @@ type CaduceusSenderWrapper struct {
 	linger              time.Duration
 	logger              logging.Logger
 	mutex               sync.RWMutex
-	senders             map[string]*OutboundSender
+	senders             map[string]OutboundSender
 	profilerFactory     ServerProfilerFactory
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
@@ -78,7 +78,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		return
 	}
 
-	caduceusSenderWrapper.senders = make(map[string]*OutboundSender)
+	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
 	caduceusSenderWrapper.shutdown = make(chan struct{})
 
 	caduceusSenderWrapper.wg.Add(1)
@@ -194,7 +194,7 @@ func undertaker(sw *CaduceusSenderWrapper) {
 		select {
 		case <-ticker.C:
 			threshold := time.Now().Add(-1 * sw.linger)
-			deadList := make(map[string]*OutboundSender)
+			deadList := make(map[string]OutboundSender)
 
 			// Actually shutting these down could take longer then we
 			// want to lock the mutex, so just remove them from the active
