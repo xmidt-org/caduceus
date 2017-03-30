@@ -242,9 +242,66 @@ func (obs *OutboundSender) RetiredSince() time.Time {
 // QueueWrp is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-func (obs *OutboundSender) QueueWrp(req CaduceusRequest) {
-	// TODO Not supported yet
-	obs.logger.Error("QueueWrp() not supported yet.")
+func (obs *OutboundSender) QueueWrp(req CaduceusRequest, metaData map[string]string,
+	eventType, deviceID, transID string) {
+	obs.mutex.RLock()
+	deliverUntil := obs.deliverUntil
+	dropUntil := obs.dropUntil
+	obs.mutex.RUnlock()
+
+	now := time.Now()
+
+	if now.Before(deliverUntil) && now.After(dropUntil) {
+		for _, eventRegex := range obs.events {
+			if eventRegex.MatchString(eventType) {
+				matchDevice := (nil == obs.matcher)
+				if nil != obs.matcher {
+					for _, deviceRegex := range obs.matcher["device_id"] {
+						if deviceRegex.MatchString(deviceID) {
+							matchDevice = true
+							break
+						}
+					}
+				}
+				// if the device id matches then we want to look through all the metadata
+				// and make sure that the obs metadata matches the metadata provided
+				if matchDevice {
+					for key, val := range metaData {
+						if matchers, ok := obs.matcher[key]; ok {
+							for _, deviceRegex := range matchers {
+								matchDevice = false
+								if deviceRegex.MatchString(val) {
+									matchDevice = true
+									break
+								}
+							}
+
+							// metadata was provided but did not match our expectations,
+							// so it is time to drop the message
+							if !matchDevice {
+								break
+							}
+						}
+					}
+				}
+				if matchDevice {
+					if len(obs.queue) < obs.queueSize {
+						outboundReq := outboundRequest{req: req,
+							event:       eventType,
+							transID:     transID,
+							deviceID:    deviceID,
+							contentType: "application/wrp",
+						}
+						obs.queue <- outboundReq
+					} else {
+						obs.queueOverflow()
+					}
+				}
+			}
+		}
+	} else {
+		// Report drop
+	}
 }
 
 // QueueJSON is given a request to evaluate and optionally enqueue in the list

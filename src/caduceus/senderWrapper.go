@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
 	"net/http"
 	"net/url"
 	"strings"
@@ -138,6 +139,7 @@ func (sw *SenderWrapper) Queue(req CaduceusRequest) {
 
 				eventType := strings.SplitN(url.Path, "/event/", 2)[1]
 				deviceID := elements[5]
+				// TODO: this looks like it's wrong, we should fill this out
 				transID := "12345"
 				sw.mutex.RLock()
 				for _, v := range sw.senders {
@@ -148,11 +150,15 @@ func (sw *SenderWrapper) Queue(req CaduceusRequest) {
 		}
 
 	case "application/wrp":
-		sw.mutex.RLock()
-		for _, v := range sw.senders {
-			v.QueueWrp(req)
+		decoder := wrp.NewDecoderBytes(req.Payload, wrp.Msgpack)
+		message := new(wrp.Message)
+		if err := decoder.Decode(message); nil == err {
+			sw.mutex.RLock()
+			for _, v := range sw.senders {
+				v.QueueWrp(req, message.Metadata, message.Destination, message.Source, message.TransactionUUID)
+			}
+			sw.mutex.RUnlock()
 		}
-		sw.mutex.RUnlock()
 	}
 }
 
