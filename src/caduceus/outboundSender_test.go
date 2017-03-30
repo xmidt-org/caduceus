@@ -68,7 +68,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[strin
 	return
 }
 
-func simpleRequest() CaduceusRequest {
+func simpleJSONRequest() CaduceusRequest {
 	req := CaduceusRequest{
 		Payload:     []byte("Hello, world."),
 		ContentType: "application/json",
@@ -78,8 +78,18 @@ func simpleRequest() CaduceusRequest {
 	return req
 }
 
+func simpleWrpRequest() CaduceusRequest {
+	req := CaduceusRequest{
+		Payload:     []byte("Hello, world."),
+		ContentType: "application/wrp",
+		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
+	}
+
+	return req
+}
+
 // Simple test that covers the normal successful case with no extra matchers
-func TestSimple(t *testing.T) {
+func TestSimpleJSON(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -88,7 +98,7 @@ func TestSimple(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445566", "1234")
 	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
@@ -100,7 +110,7 @@ func TestSimple(t *testing.T) {
 }
 
 // Simple test that covers the normal successful case with extra matchers
-func TestSimpleWithMatchers(t *testing.T) {
+func TestSimpleJSONWithMatchers(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -111,7 +121,7 @@ func TestSimpleWithMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445565", "1234")
 	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
@@ -124,7 +134,7 @@ func TestSimpleWithMatchers(t *testing.T) {
 }
 
 // Simple test that covers the normal successful case with extra wildcard matcher
-func TestSimpleWithWildcardMatchers(t *testing.T) {
+func TestSimpleJSONWithWildcardMatchers(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -136,7 +146,7 @@ func TestSimpleWithWildcardMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445565", "1234")
 	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
@@ -147,6 +157,27 @@ func TestSimpleWithWildcardMatchers(t *testing.T) {
 
 	assert.Equal(int32(4), trans.i)
 }
+
+// // Simple test that covers the normal successful case with no extra matchers
+// func TestSimpleWrp(t *testing.T) {
+//
+// 	assert := assert.New(t)
+//
+// 	trans := &transport{}
+// 	obs, err := simpleSetup(trans, time.Second, nil)
+// 	assert.NotNil(obs)
+// 	assert.Nil(err)
+//
+// 	req := simpleJSONRequest()
+//
+// 	obs.QueueWrp(req, nil, "iot", "mac:112233445566", "1234")
+// 	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+// 	obs.QueueWrp(req, nil, "no-match", "mac:112233445566", "1234")
+//
+// 	obs.Shutdown(true)
+//
+// 	assert.Equal(int32(2), trans.i)
+// }
 
 // Simple test that checks for invalid match regex
 func TestInvalidMatchRegex(t *testing.T) {
@@ -586,7 +617,7 @@ func TestOverflow(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01234")
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01235")
