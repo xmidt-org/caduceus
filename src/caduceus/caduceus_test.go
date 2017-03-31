@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -44,6 +45,23 @@ func (m *mockHealthTracker) ServeHTTP(response http.ResponseWriter, request *htt
 
 func (m *mockHealthTracker) IncrementBucket(inSize int) {
 	m.Called(inSize)
+}
+
+// mockSenderWrapper needs to mock things that the `SenderWrapper` does
+type mockSenderWrapper struct {
+	mock.Mock
+}
+
+func (m *mockSenderWrapper) Update(list []webhook.W) {
+	m.Called(list)
+}
+
+func (m *mockSenderWrapper) Queue(req CaduceusRequest) {
+	m.Called(req)
+}
+
+func (m *mockSenderWrapper) Shutdown(gentle bool) {
+	m.Called(gentle)
 }
 
 // mockServerProfiler needs to mock things that the `ServerProfiler` does
@@ -144,6 +162,29 @@ func TestCaduceusHealth(t *testing.T) {
 			caduceusHealth.IncrementBucket(data.inSize)
 			fakeMonitor.AssertExpectations(t)
 		}
+	})
+}
+
+func TestCaduceusHandler(t *testing.T) {
+	logger := logging.DefaultLogger()
+
+	fakeSenderWrapper := new(mockSenderWrapper)
+	fakeSenderWrapper.On("Queue", mock.AnythingOfType("CaduceusRequest")).Return().Once()
+
+	fakeProfiler := new(mockServerProfiler)
+	fakeProfiler.On("Send", mock.AnythingOfType("CaduceusRequest")).Return(nil).Once()
+
+	testHandler := CaduceusHandler{
+		handlerProfiler: fakeProfiler,
+		senderWrapper:   fakeSenderWrapper,
+		Logger:          logger,
+	}
+
+	t.Run("TestHandleRequest", func(t *testing.T) {
+		testHandler.HandleRequest(0, CaduceusRequest{})
+
+		fakeSenderWrapper.AssertExpectations(t)
+		fakeProfiler.AssertExpectations(t)
 	})
 }
 
