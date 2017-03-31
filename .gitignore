@@ -12,14 +12,17 @@ src/caduceus/output
 
 # config
 src/caduceus/caduceus.json
+keys/*.private
 
 # Vim
 *.swp
+*.out
 
 # Folders
 _obj
 _test
 vendor
+coverage*
 
 # Architecture specific extensions/prefixes
 *.[568vq]

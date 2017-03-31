@@ -11,8 +11,13 @@ before_install:
     - docker pull schmidtw/webpa.builder.centos6:latest
     - docker run -it -e BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -d --name build schmidtw/webpa.builder.centos6 bash
     - env
+    - docker exec build go version
+    - docker exec build glide -v
     - docker exec build git clone https://github.com/Comcast/caduceus.git
     - docker exec build git clone https://github.com/Comcast/caduceus.git codecovio_build
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then openssl aes-256-cbc -K $encrypted_88fb88e0bad9_key -iv $encrypted_88fb88e0bad9_iv -in keys/RPM-GPG-KEY-comcast-webpa.private.enc -out keys/RPM-GPG-KEY-comcast-webpa.private -d; fi'
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker cp keys/RPM-GPG-KEY-comcast-webpa.private build:/RPM-GPG-KEY-comcast-webpa.private; fi'
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker exec build bash -c "gpg --allow-secret-key-import --import /RPM-GPG-KEY-comcast-webpa.private"; fi'
     - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then docker exec build bash -c "pushd caduceus; git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge && git checkout -qf FETCH_HEAD; popd"; fi'
     - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then docker exec build bash -c "pushd codecovio_build; git fetch origin +refs/pull/${TRAVIS_PULL_REQUEST}/merge && git checkout -qf FETCH_HEAD; popd"; fi'
 
@@ -30,8 +35,10 @@ after_success:
 deploy:
   provider: releases
   prerelease: true
-  api_key: $AUTH_TOKEN_BUILD
-  file: x86_64/$BINARY_NAME
+  api_key: "$AUTH_TOKEN_BUILD"
+  file:
+    - x86_64/$BINARY_NAME
+    - keys/RPM-GPG-KEY-comcast-webpa
   skip_cleanup: true
   on:
     condition: "$TRAVIS_PULL_REQUEST = false"
