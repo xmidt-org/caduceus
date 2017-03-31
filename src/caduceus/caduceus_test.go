@@ -47,6 +47,35 @@ func (m *mockHealthTracker) IncrementBucket(inSize int) {
 	m.Called(inSize)
 }
 
+type mockOutboundSender struct {
+	mock.Mock
+}
+
+func (m *mockOutboundSender) Extend(until time.Time) {
+	m.Called(until)
+}
+
+func (m *mockOutboundSender) Shutdown(gentle bool) {
+	m.Called(gentle)
+}
+
+func (m *mockOutboundSender) RetiredSince() time.Time {
+	arguments := m.Called()
+	if arguments.Get(0) == nil {
+		return nil
+	}
+
+	return arguments.Get(0).(time.Time)
+}
+
+func (m *mockOutboundSender) QueueJSON(req CaduceusRequest, eventType, deviceID, transID string) {
+	m.Called(req, eventType, deviceID, transID)
+}
+
+func (m *mockOutboundSender) QueueWrp(req CaduceusRequest, metaData map[string]string, eventType, deviceID, transID string) {
+	m.Called(req, metaData, eventType, deviceID, transID)
+}
+
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does
 type mockSenderWrapper struct {
 	mock.Mock

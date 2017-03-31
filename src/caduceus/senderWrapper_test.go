@@ -1,12 +1,9 @@
 package main
 
 import (
-	//"bytes"
-	//"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/stretchr/testify/assert"
-	//"io/ioutil"
 	"net/http"
 	"sync"
 	"sync/atomic"
