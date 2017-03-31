@@ -47,6 +47,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			default:
 				response.WriteHeader(http.StatusBadRequest)
 				response.Write([]byte("Only Content-Type values of \"application/json\" or \"application/wrp\" are supported.\n"))
+				return
 			}
 		} else {
 			response.WriteHeader(http.StatusBadRequest)

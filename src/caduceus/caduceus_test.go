@@ -236,7 +236,7 @@ func TestServerHandler(t *testing.T) {
 		fakeHealth.AssertExpectations(t)
 	})
 
-	t.Run("TestServeHTTPWrongHeader", func(t *testing.T) {
+	t.Run("TestServeHTTPNoContentType", func(t *testing.T) {
 		req.Header.Del("Content-Type")
 
 		w := httptest.NewRecorder()
@@ -246,6 +246,20 @@ func TestServerHandler(t *testing.T) {
 		assert.Equal(400, resp.StatusCode)
 		fakeHandler.AssertExpectations(t)
 		fakeHealth.AssertExpectations(t)
+	})
+
+	t.Run("TestServeHTTPBadContentType", func(t *testing.T) {
+		req.Header.Add("Content-Type", "something/unsupported")
+
+		w := httptest.NewRecorder()
+		serverWrapper.ServeHTTP(w, req)
+		resp := w.Result()
+
+		assert.Equal(400, resp.StatusCode)
+		fakeHandler.AssertExpectations(t)
+		fakeHealth.AssertExpectations(t)
+
+		req.Header.Del("Content-Type")
 	})
 
 	t.Run("TestServeHTTPFullQueue", func(t *testing.T) {
