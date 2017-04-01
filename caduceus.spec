@@ -10,7 +10,7 @@ License:    ASL 2.0
 URL:        https://github.com/Comcast/caduceus
 Source0:    %{name}-%{_fullver}.tar.gz
 
-BuildRequires:  golang >= 1.7
+BuildRequires:  golang >= 1.8
 Requires:       supervisor
 
 %description
@@ -40,12 +40,14 @@ popd
 
 # Install Configuration
 %{__install} -d %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p etc/%{name}/%{name}.cfg %{buildroot}%{_sysconfdir}/%{name}/%{name}.cfg
+%{__install} -p etc/%{name}/%{name}.json %{buildroot}%{_sysconfdir}/%{name}/%{name}.json
 %{__install} -p etc/%{name}/supervisord.conf %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
 
 # Create Logging Location
-%{__install} -d %{buildroot}%{_localstatedir}/%{name}
+%{__install} -d %{buildroot}%{_localstatedir}/log/%{name}
 
+# Create Runtime Details Location
+%{__install} -d %{buildroot}%{_localstatedir}/run/%{name}
 
 %files
 %defattr(644, caduceus, caduceus, 755)
@@ -59,11 +61,14 @@ popd
 
 # Configuration
 %dir %{_sysconfdir}/%{name}
-%config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/%{name}.cfg
+%config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/%{name}.json
 %config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/supervisord.conf
 
 # Logging Location
-%dir %{_localstatedir}/%{name}
+%dir %{_localstatedir}/log/%{name}
+
+# Runtime Details Location
+%dir %{_localstatedir}/run/%{name}
 
 %pre
 # If app user does not exist, create
