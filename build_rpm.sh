@@ -14,7 +14,8 @@ if [ -z "$release"  ]; then
 else
     echo "Most recent release tag: $release"
 fi
-release=`echo "$release" | sed -e 's/-\d*.*//'`
+
+release=`echo "$release" | sed -e 's/^.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*\+$/\1/'`
 new_release="$release-${BUILD_NUMBER}"
 
 echo "Issuing release $new_release..."
