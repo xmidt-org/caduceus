@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"sync"
@@ -70,6 +72,19 @@ func TestInvalidLinger(t *testing.T) {
 }
 
 func TestSwSimple(t *testing.T) {
+	assert := assert.New(t)
+
+	wrpMessage := wrp.SimpleRequestResponse{
+		Source:          "mac:112233445566",
+		Destination:     "wrp",
+		TransactionUUID: "12345",
+	}
+
+	var buffer bytes.Buffer
+	encoder := wrp.NewEncoder(&buffer, wrp.Msgpack)
+	err := encoder.Encode(&wrpMessage)
+	assert.Nil(err)
+
 	iot := CaduceusRequest{
 		Payload:     []byte("Hello, world."),
 		ContentType: "application/json",
@@ -79,6 +94,11 @@ func TestSwSimple(t *testing.T) {
 		Payload:     []byte("Hello, world."),
 		ContentType: "application/json",
 		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/test",
+	}
+	wrp := CaduceusRequest{
+		Payload:     buffer.Bytes(),
+		ContentType: "application/wrp",
+		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/wrp",
 	}
 
 	trans := &swTransport{}
@@ -97,7 +117,6 @@ func TestSwSimple(t *testing.T) {
 		},
 	}.New()
 
-	assert := assert.New(t)
 	assert.Nil(err)
 	assert.NotNil(sw)
 
@@ -120,8 +139,8 @@ func TestSwSimple(t *testing.T) {
 		{
 			URL:         "http://localhost:9999/bar",
 			ContentType: "application/json",
-			Until:       time.Now().Add(3 * time.Second),
-			Events:      []string{"iot", "test"},
+			Until:       time.Now().Add(4 * time.Second),
+			Events:      []string{"iot", "test", "wrp"},
 		},
 	}
 
@@ -137,11 +156,16 @@ func TestSwSimple(t *testing.T) {
 	time.Sleep(time.Second)
 	assert.Equal(int32(3), atomic.LoadInt32(&trans.i))
 
+	// Send wrp message
+	sw.Queue(wrp)
+	time.Sleep(time.Second)
+	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
+
 	// Wait for one to expire & send it again
 	time.Sleep(2 * time.Second)
 	sw.Queue(test)
 	time.Sleep(time.Second)
-	assert.Equal(int32(3), atomic.LoadInt32(&trans.i))
+	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
 
 	// We get a registration
 	list = []webhook.W{
@@ -159,6 +183,5 @@ func TestSwSimple(t *testing.T) {
 	sw.Queue(iot)
 
 	sw.Shutdown(true)
-	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
-
+	assert.Equal(int32(5), atomic.LoadInt32(&trans.i))
 }
