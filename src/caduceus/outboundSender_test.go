@@ -40,7 +40,7 @@ func getLogger() logging.Logger {
 	return logger
 }
 
-func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[string][]string) (obs *OutboundSender, err error) {
+func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[string][]string) (obs OutboundSender, err error) {
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
@@ -68,7 +68,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[strin
 	return
 }
 
-func simpleRequest() CaduceusRequest {
+func simpleJSONRequest() CaduceusRequest {
 	req := CaduceusRequest{
 		Payload:     []byte("Hello, world."),
 		ContentType: "application/json",
@@ -78,8 +78,18 @@ func simpleRequest() CaduceusRequest {
 	return req
 }
 
+func simpleWrpRequest() CaduceusRequest {
+	req := CaduceusRequest{
+		Payload:     []byte("Hello, world."),
+		ContentType: "application/wrp",
+		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
+	}
+
+	return req
+}
+
 // Simple test that covers the normal successful case with no extra matchers
-func TestSimple(t *testing.T) {
+func TestSimpleJSON(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -88,7 +98,7 @@ func TestSimple(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445566", "1234")
 	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
@@ -100,7 +110,7 @@ func TestSimple(t *testing.T) {
 }
 
 // Simple test that covers the normal successful case with extra matchers
-func TestSimpleWithMatchers(t *testing.T) {
+func TestSimpleJSONWithMatchers(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -111,7 +121,7 @@ func TestSimpleWithMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445565", "1234")
 	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
@@ -124,7 +134,7 @@ func TestSimpleWithMatchers(t *testing.T) {
 }
 
 // Simple test that covers the normal successful case with extra wildcard matcher
-func TestSimpleWithWildcardMatchers(t *testing.T) {
+func TestSimpleJSONWithWildcardMatchers(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -136,7 +146,7 @@ func TestSimpleWithWildcardMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445565", "1234")
 	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
@@ -146,6 +156,132 @@ func TestSimpleWithWildcardMatchers(t *testing.T) {
 	obs.Shutdown(true)
 
 	assert.Equal(int32(4), trans.i)
+}
+
+// Simple test that covers the normal successful case with no extra matchers
+func TestSimpleWrp(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.NotNil(obs)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	obs.QueueWrp(req, nil, "iot", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "no-match", "mac:112233445566", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra matchers
+func TestSimpleWrpWithMatchers(t *testing.T) {
+
+	assert := assert.New(t)
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	obs.QueueWrp(req, nil, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra wildcard matcher
+func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", ".*"}
+
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	obs.QueueWrp(req, nil, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, nil, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, nil, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(4), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra matchers
+func TestSimpleWrpWithMetadata(t *testing.T) {
+
+	assert := assert.New(t)
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+	m["metadata"] = []string{"cheese", "crackers"}
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	wrpMeta := make(map[string]string)
+	wrpMeta["metadata"] = "crackers"
+
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal successful case with extra matchers
+func TestInvalidWrpMetadata(t *testing.T) {
+
+	assert := assert.New(t)
+
+	m := make(map[string][]string)
+	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+	m["metadata"] = []string{"cheese", "crackers"}
+
+	trans := &transport{}
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+
+	wrpMeta := make(map[string]string)
+	wrpMeta["metadata"] = "notpresent"
+
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445565", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445566", "1234")
+	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445560", "1234")
+	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(0), trans.i)
 }
 
 // Simple test that checks for invalid match regex
@@ -379,12 +515,16 @@ func TestExtend(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	assert.Equal(now, obs.deliverUntil, "Delivery should match previous value.")
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match previous value.")
 	obs.Extend(time.Time{})
-	assert.Equal(now, obs.deliverUntil, "Delivery should match previous value.")
+	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match previous value.")
 	extended := now.Add(10 * time.Second)
 	obs.Extend(extended)
-	assert.Equal(extended, obs.deliverUntil, "Delivery should match new value.")
+	assert.Equal(extended, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }
@@ -413,7 +553,11 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] No cut-off notification URL specified.\n", output.String())
 }
 
@@ -457,7 +601,11 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] Able to send cut-off notification (http://localhost:12345/bar) status: 200 OK\n", output.String())
 }
 
@@ -502,7 +650,11 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] Able to send cut-off notification (http://localhost:12345/bar) status: 200 OK\n", output.String())
 }
 
@@ -538,7 +690,11 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	obs.queueOverflow()
+	if _, ok := obs.(*CaduceusOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	}
+
+	obs.(*CaduceusOutboundSender).queueOverflow()
 	assert.Equal("[ERROR] Unable to send cut-off notification (http://localhost:12345/bar) err: Post http://localhost:12345/bar: My Error.\n", output.String())
 }
 
@@ -586,7 +742,7 @@ func TestOverflow(t *testing.T) {
 	}.New()
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleJSONRequest()
 
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01234")
 	obs.QueueJSON(req, "iot", "mac:112233445565", "01235")

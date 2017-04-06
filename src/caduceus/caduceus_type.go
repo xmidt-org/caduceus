@@ -22,6 +22,11 @@ type CaduceusConfig struct {
 	AuthHeader                          string
 	NumWorkerThreads                    int
 	JobQueueSize                        int
+	SenderNumWorkersPerSender           int
+	SenderQueueSizePerSender            int
+	SenderCutOffPeriod                  int
+	SenderLinger                        int
+	SenderClientTimeout                 int
 	ProfilerFrequency                   int
 	ProfilerDuration                    int
 	ProfilerQueueSize                   int
@@ -38,10 +43,10 @@ type CaduceusRequest struct {
 }
 
 type CaduceusTimestamps struct {
-	TimeReceived        time.Time
-	TimeAccepted        time.Time
-	TimeProcessingStart time.Time
-	TimeProcessingEnd   time.Time
+	TimeReceived               time.Time
+	TimeAccepted               time.Time
+	TimeSentToOutbound         time.Time
+	TimeOutboundStatusReceived time.Time
 }
 
 type RequestHandler interface {
@@ -49,19 +54,21 @@ type RequestHandler interface {
 }
 
 type CaduceusHandler struct {
+	handlerProfiler ServerProfiler
+	senderWrapper   SenderWrapper
 	logging.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	inRequest.Timestamps.TimeProcessingStart = time.Now()
+	inRequest.Timestamps.TimeSentToOutbound = time.Now()
 
-	ch.Info("Worker #%d received a request, payload:\t%s", workerID, string(inRequest.Payload))
-	ch.Info("Worker #%d received a request, type:\t\t%s", workerID, inRequest.ContentType)
-	ch.Info("Worker #%d received a request, url:\t\t%s", workerID, inRequest.TargetURL)
+	ch.Info("Worker #%d received a request, now passing on to sender wrapper...", workerID)
+	ch.senderWrapper.Queue(inRequest)
 
-	inRequest.Timestamps.TimeProcessingEnd = time.Now()
+	inRequest.Timestamps.TimeOutboundStatusReceived = time.Now()
 
-	ch.Info("Worker #%d printing message time stats:\t%v", workerID, inRequest.Timestamps)
+	ch.handlerProfiler.Send(inRequest)
+	ch.Info("Worker #%d finished; printing message time stats:\t%v", workerID, inRequest.Timestamps)
 }
 
 type HealthTracker interface {

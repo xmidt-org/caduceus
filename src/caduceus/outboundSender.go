@@ -72,8 +72,16 @@ type OutboundSenderFactory struct {
 	Logger logging.Logger
 }
 
-// OutboundSender is the outbound sender object.
-type OutboundSender struct {
+type OutboundSender interface {
+	Extend(time.Time)
+	Shutdown(bool)
+	RetiredSince() time.Time
+	QueueJSON(CaduceusRequest, string, string, string)
+	QueueWrp(CaduceusRequest, map[string]string, string, string, string)
+}
+
+// CaduceusOutboundSender is the outbound sender object.
+type CaduceusOutboundSender struct {
 	listener     webhook.W
 	deliverUntil time.Time
 	dropUntil    time.Time
@@ -92,7 +100,7 @@ type OutboundSender struct {
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
-func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
+func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	if _, err = url.ParseRequestURI(osf.Listener.URL); nil != err {
 		return
 	}
@@ -112,7 +120,7 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 		return
 	}
 
-	obs = &OutboundSender{
+	caduceusOutboundSender := &CaduceusOutboundSender{
 		listener:     osf.Listener,
 		client:       osf.Client,
 		queueSize:    osf.QueueSize,
@@ -129,82 +137,78 @@ func (osf OutboundSenderFactory) New() (obs *OutboundSender, err error) {
 	}
 
 	if "" != osf.Listener.Secret {
-		obs.secret = []byte(osf.Listener.Secret)
+		caduceusOutboundSender.secret = []byte(osf.Listener.Secret)
 	}
 
 	if "" != osf.Listener.FailureURL {
 		if _, err = url.ParseRequestURI(osf.Listener.FailureURL); nil != err {
-			obs = nil
 			return
 		}
 	}
 
-	obs.profiler, err = osf.ProfilerFactory.New()
+	caduceusOutboundSender.profiler, err = osf.ProfilerFactory.New()
 	if err != nil {
-		obs = nil
 		return
 	}
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
-	obs.queue = make(chan outboundRequest, osf.QueueSize)
+	caduceusOutboundSender.queue = make(chan outboundRequest, osf.QueueSize)
 
 	// Create the event regex objects
 	for _, event := range osf.Listener.Events {
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(event); nil != err {
-			obs = nil
 			return
 		}
 
-		obs.events = append(obs.events, re)
+		caduceusOutboundSender.events = append(caduceusOutboundSender.events, re)
 	}
-	if nil == obs.events {
+	if nil == caduceusOutboundSender.events {
 		err = errors.New("Events must not be empty.")
-		obs = nil
 		return
 	}
 
 	// Create the matcher regex objects
 	if nil != osf.Listener.Matchers {
-		obs.matcher = make(map[string][]*regexp.Regexp)
+		caduceusOutboundSender.matcher = make(map[string][]*regexp.Regexp)
 		for key, value := range osf.Listener.Matchers {
 			var list []*regexp.Regexp
 			for _, item := range value {
 				if ".*" == item {
 					// Match everything - skip the filtering
-					obs.matcher = nil
+					caduceusOutboundSender.matcher = nil
 					break
 				}
 				var re *regexp.Regexp
 				if re, err = regexp.Compile(item); nil != err {
 					err = fmt.Errorf("Invalid matcher item: Matcher['%s'] = '%s'", value, item)
-					obs = nil
 					return
 				}
 				list = append(list, re)
 			}
 
-			if nil == obs.matcher {
+			if nil == caduceusOutboundSender.matcher {
 				break
 			}
 
-			obs.matcher[key] = list
+			caduceusOutboundSender.matcher[key] = list
 		}
 	}
 
-	obs.wg.Add(osf.NumWorkers)
+	caduceusOutboundSender.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
-		go obs.worker(i)
+		go caduceusOutboundSender.worker(i)
 	}
 
+	obs = caduceusOutboundSender
 	return
 }
 
-// Extend extends the time the OutboundSender will deliver messages to the
+// Extend extends the time the CaduceusOutboundSender will deliver messages to the
 // specified time.  The new delivery cutoff time must be after the previously
 // set delivery cutoff time.
-func (obs *OutboundSender) Extend(until time.Time) {
+func (obs *CaduceusOutboundSender) Extend(until time.Time) {
 	obs.mutex.Lock()
 	if until.After(obs.deliverUntil) {
 		obs.deliverUntil = until
@@ -212,10 +216,10 @@ func (obs *OutboundSender) Extend(until time.Time) {
 	obs.mutex.Unlock()
 }
 
-// Shutdown causes the OutboundSender to stop it's activities either gently or
+// Shutdown causes the CaduceusOutboundSender to stop it's activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
-func (obs *OutboundSender) Shutdown(gentle bool) {
+func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	close(obs.queue)
 	obs.mutex.Lock()
 	if false == gentle {
@@ -229,9 +233,9 @@ func (obs *OutboundSender) Shutdown(gentle bool) {
 	obs.mutex.Unlock()
 }
 
-// RetiredSince returns the time the OutboundSender retired (which could be in
+// RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
-func (obs *OutboundSender) RetiredSince() time.Time {
+func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	obs.mutex.RUnlock()
@@ -239,18 +243,10 @@ func (obs *OutboundSender) RetiredSince() time.Time {
 	return deliverUntil
 }
 
-// QueueWrp is given a request to evaluate and optionally enqueue in the list
-// of messages to deliver.  The request is checked to see if it matches the
-// criteria before being accepted or silently dropped.
-func (obs *OutboundSender) QueueWrp(req CaduceusRequest) {
-	// TODO Not supported yet
-	obs.logger.Error("QueueWrp() not supported yet.")
-}
-
 // QueueJSON is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-func (obs *OutboundSender) QueueJSON(req CaduceusRequest,
+func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 	eventType, deviceID, transID string) {
 
 	obs.mutex.RLock()
@@ -292,9 +288,74 @@ func (obs *OutboundSender) QueueJSON(req CaduceusRequest,
 	}
 }
 
+// QueueWrp is given a request to evaluate and optionally enqueue in the list
+// of messages to deliver.  The request is checked to see if it matches the
+// criteria before being accepted or silently dropped.
+func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[string]string,
+	eventType, deviceID, transID string) {
+	obs.mutex.RLock()
+	deliverUntil := obs.deliverUntil
+	dropUntil := obs.dropUntil
+	obs.mutex.RUnlock()
+
+	now := time.Now()
+
+	if now.Before(deliverUntil) && now.After(dropUntil) {
+		for _, eventRegex := range obs.events {
+			if eventRegex.MatchString(eventType) {
+				matchDevice := (nil == obs.matcher)
+				if nil != obs.matcher {
+					for _, deviceRegex := range obs.matcher["device_id"] {
+						if deviceRegex.MatchString(deviceID) {
+							matchDevice = true
+							break
+						}
+					}
+				}
+				// if the device id matches then we want to look through all the metadata
+				// and make sure that the obs metadata matches the metadata provided
+				if matchDevice {
+					for key, val := range metaData {
+						if matchers, ok := obs.matcher[key]; ok {
+							for _, deviceRegex := range matchers {
+								matchDevice = false
+								if deviceRegex.MatchString(val) {
+									matchDevice = true
+									break
+								}
+							}
+
+							// metadata was provided but did not match our expectations,
+							// so it is time to drop the message
+							if !matchDevice {
+								break
+							}
+						}
+					}
+				}
+				if matchDevice {
+					if len(obs.queue) < obs.queueSize {
+						outboundReq := outboundRequest{req: req,
+							event:       eventType,
+							transID:     transID,
+							deviceID:    deviceID,
+							contentType: "application/wrp",
+						}
+						obs.queue <- outboundReq
+					} else {
+						obs.queueOverflow()
+					}
+				}
+			}
+		}
+	} else {
+		// Report drop
+	}
+}
+
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (obs *OutboundSender) worker(id int) {
+func (obs *CaduceusOutboundSender) worker(id int) {
 	defer obs.wg.Done()
 
 	// Make a local copy of the hmac
@@ -353,7 +414,7 @@ func (obs *OutboundSender) worker(id int) {
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows
-func (obs *OutboundSender) queueOverflow() {
+func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.mutex.Unlock()

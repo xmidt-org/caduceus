@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
@@ -8,44 +9,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"math"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"sync"
 	"testing"
 )
-
-// Begin mock declarations
-
-// mockHandler only needs to mock the `HandleRequest` method
-type mockHandler struct {
-	mock.Mock
-}
-
-func (m *mockHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	m.Called(workerID, inRequest)
-}
-
-// mockHealthTracker needs to mock things from both the `HealthTracker`
-// interface as well as the `health.Monitor` interface
-type mockHealthTracker struct {
-	mock.Mock
-}
-
-func (m *mockHealthTracker) SendEvent(healthFunc health.HealthFunc) {
-	m.Called(healthFunc)
-}
-
-func (m *mockHealthTracker) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	m.Called(response, request)
-}
-
-func (m *mockHealthTracker) IncrementBucket(inSize int) {
-	m.Called(inSize)
-}
-
-// Begin test functions
 
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
@@ -123,7 +92,30 @@ func TestCaduceusHealth(t *testing.T) {
 	})
 }
 
-func TestServeHandler(t *testing.T) {
+func TestCaduceusHandler(t *testing.T) {
+	logger := logging.DefaultLogger()
+
+	fakeSenderWrapper := new(mockSenderWrapper)
+	fakeSenderWrapper.On("Queue", mock.AnythingOfType("CaduceusRequest")).Return().Once()
+
+	fakeProfiler := new(mockServerProfiler)
+	fakeProfiler.On("Send", mock.AnythingOfType("CaduceusRequest")).Return(nil).Once()
+
+	testHandler := CaduceusHandler{
+		handlerProfiler: fakeProfiler,
+		senderWrapper:   fakeSenderWrapper,
+		Logger:          logger,
+	}
+
+	t.Run("TestHandleRequest", func(t *testing.T) {
+		testHandler.HandleRequest(0, CaduceusRequest{})
+
+		fakeSenderWrapper.AssertExpectations(t)
+		fakeProfiler.AssertExpectations(t)
+	})
+}
+
+func TestServerHandler(t *testing.T) {
 	assert := assert.New(t)
 
 	logger := logging.DefaultLogger()
@@ -171,7 +163,7 @@ func TestServeHandler(t *testing.T) {
 		fakeHealth.AssertExpectations(t)
 	})
 
-	t.Run("TestServeHTTPWrongHeader", func(t *testing.T) {
+	t.Run("TestServeHTTPNoContentType", func(t *testing.T) {
 		req.Header.Del("Content-Type")
 
 		w := httptest.NewRecorder()
@@ -181,6 +173,20 @@ func TestServeHandler(t *testing.T) {
 		assert.Equal(400, resp.StatusCode)
 		fakeHandler.AssertExpectations(t)
 		fakeHealth.AssertExpectations(t)
+	})
+
+	t.Run("TestServeHTTPBadContentType", func(t *testing.T) {
+		req.Header.Add("Content-Type", "something/unsupported")
+
+		w := httptest.NewRecorder()
+		serverWrapper.ServeHTTP(w, req)
+		resp := w.Result()
+
+		assert.Equal(400, resp.StatusCode)
+		fakeHandler.AssertExpectations(t)
+		fakeHealth.AssertExpectations(t)
+
+		req.Header.Del("Content-Type")
 	})
 
 	t.Run("TestServeHTTPFullQueue", func(t *testing.T) {
@@ -197,5 +203,40 @@ func TestServeHandler(t *testing.T) {
 		assert.Equal(408, resp.StatusCode)
 		fakeHandler.AssertExpectations(t)
 		fakeHealth.AssertExpectations(t)
+	})
+}
+
+func TestProfilerHandler(t *testing.T) {
+	assert := assert.New(t)
+
+	var testData []interface{}
+	testData = append(testData, "passed")
+
+	logger := logging.DefaultLogger()
+	fakeProfiler := new(mockServerProfiler)
+	fakeProfiler.On("Report").Return(testData).Once()
+
+	testProfilerWrapper := ProfileHandler{
+		profilerData: fakeProfiler,
+		Logger:       logger,
+	}
+
+	req := httptest.NewRequest("GET", "localhost:8080", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		testProfilerWrapper.ServeHTTP(w, req)
+		resp := w.Result()
+
+		var testResults []interface{}
+		dec := json.NewDecoder(resp.Body)
+		err := dec.Decode(&testResults)
+		assert.Nil(err)
+
+		assert.Equal(200, resp.StatusCode)
+		assert.Equal(1, len(testResults))
+		assert.Equal("passed", testResults[0].(string))
+		fakeProfiler.AssertExpectations(t)
 	})
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/Comcast/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
@@ -40,10 +41,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			contentType = value[0]
 			switch contentType {
 			case "application/json":
+				// ok contentType
 			case "application/wrp":
+				// ok contentType
 			default:
 				response.WriteHeader(http.StatusBadRequest)
 				response.Write([]byte("Only Content-Type values of \"application/json\" or \"application/wrp\" are supported.\n"))
+				return
 			}
 		} else {
 			response.WriteHeader(http.StatusBadRequest)
@@ -83,15 +87,25 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 }
 
 type ProfileHandler struct {
+	profilerData ServerProfiler
 	logging.Logger
 }
 
-// TODO: temporarily adding this to check and see if we're getting what we expect
+// ServeHTTP method of ProfileHandler will output the most recent messages
+// that the main handler has successfully dealt with
 func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	defer request.Body.Close()
 
 	ph.Info("Receiving request for server stats...")
+	stats := ph.profilerData.Report()
+	b, err := json.Marshal(stats)
 
-	response.WriteHeader(http.StatusOK)
-	response.Write([]byte("Placeholder.\n"))
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte("Error marshalling the data into a JSON object."))
+	} else {
+		response.WriteHeader(http.StatusOK)
+		response.Write(b)
+		response.Write([]byte("\n"))
+	}
 }

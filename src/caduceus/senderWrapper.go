@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,7 +12,7 @@ import (
 	"time"
 )
 
-// SenderWrapperFactory configures the SenderWrapper for creation
+// SenderWrapperFactory configures the CaduceusSenderWrapper for creation
 type SenderWrapperFactory struct {
 	// The number of workers to assign to each OutboundSender created.
 	NumWorkersPerSender int
@@ -37,8 +38,14 @@ type SenderWrapperFactory struct {
 	Client *http.Client
 }
 
-// SenderWrapper contains no external parameters.
-type SenderWrapper struct {
+type SenderWrapper interface {
+	Update([]webhook.W)
+	Queue(CaduceusRequest)
+	Shutdown(bool)
+}
+
+// CaduceusSenderWrapper contains no external parameters.
+type CaduceusSenderWrapper struct {
 	client              *http.Client
 	numWorkersPerSender int
 	queueSizePerSender  int
@@ -46,15 +53,16 @@ type SenderWrapper struct {
 	linger              time.Duration
 	logger              logging.Logger
 	mutex               sync.RWMutex
-	senders             map[string]*OutboundSender
+	senders             map[string]OutboundSender
 	profilerFactory     ServerProfilerFactory
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 }
 
-// New produces a new SenderWrapper based on the factory configuration.
-func (swf SenderWrapperFactory) New() (sw *SenderWrapper, err error) {
-	sw = &SenderWrapper{
+// New produces a new SenderWrapper implemented by CaduceusSenderWrapper
+// based on the factory configuration.
+func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
+	caduceusSenderWrapper := &CaduceusSenderWrapper{
 		client:              swf.Client,
 		numWorkersPerSender: swf.NumWorkersPerSender,
 		queueSizePerSender:  swf.QueueSizePerSender,
@@ -70,19 +78,20 @@ func (swf SenderWrapperFactory) New() (sw *SenderWrapper, err error) {
 		return
 	}
 
-	sw.senders = make(map[string]*OutboundSender)
-	sw.shutdown = make(chan struct{})
+	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
+	caduceusSenderWrapper.shutdown = make(chan struct{})
 
-	sw.wg.Add(1)
-	go undertaker(sw)
+	caduceusSenderWrapper.wg.Add(1)
+	go undertaker(caduceusSenderWrapper)
 
+	sw = caduceusSenderWrapper
 	return
 }
 
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *SenderWrapper) Update(list []webhook.W) {
+func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Client:          sw.client,
@@ -121,7 +130,7 @@ func (sw *SenderWrapper) Update(list []webhook.W) {
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
-func (sw *SenderWrapper) Queue(req CaduceusRequest) {
+func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
 	switch req.ContentType {
 
 	case "application/json":
@@ -138,6 +147,7 @@ func (sw *SenderWrapper) Queue(req CaduceusRequest) {
 
 				eventType := strings.SplitN(url.Path, "/event/", 2)[1]
 				deviceID := elements[5]
+				// TODO: this looks like it's wrong, we should fill this out
 				transID := "12345"
 				sw.mutex.RLock()
 				for _, v := range sw.senders {
@@ -148,18 +158,22 @@ func (sw *SenderWrapper) Queue(req CaduceusRequest) {
 		}
 
 	case "application/wrp":
-		sw.mutex.RLock()
-		for _, v := range sw.senders {
-			v.QueueWrp(req)
+		decoder := wrp.NewDecoderBytes(req.Payload, wrp.Msgpack)
+		message := new(wrp.Message)
+		if err := decoder.Decode(message); nil == err {
+			sw.mutex.RLock()
+			for _, v := range sw.senders {
+				v.QueueWrp(req, message.Metadata, message.Destination, message.Source, message.TransactionUUID)
+			}
+			sw.mutex.RUnlock()
 		}
-		sw.mutex.RUnlock()
 	}
 }
 
 // Shutdown closes down the delivery mechanisms and cleans up the underlying
 // OutboundSenders either gently (waiting for delivery queues to empty) or not
 // (dropping enqueued messages)
-func (sw *SenderWrapper) Shutdown(gentle bool) {
+func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
 	sw.mutex.Lock()
 	for k, v := range sw.senders {
 		v.Shutdown(gentle)
@@ -171,7 +185,7 @@ func (sw *SenderWrapper) Shutdown(gentle bool) {
 
 // undertaker looks at the OutboundSenders periodically and prunes the ones
 // that have been retired for too long, freeing up resources.
-func undertaker(sw *SenderWrapper) {
+func undertaker(sw *CaduceusSenderWrapper) {
 	defer sw.wg.Done()
 	// Collecting unused OutboundSenders isn't a huge priority, so do it
 	// slowly.
@@ -180,7 +194,7 @@ func undertaker(sw *SenderWrapper) {
 		select {
 		case <-ticker.C:
 			threshold := time.Now().Add(-1 * sw.linger)
-			deadList := make(map[string]*OutboundSender)
+			deadList := make(map[string]OutboundSender)
 
 			// Actually shutting these down could take longer then we
 			// want to lock the mutex, so just remove them from the active
