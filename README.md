@@ -24,4 +24,3 @@ rpm --import https://github.com/Comcast/caduceus/releases/download/v0.0.1-65alph
 ```
 yum install https://github.com/Comcast/caduceus/releases/download/v0.0.1-65alpha/caduceus-0.0.1-65.el6.x86_64.rpm
 ```
-
