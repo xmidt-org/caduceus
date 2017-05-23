@@ -35,7 +35,7 @@ cat ChangeLog >> ${NAME}.spec
 
 yes "" | rpmbuild -ba --sign \
     --define "_signature gpg" \
-    --define "_gpg_name Comcast Webpa Team <CHQSV-Webpa-Gpg@comcast.com>" \
+    --define "_gpg_name Comcast Xmidt Team <CHQSV-Xmidt-Gpg@comcast.com>" \
     --define "_ver $release" \
     --define "_releaseno ${BUILD_NUMBER}" \
     --define "_fullver $new_release" \
