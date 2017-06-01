@@ -55,7 +55,7 @@ func caduceus(arguments []string) int {
 		Duration:  caduceusConfig.ProfilerDuration,
 		QueueSize: caduceusConfig.ProfilerQueueSize,
 	}
-
+	
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
 
@@ -115,6 +115,31 @@ func caduceus(arguments []string) int {
 	mux := mux.NewRouter()
 	mux.Handle("/api/v1/run", caduceusHandler.Then(serverWrapper))
 	mux.Handle("/api/v1/profile", caduceusHandler.Then(profileWrapper))
+
+
+
+	webhookFactory, err := WH.NewFactory(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
+		return 1
+	}
+	
+	// TODO: register webhook end points here?
+//	mux.Handle("/api/v1/hook", caduceusHandler.Then(WH.))
+//	mux.Handle("/api/v1/hooks", caduceusHandler.Then(WH.))
+	
+	list, handler := webhookFactory.NewListAndHandler()
+	list.SetList( WH.NewRegistry(nil, webhookFactory.PublishMessage) )
+	
+	selfURL := &url.URL{
+		Scheme:   "https",
+		Host:     v.GetString("fqdn") + v.GetString("primary.address"),
+	}
+	
+	webhookFactory.Initialize(mux, selfURL, handler, logger)
+	webhookFactory.PrepareAndStart()
+
+
 
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
