@@ -4,14 +4,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
-	"github.com/Comcast/webpa-common/handler"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/Comcast/webpa-common/secure/handler"
 	"github.com/Comcast/webpa-common/server"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"time"
@@ -118,25 +120,26 @@ func caduceus(arguments []string) int {
 
 
 
-	webhookFactory, err := WH.NewFactory(v)
+	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
 		return 1
 	}
 	
-	// TODO: register webhook end points here?
-//	mux.Handle("/api/v1/hook", caduceusHandler.Then(WH.))
-//	mux.Handle("/api/v1/hooks", caduceusHandler.Then(WH.))
-	
-	list, handler := webhookFactory.NewListAndHandler()
-	list.SetList( WH.NewRegistry(nil, webhookFactory.PublishMessage) )
+	webhookList, webhookHandler := webhookFactory.NewListAndHandler()
+	webhookRegistry := webhook.NewRegistry(nil, webhookFactory.PublishMessage)
+	webhookFactory.SetList( webhookRegistry )
+
+	// register webhook end points for api
+	mux.Handle("/api/v1/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
+	mux.Handle("/api/v1/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
 	
 	selfURL := &url.URL{
 		Scheme:   "https",
 		Host:     v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 	
-	webhookFactory.Initialize(mux, selfURL, handler, logger)
+	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger)
 	webhookFactory.PrepareAndStart()
 
 
