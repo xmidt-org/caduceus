@@ -40,24 +40,25 @@ func getLogger() logging.Logger {
 	return logger
 }
 
-func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher map[string][]string) (obs OutboundSender, err error) {
+func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (obs OutboundSender, err error) {
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
 		}
 		return
 	}
-
+	
+	w := webhook.W{
+		Until:   time.Now().Add(60 * time.Second),
+		Events:  []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	w.Config.Secret      = "123456"
+	w.Matcher.DeviceId   = matcher
+	
 	obs, err = OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Secret:      "123456",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot", "test"},
-			Matchers:    matcher,
-		},
-
+		Listener:        w,
 		Client:          &http.Client{Transport: trans},
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
@@ -114,8 +115,7 @@ func TestSimpleJSONWithMatchers(t *testing.T) {
 
 	assert := assert.New(t)
 
-	m := make(map[string][]string)
-	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+	m := []string{"mac:112233445566", "mac:112233445565"}
 
 	trans := &transport{}
 	obs, err := simpleSetup(trans, time.Second, m)
@@ -140,8 +140,7 @@ func TestSimpleJSONWithWildcardMatchers(t *testing.T) {
 
 	trans := &transport{}
 
-	m := make(map[string][]string)
-	m["device_id"] = []string{"mac:112233445566", ".*"}
+	m := []string{"mac:112233445566", ".*"}
 
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
@@ -184,8 +183,7 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 
 	assert := assert.New(t)
 
-	m := make(map[string][]string)
-	m["device_id"] = []string{"mac:112233445566", "mac:112233445565"}
+	m := []string{"mac:112233445566", "mac:112233445565"}
 
 	trans := &transport{}
 	obs, err := simpleSetup(trans, time.Second, m)
@@ -210,8 +208,7 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 
 	trans := &transport{}
 
-	m := make(map[string][]string)
-	m["device_id"] = []string{"mac:112233445566", ".*"}
+	m := []string{"mac:112233445566", ".*"}
 
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
@@ -228,6 +225,7 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	assert.Equal(int32(4), trans.i)
 }
 
+/*
 // Simple test that covers the normal successful case with extra matchers
 func TestSimpleWrpWithMetadata(t *testing.T) {
 
@@ -255,7 +253,7 @@ func TestSimpleWrpWithMetadata(t *testing.T) {
 
 	assert.Equal(int32(2), trans.i)
 }
-
+*//*
 // Simple test that covers the normal successful case with extra matchers
 func TestInvalidWrpMetadata(t *testing.T) {
 
@@ -283,7 +281,7 @@ func TestInvalidWrpMetadata(t *testing.T) {
 
 	assert.Equal(int32(0), trans.i)
 }
-
+*/
 // Simple test that checks for invalid match regex
 func TestInvalidMatchRegex(t *testing.T) {
 
@@ -291,8 +289,7 @@ func TestInvalidMatchRegex(t *testing.T) {
 
 	trans := &transport{}
 
-	m := make(map[string][]string)
-	m["device_id"] = []string{"[[:112233445566"}
+	m := []string{"[[:112233445566"}
 
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(obs)
@@ -315,14 +312,16 @@ func TestInvalidCutOffPeriod(t *testing.T) {
 func TestInvalidEventRegex(t *testing.T) {
 
 	assert := assert.New(t)
-
+	
+	w := webhook.W{
+		Until:   time.Now().Add(60 * time.Second),
+		Events:  []string{"[[:123"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"[[:123"},
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -338,14 +337,16 @@ func TestInvalidEventRegex(t *testing.T) {
 func TestInvalidUrl(t *testing.T) {
 
 	assert := assert.New(t)
-
+	
+	w := webhook.W{
+		Until:   time.Now().Add(60 * time.Second),
+		Events:  []string{"iot"},
+	}
+	w.Config.URL         = "invalid"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "invalid",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot"},
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -355,12 +356,14 @@ func TestInvalidUrl(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
+	w2 := webhook.W{
+		Until:   time.Now().Add(60 * time.Second),
+		Events:  []string{"iot"},
+	}
+	w2.Config.ContentType = "application/json"
+	
 	obs, err = OutboundSenderFactory{
-		Listener: webhook.W{
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot"},
-		},
+		Listener:        w2,
 		Client:          &http.Client{},
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -375,13 +378,16 @@ func TestInvalidUrl(t *testing.T) {
 // Simple test that checks for invalid Client
 func TestInvalidClient(t *testing.T) {
 	assert := assert.New(t)
+	
+	w := webhook.W{
+		Until:   time.Now().Add(60 * time.Second),
+		Events:  []string{"iot"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot"},
-		},
+		Listener:        w,
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -395,13 +401,16 @@ func TestInvalidClient(t *testing.T) {
 // Simple test that checks for no logger
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
+
+	w := webhook.W{
+		Until:   time.Now().Add(60 * time.Second),
+		Events:  []string{"iot"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot"},
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -415,14 +424,17 @@ func TestInvalidLogger(t *testing.T) {
 // Simple test that checks for FailureURL behavior
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
+	
+	w := webhook.W{
+		Until:      time.Now().Add(60 * time.Second),
+		FailureURL: "invalid",
+		Events:     []string{"iot"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot"},
-			FailureURL:  "invalid",
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -437,12 +449,15 @@ func TestFailureURL(t *testing.T) {
 // Simple test that checks for no events
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
+	
+	w := webhook.W{
+		Until:      time.Now().Add(60 * time.Second),
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -453,13 +468,15 @@ func TestInvalidEvents(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
+	w2 := webhook.W{
+		Until:      time.Now().Add(60 * time.Second),
+		Events:     []string{"iot(.*"},
+	}
+	w2.Config.URL         = "http://localhost:9999/foo"
+	w2.Config.ContentType = "application/json"
+	
 	obs, err = OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(60 * time.Second),
-			Events:      []string{"iot(.*"},
-		},
+		Listener:        w2,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -475,13 +492,16 @@ func TestInvalidEvents(t *testing.T) {
 // Simple test that checks for no profiler
 func TestInvalidProfilerFactory(t *testing.T) {
 	assert := assert.New(t)
+	
+	w := webhook.W{
+		Until:      time.Now(),
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now(),
-			Events:      []string{"iot", "test"},
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -499,13 +519,15 @@ func TestExtend(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
+	w := webhook.W{
+		Until:      now,
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       now,
-			Events:      []string{"iot", "test"},
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -536,14 +558,16 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	var output bytes.Buffer
 	loggerFactory := logging.DefaultLoggerFactory{&output}
 	logger, _ := loggerFactory.NewLogger("test")
-
+	
+	w := webhook.W{
+		Until:      time.Now(),
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now(),
-			Events:      []string{"iot", "test"},
-		},
+		Listener:        w,
 		Client:          &http.Client{},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -583,15 +607,17 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		}
 		return
 	}
-
+	
+	w := webhook.W{
+		Until:      time.Now(),
+		FailureURL: "http://localhost:12345/bar",
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now(),
-			Events:      []string{"iot", "test"},
-			FailureURL:  "http://localhost:12345/bar",
-		},
+		Listener:        w,
 		Client:          &http.Client{Transport: trans},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -631,16 +657,18 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		}
 		return
 	}
-
+	
+	w := webhook.W{
+		Until:      time.Now(),
+		FailureURL: "http://localhost:12345/bar",
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	w.Config.Secret      = "123456"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now(),
-			Secret:      "123456",
-			Events:      []string{"iot", "test"},
-			FailureURL:  "http://localhost:12345/bar",
-		},
+		Listener:        w,
 		Client:          &http.Client{Transport: trans},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -672,15 +700,17 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		err = fmt.Errorf("My Error.")
 		return
 	}
-
+	
+	w := webhook.W{
+		Until:      time.Now(),
+		FailureURL: "http://localhost:12345/bar",
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now(),
-			Events:      []string{"iot", "test"},
-			FailureURL:  "http://localhost:12345/bar",
-		},
+		Listener:        w,
 		Client:          &http.Client{Transport: trans},
 		CutOffPeriod:    time.Second,
 		NumWorkers:      10,
@@ -724,15 +754,17 @@ func TestOverflow(t *testing.T) {
 		}
 		return
 	}
-
+	
+	w := webhook.W{
+		Until:      time.Now().Add(30 * time.Second),
+		FailureURL: "http://localhost:12345/bar",
+		Events:     []string{"iot", "test"},
+	}
+	w.Config.URL         = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	
 	obs, err := OutboundSenderFactory{
-		Listener: webhook.W{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(30 * time.Second),
-			Events:      []string{"iot", "test"},
-			FailureURL:  "http://localhost:12345/bar",
-		},
+		Listener:        w,
 		Client:          &http.Client{Transport: trans},
 		CutOffPeriod:    4 * time.Second,
 		NumWorkers:      1,

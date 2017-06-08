@@ -88,7 +88,7 @@ type CaduceusOutboundSender struct {
 	client       *http.Client
 	secret       []byte
 	events       []*regexp.Regexp
-	matcher      map[string][]*regexp.Regexp
+	matcher      []*regexp.Regexp
 	queueSize    int
 	queue        chan outboundRequest
 	profiler     ServerProfiler
@@ -101,7 +101,7 @@ type CaduceusOutboundSender struct {
 
 // New creates a new OutboundSender object from the factory, or returns an error.
 func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
-	if _, err = url.ParseRequestURI(osf.Listener.URL); nil != err {
+	if _, err = url.ParseRequestURI(osf.Listener.Config.URL); nil != err {
 		return
 	}
 
@@ -136,8 +136,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		},
 	}
 
-	if "" != osf.Listener.Secret {
-		caduceusOutboundSender.secret = []byte(osf.Listener.Secret)
+	if "" != osf.Listener.Config.Secret {
+		caduceusOutboundSender.secret = []byte(osf.Listener.Config.Secret)
 	}
 
 	if "" != osf.Listener.FailureURL {
@@ -170,30 +170,19 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	// Create the matcher regex objects
-	if nil != osf.Listener.Matchers {
-		caduceusOutboundSender.matcher = make(map[string][]*regexp.Regexp)
-		for key, value := range osf.Listener.Matchers {
-			var list []*regexp.Regexp
-			for _, item := range value {
-				if ".*" == item {
-					// Match everything - skip the filtering
-					caduceusOutboundSender.matcher = nil
-					break
-				}
-				var re *regexp.Regexp
-				if re, err = regexp.Compile(item); nil != err {
-					err = fmt.Errorf("Invalid matcher item: Matcher['%s'] = '%s'", value, item)
-					return
-				}
-				list = append(list, re)
-			}
-
-			if nil == caduceusOutboundSender.matcher {
-				break
-			}
-
-			caduceusOutboundSender.matcher[key] = list
+	for _, item := range osf.Listener.Matcher.DeviceId {
+		if ".*" == item {
+			// Match everything - skip the filtering
+			caduceusOutboundSender.matcher = nil
+			break
 		}
+		
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("Invalid matcher item: '%s'", item)
+			return
+		}
+		caduceusOutboundSender.matcher = append(caduceusOutboundSender.matcher, re)
 	}
 
 	caduceusOutboundSender.wg.Add(osf.NumWorkers)
@@ -261,7 +250,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 			if eventRegex.MatchString(eventType) {
 				matchDevice := (nil == obs.matcher)
 				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher["device_id"] {
+					for _, deviceRegex := range obs.matcher {
 						if deviceRegex.MatchString(deviceID) {
 							matchDevice = true
 							break
@@ -305,13 +294,14 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 			if eventRegex.MatchString(eventType) {
 				matchDevice := (nil == obs.matcher)
 				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher["device_id"] {
+					for _, deviceRegex := range obs.matcher {
 						if deviceRegex.MatchString(deviceID) {
 							matchDevice = true
 							break
 						}
 					}
 				}
+				/*
 				// if the device id matches then we want to look through all the metadata
 				// and make sure that the obs metadata matches the metadata provided
 				if matchDevice {
@@ -333,6 +323,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 						}
 					}
 				}
+				*/
 				if matchDevice {
 					if len(obs.queue) < obs.queueSize {
 						outboundReq := outboundRequest{req: req,
@@ -375,10 +366,10 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		now := time.Now()
 		if now.Before(deliverUntil) && now.After(dropUntil) {
 			payload := bytes.NewReader(work.req.Payload)
-			req, err := http.NewRequest("POST", obs.listener.URL, payload)
+			req, err := http.NewRequest("POST", obs.listener.Config.URL, payload)
 			if nil != err {
 				// Report drop
-				obs.logger.Error("http.NewRequest(\"POST\", '%s', payload) failed: %s", obs.listener.URL, err)
+				obs.logger.Error("http.NewRequest(\"POST\", '%s', payload) failed: %s", obs.listener.Config.URL, err)
 			} else {
 				req.Header.Set("Content-Type", work.contentType)
 				req.Header.Set("X-Webpa-Event", work.event)

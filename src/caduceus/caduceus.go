@@ -126,7 +126,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 	
-	webhookList, webhookHandler := webhookFactory.NewListAndHandler()
+	_, webhookHandler := webhookFactory.NewListAndHandler()
 	webhookRegistry := webhook.NewRegistry(nil, webhookFactory.PublishMessage)
 	webhookFactory.SetList( webhookRegistry )
 
