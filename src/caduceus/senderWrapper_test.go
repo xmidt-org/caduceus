@@ -129,18 +129,22 @@ func TestSwSimple(t *testing.T) {
 	assert.Equal(int32(0), trans.i)
 
 	w1 := webhook.W{
+		Duration:   6 * time.Second,
 		Until:      time.Now().Add(6 * time.Second),
 		Events:     []string{"iot"},
 	}
-	w1.Config.URL         = "http://localhost:9999/foo"
+	w1.Config.URL         = "http://localhost:8888/foo"
 	w1.Config.ContentType = "application/json"
+	w1.Matcher.DeviceId = []string{"mac:112233445566"}
 	
 	w2 := webhook.W{
+		Duration:   4 * time.Second,
 		Until:      time.Now().Add(4 * time.Second),
 		Events:     []string{"iot", "test", "wrp"},
 	}
 	w2.Config.URL         = "http://localhost:9999/foo"
 	w2.Config.ContentType = "application/json"
+	w2.Matcher.DeviceId = []string{"mac:112233445566"}
 
 	// Add 2 listeners
 	list := []webhook.W{w1, w2}

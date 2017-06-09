@@ -168,7 +168,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		err = errors.New("Events must not be empty.")
 		return
 	}
-
+	
 	// Create the matcher regex objects
 	for _, item := range osf.Listener.Matcher.DeviceId {
 		if ".*" == item {
