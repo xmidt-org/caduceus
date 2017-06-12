@@ -1,6 +1,7 @@
 package: .
 import:
 - package: github.com/Comcast/webpa-common
+  version: 9dfc3db86d11729a233b1b788f00b501c59c1fff
   subpackages:
   - concurrent
   - handler
@@ -9,11 +10,16 @@ import:
   - server
   - webhook
 - package: github.com/justinas/alice
+  version: 1051eaf52fcafdd87ead59d28b065f1fcb8274ec
 - package: github.com/spf13/pflag
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - package: github.com/spf13/viper
+  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
 - package: github.com/stretchr/testify
+  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
   - mock
   - assert
   - require
 - package: github.com/gorilla/mux
+  version: 392c28fe23e1c45ddba891b0320b3b5df220beea

@@ -1,12 +1,40 @@
-hash: 6684fdfcee777e1e8e3c2467479ef051a3db07d6c07a66506d1f859fa495ae06
-updated: 2017-03-27T13:24:14.343069944-07:00
+hash: 7c84fda85fd0f2d1335f40f346b65391fe63e4e70d752d137bcf377220479aef
+updated: 2017-06-12T16:14:22.811127772-07:00
 imports:
+- name: github.com/aws/aws-sdk-go
+  version: 7be45195c3af1b54a609812f90c05a7e492e2491
+  subpackages:
+  - aws
+  - service
+  - aws/credentials
+  - aws/session
+  - service/sns
+  - service/sns/snsiface
+  - aws/awserr
+  - aws/endpoints
+  - aws/client
+  - aws/corehandlers
+  - aws/credentials/stscreds
+  - aws/defaults
+  - aws/request
+  - aws/awsutil
+  - aws/client/metadata
+  - aws/signer/v4
+  - private/protocol
+  - private/protocol/query
+  - service/sts
+  - aws/credentials/ec2rolecreds
+  - aws/credentials/endpointcreds
+  - aws/ec2metadata
+  - private/protocol/rest
+  - private/protocol/query/queryutil
+  - private/protocol/xml/xmlutil
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: b210bf658a81f6389d14ef2d99aa3a9454f49b5b
+  version: 9dfc3db86d11729a233b1b788f00b501c59c1fff
   subpackages:
   - concurrent
   - handler
@@ -15,12 +43,12 @@ imports:
   - server
   - webhook
   - health
-  - device
-  - fact
-  - hash
+  - secure/handler
+  - wrp
   - secure/key
   - logging/golog
-  - wrp
+  - httperror
+  - webhook/aws
   - resource
   - types
 - name: github.com/davecgh/go-spew
@@ -28,15 +56,15 @@ imports:
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
-  version: ff7bc41d4007f67e5456703c34342df4e0113f64
+  version: 4da3e2cfbabc9f751898f250b49f2439785783a1
+- name: github.com/go-ini/ini
+  version: d3de07a94d22b4a0972deb4b96d790c2c0ce8333
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
-  version: 599cba5e7b6137d46ddf58fb1765f5d928e69604
-- name: github.com/gorilla/websocket
-  version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
+  version: 392c28fe23e1c45ddba891b0320b3b5df220beea
 - name: github.com/hashicorp/hcl
-  version: 630949a3c5fa3c613328e1b8256052cbc2327c9b
+  version: 392dba7d905ed5d04a5794ba89f558b27e2ba1ca
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -53,6 +81,8 @@ imports:
   - layout
   - levels
   - logger
+- name: github.com/jmespath/go-jmespath
+  version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/jtacoma/uritemplates
   version: 307ae868f90f4ee1b73ebe4596e0394237dacce8
 - name: github.com/justinas/alice
@@ -60,11 +90,11 @@ imports:
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mitchellh/mapstructure
-  version: 53818660ed4955e899c0bcafa97299a388bd7c8e
+  version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
-  version: f6e7596e8daafd44dc9e5c208dc73035020c8481
+  version: fe7536c3dee2596cdd23ee9976a17c22bdaae286
 - name: github.com/philhofer/fwd
   version: 98c11a7a6ec829d672b03833c3d69a7fae1ca972
 - name: github.com/pmezard/go-difflib
@@ -82,9 +112,9 @@ imports:
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: ce135a4ebeee6cfe9a26c93ee0d37825f26113c7
+  version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
 - name: github.com/spf13/jwalterweatherman
-  version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
+  version: 0efa5202c04663c757d84f90f5219c1250baf94f
 - name: github.com/spf13/pflag
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: github.com/spf13/viper
@@ -110,14 +140,14 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: afadfcc7779c1f4db0f6f6438afcb108d9c9c7cd
+  version: 0b25a408a50076fbbcae6b7ac0ea5fbb0b085e79
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: fc7fa097411d30e6708badff276c4c164425590c
+  version: 210eee5cf7323015d097341bcf7166130d001cd8
   subpackages:
   - transform
   - unicode/norm
 - name: gopkg.in/yaml.v2
-  version: a3f3340b5840cee44f372bddb5880fcbc419b46a
-testImports: []
+  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
+devImports: []

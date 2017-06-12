@@ -128,21 +128,26 @@ func TestSwSimple(t *testing.T) {
 
 	assert.Equal(int32(0), trans.i)
 
-	// Add 2 listeners
-	list := []webhook.W{
-		{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(6 * time.Second),
-			Events:      []string{"iot"},
-		},
-		{
-			URL:         "http://localhost:9999/bar",
-			ContentType: "application/json",
-			Until:       time.Now().Add(4 * time.Second),
-			Events:      []string{"iot", "test", "wrp"},
-		},
+	w1 := webhook.W{
+		Duration:   6 * time.Second,
+		Until:      time.Now().Add(6 * time.Second),
+		Events:     []string{"iot"},
 	}
+	w1.Config.URL         = "http://localhost:8888/foo"
+	w1.Config.ContentType = "application/json"
+	w1.Matcher.DeviceId = []string{"mac:112233445566"}
+	
+	w2 := webhook.W{
+		Duration:   4 * time.Second,
+		Until:      time.Now().Add(4 * time.Second),
+		Events:     []string{"iot", "test", "wrp"},
+	}
+	w2.Config.URL         = "http://localhost:9999/foo"
+	w2.Config.ContentType = "application/json"
+	w2.Matcher.DeviceId = []string{"mac:112233445566"}
+
+	// Add 2 listeners
+	list := []webhook.W{w1, w2}
 
 	sw.Update(list)
 
@@ -166,17 +171,17 @@ func TestSwSimple(t *testing.T) {
 	sw.Queue(test)
 	time.Sleep(time.Second)
 	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
-
-	// We get a registration
-	list = []webhook.W{
-		{
-			URL:         "http://localhost:9999/foo",
-			ContentType: "application/json",
-			Until:       time.Now().Add(5 * time.Second),
-			Events:      []string{"iot"},
-		},
+	
+	w3 := webhook.W{
+		Until:      time.Now().Add(5 * time.Second),
+		Events:     []string{"iot"},
 	}
-	sw.Update(list)
+	w3.Config.URL         = "http://localhost:9999/foo"
+	w3.Config.ContentType = "application/json"
+	
+	// We get a registration
+	list2 := []webhook.W{w3}
+	sw.Update(list2)
 	time.Sleep(time.Second)
 
 	// Send iot

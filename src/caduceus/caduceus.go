@@ -4,14 +4,16 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
-	"github.com/Comcast/webpa-common/handler"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/Comcast/webpa-common/secure/handler"
 	"github.com/Comcast/webpa-common/server"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"time"
@@ -55,7 +57,7 @@ func caduceus(arguments []string) int {
 		Duration:  caduceusConfig.ProfilerDuration,
 		QueueSize: caduceusConfig.ProfilerQueueSize,
 	}
-
+	
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
 
@@ -115,6 +117,32 @@ func caduceus(arguments []string) int {
 	mux := mux.NewRouter()
 	mux.Handle("/api/v1/run", caduceusHandler.Then(serverWrapper))
 	mux.Handle("/api/v1/profile", caduceusHandler.Then(profileWrapper))
+
+
+
+	webhookFactory, err := webhook.NewFactory(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
+		return 1
+	}
+	
+	_, webhookHandler := webhookFactory.NewListAndHandler()
+	webhookRegistry := webhook.NewRegistry(nil, webhookFactory.PublishMessage)
+	webhookFactory.SetList( webhookRegistry )
+
+	// register webhook end points for api
+	mux.Handle("/api/v1/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
+	mux.Handle("/api/v1/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
+	
+	selfURL := &url.URL{
+		Scheme:   "https",
+		Host:     v.GetString("fqdn") + v.GetString("primary.address"),
+	}
+	
+	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger)
+	webhookFactory.PrepareAndStart()
+
+
 
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
