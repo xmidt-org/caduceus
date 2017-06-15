@@ -142,8 +142,6 @@ func caduceus(arguments []string) int {
 	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger)
 	webhookFactory.PrepareAndStart()
 
-
-
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
 
@@ -157,6 +155,16 @@ func caduceus(arguments []string) int {
 	}
 
 	logger.Info("Caduceus is up and running!")
+
+	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
+	startChan := make(chan webhook.Result, 1)
+	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
+	var webhookStartResults webhook.Result = <- startChan
+	if webhookStartResults.Error != nil {
+		logger.Error(webhookStartResults.Error)
+	} else {
+		webhookRegistry.Update(webhookStartResults.Hooks)
+	}
 
 	var (
 		signals = make(chan os.Signal, 1)
