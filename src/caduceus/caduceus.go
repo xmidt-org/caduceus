@@ -159,11 +159,11 @@ func caduceus(arguments []string) int {
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
 	startChan := make(chan webhook.Result, 1)
 	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
-	webhookStartResults := <- startChan
-	if webhookStartResults.err != nil {
-		logger.Error(webhookStartResults.err)
+	var webhookStartResults webhook.Result = <- startChan
+	if webhookStartResults.Error != nil {
+		logger.Error(webhookStartResults.Error)
 	} else {
-		webhookRegistry.Update(webhookStartResults.hooks)
+		webhookRegistry.Update(webhookStartResults.Hooks)
 	}
 
 	var (
