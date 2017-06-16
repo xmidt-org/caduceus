@@ -131,8 +131,8 @@ func caduceus(arguments []string) int {
 	webhookFactory.SetList( webhookRegistry )
 
 	// register webhook end points for api
-	mux.Handle("/api/v1/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
-	mux.Handle("/api/v1/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
+	mux.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
+	mux.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
 	
 	selfURL := &url.URL{
 		Scheme:   "https",
