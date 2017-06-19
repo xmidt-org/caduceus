@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/secure"
@@ -21,7 +22,56 @@ import (
 
 const (
 	applicationName = "caduceus"
+	DEFAULT_KEY_ID = "current"
 )
+
+
+// getValidator returns validator for JWT tokens
+func getValidator(v *viper.Viper) (validator SECURE.Validator, err error) {
+	no_validators := make(SECURE.Validators, 0, 0)
+	var jwtVals []jwtValidators
+	
+	// obtain valid jwtValidator from configuration
+	if jwtVals, ok := v.Get("jwtValidators").([]jwtValidator); !ok {
+		validator = no_validators
+		err = errors.New("Unable to cast \"jwtValidators\" value as type []jwtValidator")
+		return
+	}
+
+	// make sure there is at least one jwtValidator supplied
+	if len(jwtVals) < 1 {
+		validator = no_validators
+		err = errors.New("Supplied jwtValidator list size is less than 1")
+		return
+	}
+
+	// if a JWTKeys section was supplied, configure a JWS validator
+	// and append it to the chain of validators
+	validators := make(SECURE.Validators, 0, len(jwtVals))
+	
+	for _, validatorDescriptor := range jwtVals {
+		keyResolver, err := validatorDescriptor.Keys.NewResolver()
+		if err != nil {
+			validator = validators
+			err = errors.New("Unable to create key resolver from valiator descriptor")
+			return 
+		}
+
+		validators = append(
+			validators,
+			SECURE.JWSValidator{
+				DefaultKeyId:  DEFAULT_KEY_ID,
+				Resolver:      keyResolver,
+				JWTValidators: []*jwt.Validator{validatorDescriptor.Custom.New()},
+			},
+		)
+	}
+
+	validator = validators
+	
+	return
+}
+
 
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
@@ -101,8 +151,10 @@ func caduceus(arguments []string) int {
 		Logger:       logger,
 	}
 
-	validator := secure.Validators{
-		secure.ExactMatchValidator(caduceusConfig.AuthHeader),
+	validator, err := getValidator(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
+		return 1
 	}
 
 	authHandler := handler.AuthorizationHandler{

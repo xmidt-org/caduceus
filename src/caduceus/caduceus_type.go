@@ -4,6 +4,8 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/secure"
+	"github.com/Comcast/webpa-common/secure/key"
 	"time"
 )
 
@@ -32,6 +34,16 @@ type CaduceusConfig struct {
 	ProfilerQueueSize                   int
 	TotalIncomingPayloadSizeBuckets     []int
 	PerSourceIncomingPayloadSizeBuckets []int
+	JWTValidators                       []JWTValidator
+}
+
+type JWTValidator struct {
+	// JWTKeys is used to create the key.Resolver for JWT verification keys
+	Keys key.ResolverFactory
+
+	// Custom is an optional configuration section that defines
+	// custom rules for validation over and above the standard RFC rules.
+	Custom secure.JWTValidatorFactory
 }
 
 // Below is the struct we're using to create a request to caduceus
