@@ -34,7 +34,7 @@ type CaduceusConfig struct {
 	ProfilerQueueSize                   int
 	TotalIncomingPayloadSizeBuckets     []int
 	PerSourceIncomingPayloadSizeBuckets []int
-	JWTValidators                       []JWTValidator
+	JWTValidators                       interface{}
 }
 
 type JWTValidator struct {
