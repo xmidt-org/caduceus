@@ -51,7 +51,8 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 	validators := make(secure.Validators, 0, len(jwtVals))
 	
 	for _, validatorDescriptor := range jwtVals {
-		keyResolver, err := validatorDescriptor.Keys.NewResolver()
+		var keyResolver key.Resolver
+		keyResolver, err = validatorDescriptor.Keys.NewResolver()
 		if err != nil {
 			validator = validators
 			return 
