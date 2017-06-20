@@ -32,9 +32,10 @@ const (
 func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 	no_validators := make(secure.Validators, 0, 0)
 	var jwtVals []JWTValidator
+	var ok bool
 	
 	// obtain valid jwtValidator from configuration
-	if jwtVals, ok := v.Get("jwtValidators").([]JWTValidator); !ok {
+	if jwtVals, ok = v.Get("jwtValidators").([]JWTValidator); !ok {
 		validator = no_validators
 		err = errors.New("Unable to cast \"jwtValidators\" value as type []JWTValidator")
 		return
