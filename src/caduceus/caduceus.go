@@ -27,14 +27,14 @@ const (
 
 
 // getValidator returns validator for JWT tokens
-func getValidator(v *viper.Viper) (validator SECURE.Validator, err error) {
-	no_validators := make(SECURE.Validators, 0, 0)
-	var jwtVals []jwtValidators
+func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
+	no_validators := make(secure.Validators, 0, 0)
+	var jwtVals []JWTValidator
 	
 	// obtain valid jwtValidator from configuration
-	if jwtVals, ok := v.Get("jwtValidators").([]jwtValidator); !ok {
+	if jwtVals, ok := v.Get("jwtValidators").([]JWTValidator); !ok {
 		validator = no_validators
-		err = errors.New("Unable to cast \"jwtValidators\" value as type []jwtValidator")
+		err = errors.New("Unable to cast \"jwtValidators\" value as type []JWTValidator")
 		return
 	}
 
@@ -47,7 +47,7 @@ func getValidator(v *viper.Viper) (validator SECURE.Validator, err error) {
 
 	// if a JWTKeys section was supplied, configure a JWS validator
 	// and append it to the chain of validators
-	validators := make(SECURE.Validators, 0, len(jwtVals))
+	validators := make(secure.Validators, 0, len(jwtVals))
 	
 	for _, validatorDescriptor := range jwtVals {
 		keyResolver, err := validatorDescriptor.Keys.NewResolver()
@@ -59,7 +59,7 @@ func getValidator(v *viper.Viper) (validator SECURE.Validator, err error) {
 
 		validators = append(
 			validators,
-			SECURE.JWSValidator{
+			secure.JWSValidator{
 				DefaultKeyId:  DEFAULT_KEY_ID,
 				Resolver:      keyResolver,
 				JWTValidators: []*jwt.Validator{validatorDescriptor.Custom.New()},
