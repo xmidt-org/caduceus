@@ -11,6 +11,7 @@ import (
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/SermoDigital/jose/jwt"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"net/http"
@@ -53,7 +54,6 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 		keyResolver, err := validatorDescriptor.Keys.NewResolver()
 		if err != nil {
 			validator = validators
-			err = errors.New("Unable to create key resolver from valiator descriptor")
 			return 
 		}
 
