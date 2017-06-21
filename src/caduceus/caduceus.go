@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/secure"
@@ -30,21 +29,14 @@ const (
 
 // getValidator returns validator for JWT tokens
 func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
-	no_validators := make(secure.Validators, 0, 0)
+	default_validators := make(secure.Validators, 0, 0)
 	var jwtVals []JWTValidator
-	var ok bool
-	
-	// obtain valid jwtValidator from configuration
-	if jwtVals, ok = v.Get("jwtValidators").([]JWTValidator); !ok {
-		validator = no_validators
-		err = errors.New("Unable to cast \"jwtValidators\" value as type []JWTValidator")
-		return
-	}
 
+	v.UnmarshalKey("jwtValidators", &jwtVals)
+	
 	// make sure there is at least one jwtValidator supplied
 	if len(jwtVals) < 1 {
-		validator = no_validators
-		err = errors.New("Supplied jwtValidator list size is less than 1")
+		validator = default_validators
 		return
 	}
 
