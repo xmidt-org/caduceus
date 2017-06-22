@@ -1,5 +1,5 @@
-hash: 12bce684005c067ee40b6f1178afc039438caedc15e096d2df3540420957aed8
-updated: 2017-06-16T13:53:50.398012663-07:00
+hash: 50ab99968f4561e3f632ae14606da66785c7137d563fbec36e7ec03e92954b69
+updated: 2017-06-22T16:21:58.86608401-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 32a89cf778fd90271c6054cd84f8573d7960ca31
+  version: e79e957038e132c6714b8320024ac23a457515f8
   subpackages:
   - concurrent
   - handler
@@ -44,13 +44,13 @@ imports:
   - webhook
   - health
   - secure/handler
-  - wrp
   - secure/key
+  - wrp
+  - resource
+  - types
   - logging/golog
   - httperror
   - webhook/aws
-  - resource
-  - types
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
@@ -144,7 +144,7 @@ imports:
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 9e2f80a6ba7ed4ba13e0cd4b1f094bf916875735
+  version: 4e9ab9ee170f2a39bd66c92b3e0a47ff47a4bc77
   subpackages:
   - transform
   - unicode/norm
