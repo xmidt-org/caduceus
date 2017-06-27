@@ -1,5 +1,5 @@
-hash: 50ab99968f4561e3f632ae14606da66785c7137d563fbec36e7ec03e92954b69
-updated: 2017-06-22T16:21:58.86608401-07:00
+hash: 498bcd2a936e372cab0c0c3e232a0b6f88cf193150cccbac1f0969264e599d8b
+updated: 2017-06-27T14:22:55.970896695-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: e79e957038e132c6714b8320024ac23a457515f8
+  version: 65deaeeebe3242de7da538d5976faef105be45c5
   subpackages:
   - concurrent
   - handler
@@ -94,7 +94,7 @@ imports:
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
-  version: fe7536c3dee2596cdd23ee9976a17c22bdaae286
+  version: 4a000a21a414d139727f616a8bb97f847b1b310b
 - name: github.com/philhofer/fwd
   version: 1612a298117663d7bc9a760ae20d383413859798
 - name: github.com/pmezard/go-difflib
@@ -140,11 +140,11 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a
+  version: 90796e5a05ce440b41c768bd9af257005e470461
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 4e9ab9ee170f2a39bd66c92b3e0a47ff47a4bc77
+  version: 6353ef0f924300eea566d3438817aa4d3374817e
   subpackages:
   - transform
   - unicode/norm

@@ -173,9 +173,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 	
-	_, webhookHandler := webhookFactory.NewListAndHandler()
-	webhookRegistry := webhook.NewRegistry(nil, webhookFactory.PublishMessage)
-	webhookFactory.SetList( webhookRegistry )
+	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler()
 
 	// register webhook end points for api
 	mux.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
@@ -210,7 +208,7 @@ func caduceus(arguments []string) int {
 	if webhookStartResults.Error != nil {
 		logger.Error(webhookStartResults.Error)
 	} else {
-		webhookRegistry.Update(webhookStartResults.Hooks)
+		webhookFactory.SetList( webhook.NewList(webhookStartResults.Hooks) )
 	}
 
 	var (
