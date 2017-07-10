@@ -173,6 +173,7 @@ func TestSwSimple(t *testing.T) {
 	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
 	
 	w3 := webhook.W{
+		Duration:   5 * time.Second,
 		Until:      time.Now().Add(5 * time.Second),
 		Events:     []string{"iot"},
 	}
