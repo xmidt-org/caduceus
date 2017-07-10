@@ -209,7 +209,16 @@ func caduceus(arguments []string) int {
 		logger.Error(webhookStartResults.Error)
 	} else {
 		webhookFactory.SetList( webhook.NewList(webhookStartResults.Hooks) )
+		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
+
+	// monitor used to update sender wrapper list by listening to webhookRegistry.m.changes
+	go func() {
+		for {
+			updateSenderWrapperlist := <-webhookRegistry.Changes
+			caduceusSenderWrapper.Update(updateSenderWrapperlist)
+		}
+	}()
 
 	var (
 		signals = make(chan os.Signal, 1)

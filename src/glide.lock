@@ -1,58 +1,58 @@
-hash: c85e79e91b5089ef5e6a051960e1c713b99fd0fead8d7cd577f34441cfc3c03a
-updated: 2017-06-29T16:43:51.830758598-07:00
+hash: 41972670e02eda88eb148af212b7ad600dccdf223b6868a9ce6d5284eab5783a
+updated: 2017-07-10T12:46:35.84057326-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
-  version: 87aa1287b67f86a66c22477c9c730568c9b5977a
+  version: 7be45195c3af1b54a609812f90c05a7e492e2491
   subpackages:
   - aws
-  - aws/awserr
-  - aws/awsutil
-  - aws/client
-  - aws/client/metadata
-  - aws/corehandlers
+  - service
   - aws/credentials
-  - aws/credentials/ec2rolecreds
-  - aws/credentials/endpointcreds
-  - aws/credentials/stscreds
-  - aws/defaults
-  - aws/ec2metadata
-  - aws/endpoints
-  - aws/request
   - aws/session
-  - aws/signer/v4
-  - internal/shareddefaults
-  - private/protocol
-  - private/protocol/query
-  - private/protocol/query/queryutil
-  - private/protocol/rest
-  - private/protocol/xml/xmlutil
   - service/sns
   - service/sns/snsiface
+  - aws/awserr
+  - aws/endpoints
+  - aws/client
+  - aws/corehandlers
+  - aws/credentials/stscreds
+  - aws/defaults
+  - aws/request
+  - aws/awsutil
+  - aws/client/metadata
+  - aws/signer/v4
+  - private/protocol
+  - private/protocol/query
   - service/sts
+  - aws/credentials/ec2rolecreds
+  - aws/credentials/endpointcreds
+  - aws/ec2metadata
+  - private/protocol/rest
+  - private/protocol/query/queryutil
+  - private/protocol/xml/xmlutil
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: c8084947d6367803a10c8d5c2eec6fcecdebf520
+  version: 7bb6b8c193a609518d03b7953e1772d336b197d7
   subpackages:
   - concurrent
   - handler
-  - health
-  - httperror
   - logging
-  - logging/golog
-  - resource
   - secure
+  - server
+  - webhook
+  - health
   - secure/handler
   - secure/key
-  - server
-  - types
-  - webhook
-  - webhook/aws
   - wrp
+  - resource
+  - types
+  - logging/golog
+  - httperror
+  - webhook/aws
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
@@ -64,14 +64,14 @@ imports:
 - name: github.com/gorilla/mux
   version: 392c28fe23e1c45ddba891b0320b3b5df220beea
 - name: github.com/hashicorp/hcl
-  version: a4b07c25de5ff55ad3b8936cea69a79a3d95a855
+  version: 392dba7d905ed5d04a5794ba89f558b27e2ba1ca
   subpackages:
   - hcl/ast
   - hcl/parser
-  - hcl/scanner
-  - hcl/strconv
   - hcl/token
   - json/parser
+  - hcl/scanner
+  - hcl/strconv
   - json/scanner
   - json/token
 - name: github.com/ian-kent/go-log
@@ -88,21 +88,19 @@ imports:
 - name: github.com/justinas/alice
   version: 1051eaf52fcafdd87ead59d28b065f1fcb8274ec
 - name: github.com/magiconair/properties
-  version: 51463bfca2576e06c62a8504b5c0f06d61312647
+  version: be5ece7dd465ab0765a9682137865547526d1dfb
 - name: github.com/mitchellh/mapstructure
-  version: cc8532a8e9a55ea36402aa21efdf403a60d34096
-- name: github.com/pelletier/go-buffruneio
-  version: c37440a7cf42ac63b919c752ca73a85067e05992
+  version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-toml
-  version: 23f644976aa7c724adf4aec911dadf4af17840ab
+  version: 69d355db5304c0f7f809a2edc054553e7142f016
 - name: github.com/philhofer/fwd
-  version: 98c11a7a6ec829d672b03833c3d69a7fae1ca972
+  version: 1612a298117663d7bc9a760ae20d383413859798
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
 - name: github.com/SermoDigital/jose
-  version: 2bd9b81ac51d6d6134fcd4fd846bd2e7347a15f9
+  version: f6df55f235c24f236d11dbcf665249a59ac2021f
   subpackages:
   - crypto
   - jws
@@ -114,7 +112,7 @@ imports:
 - name: github.com/spf13/cast
   version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
 - name: github.com/spf13/jwalterweatherman
-  version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
+  version: 0efa5202c04663c757d84f90f5219c1250baf94f
 - name: github.com/spf13/pflag
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: github.com/spf13/viper
@@ -124,8 +122,8 @@ imports:
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
-  - assert
   - mock
+  - assert
   - require
 - name: github.com/t-k/fluent-logger-golang
   version: 0f8ec08f2057a61574b6943e75045fffbeae894e
@@ -136,18 +134,18 @@ imports:
   subpackages:
   - msgp
 - name: github.com/ugorji/go
-  version: 5efa3251c7f7d05e5d9704a69a984ec9f1386a40
+  version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: 9ccfe848b9db8435a24c424abbc07a921adf1df5
+  version: abf9c25f54453410d0c6668e519582a9e1115027
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 470f45bf29f4147d6fbd7dfd0a02a848e49f5bf4
+  version: cfdf022e86b4ecfb646e1efbd7db175dd623a8fa
   subpackages:
   - transform
   - unicode/norm
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
-testImports: []
+devImports: []
