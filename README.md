@@ -7,7 +7,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Comcast/caduceus)](https://goreportcard.com/report/github.com/Comcast/caduceus)
 [![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/Comcast/caduceus/blob/master/LICENSE)
 
-The Webpa server for delivering events written in Go.
+The Xmidt server for delivering events written in Go.
 
 # How to Install
 
