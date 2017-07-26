@@ -185,7 +185,6 @@ func caduceus(arguments []string) int {
 	}
 	
 	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger)
-	webhookFactory.PrepareAndStart()
 
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
@@ -198,6 +197,8 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
 	}
+
+	webhookFactory.PrepareAndStart()
 
 	logger.Info("Caduceus is up and running!")
 
