@@ -136,17 +136,16 @@ func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
 	case "application/json":
 		if url, err := url.Parse(req.TargetURL); nil == err {
 			elements := strings.Split(url.Path, "/")
-			if 6 < len(elements) &&
+			if 5 < len(elements) &&
 				"" == elements[0] &&
 				"api" == elements[1] &&
 				"v2" == elements[2] &&
-				"notification" == elements[3] &&
-				"device" == elements[4] &&
+				"notify" == elements[3] &&
 				// Skip the device id
-				"event" == elements[6] {
+				"event" == elements[5] {
 
 				eventType := strings.SplitN(url.Path, "/event/", 2)[1]
-				deviceID := elements[5]
+				deviceID := elements[4]
 				// TODO: this looks like it's wrong, we should fill this out
 				transID := "12345"
 				sw.mutex.RLock()

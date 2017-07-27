@@ -163,7 +163,7 @@ func caduceus(arguments []string) int {
 	mux.Handle("/api/v1/profile", caduceusHandler.Then(profileWrapper))
 
 	// Support the old endpoint too.
-	mux.Handle("/api/v2/notify", caduceusHandler.Then(serverWrapper))
+	mux.Handle("/api/v2/notify/{deviceid}/event/{eventtype:.*}", caduceusHandler.Then(serverWrapper))
 
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
