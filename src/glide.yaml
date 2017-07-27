@@ -1,7 +1,7 @@
 package: .
 import:
 - package: github.com/Comcast/webpa-common
-  version: c6f2e19d4a052c4a494334687e392c77f052c7d3
+  version: d9d08a4533cc23274f3e1898893884a30be97054
   subpackages:
   - concurrent
   - handler
