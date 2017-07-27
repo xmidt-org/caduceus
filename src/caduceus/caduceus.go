@@ -108,7 +108,6 @@ func caduceus(arguments []string) int {
 
 	// declare a new sender wrapper and pass it a profiler factory so that it can create
 	// unique profilers on a per outboundSender basis
-	// TODO: need to add `Update` method into the code
 	caduceusSenderWrapper, err := SenderWrapperFactory{
 		NumWorkersPerSender: caduceusConfig.SenderNumWorkersPerSender,
 		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
@@ -171,9 +170,9 @@ func caduceus(arguments []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
 		return 1
-	}
-	
+	}	
 	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler()
+	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
 	// register webhook end points for api
 	mux.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
@@ -212,14 +211,6 @@ func caduceus(arguments []string) int {
 		webhookFactory.SetList( webhook.NewList(webhookStartResults.Hooks) )
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
-
-	// monitor used to update sender wrapper list by listening to webhookRegistry.m.changes
-	go func() {
-		for {
-			updateSenderWrapperlist := <-webhookRegistry.Changes
-			caduceusSenderWrapper.Update(updateSenderWrapperlist)
-		}
-	}()
 
 	var (
 		signals = make(chan os.Signal, 1)
