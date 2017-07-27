@@ -390,7 +390,6 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
-						obs.logger.Error("Success sending to '%s'", obs.listener.Config.URL)
 						obs.profiler.Send(work.req)
 					} else {
 						// Report partial success
