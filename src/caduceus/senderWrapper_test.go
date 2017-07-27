@@ -88,17 +88,17 @@ func TestSwSimple(t *testing.T) {
 	iot := CaduceusRequest{
 		Payload:     []byte("Hello, world."),
 		ContentType: "application/json",
-		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
+		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/iot",
 	}
 	test := CaduceusRequest{
 		Payload:     []byte("Hello, world."),
 		ContentType: "application/json",
-		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/test",
+		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/test",
 	}
 	wrp := CaduceusRequest{
 		Payload:     buffer.Bytes(),
 		ContentType: "application/wrp",
-		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/wrp",
+		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/wrp",
 	}
 
 	trans := &swTransport{}
