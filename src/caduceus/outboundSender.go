@@ -168,7 +168,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		err = errors.New("Events must not be empty.")
 		return
 	}
-	
+
 	// Create the matcher regex objects
 	for _, item := range osf.Listener.Matcher.DeviceId {
 		if ".*" == item {
@@ -176,7 +176,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			caduceusOutboundSender.matcher = nil
 			break
 		}
-		
+
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(item); nil != err {
 			err = fmt.Errorf("Invalid matcher item: '%s'", item)
@@ -302,27 +302,27 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 					}
 				}
 				/*
-				// if the device id matches then we want to look through all the metadata
-				// and make sure that the obs metadata matches the metadata provided
-				if matchDevice {
-					for key, val := range metaData {
-						if matchers, ok := obs.matcher[key]; ok {
-							for _, deviceRegex := range matchers {
-								matchDevice = false
-								if deviceRegex.MatchString(val) {
-									matchDevice = true
+					// if the device id matches then we want to look through all the metadata
+					// and make sure that the obs metadata matches the metadata provided
+					if matchDevice {
+						for key, val := range metaData {
+							if matchers, ok := obs.matcher[key]; ok {
+								for _, deviceRegex := range matchers {
+									matchDevice = false
+									if deviceRegex.MatchString(val) {
+										matchDevice = true
+										break
+									}
+								}
+
+								// metadata was provided but did not match our expectations,
+								// so it is time to drop the message
+								if !matchDevice {
 									break
 								}
 							}
-
-							// metadata was provided but did not match our expectations,
-							// so it is time to drop the message
-							if !matchDevice {
-								break
-							}
 						}
 					}
-				}
 				*/
 				if matchDevice {
 					if len(obs.queue) < obs.queueSize {

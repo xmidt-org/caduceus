@@ -110,7 +110,7 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	for i, v := range list {
 		v.DurationValidator()
 		v.Until = time.Now().Add(v.Duration)
-		
+
 		ids[i].Listener = v
 		ids[i].ID = v.ID()
 	}

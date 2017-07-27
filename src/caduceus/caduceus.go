@@ -9,9 +9,9 @@ import (
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/SermoDigital/jose/jwt"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
-	"github.com/SermoDigital/jose/jwt"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"net/http"
@@ -23,9 +23,8 @@ import (
 
 const (
 	applicationName = "caduceus"
-	DEFAULT_KEY_ID = "current"
+	DEFAULT_KEY_ID  = "current"
 )
-
 
 // getValidator returns validator for JWT tokens
 func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
@@ -33,7 +32,7 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 	var jwtVals []JWTValidator
 
 	v.UnmarshalKey("jwtValidators", &jwtVals)
-	
+
 	// make sure there is at least one jwtValidator supplied
 	if len(jwtVals) < 1 {
 		validator = default_validators
@@ -43,13 +42,13 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 	// if a JWTKeys section was supplied, configure a JWS validator
 	// and append it to the chain of validators
 	validators := make(secure.Validators, 0, len(jwtVals))
-	
+
 	for _, validatorDescriptor := range jwtVals {
 		var keyResolver key.Resolver
 		keyResolver, err = validatorDescriptor.Keys.NewResolver()
 		if err != nil {
 			validator = validators
-			return 
+			return
 		}
 
 		validators = append(
@@ -63,10 +62,9 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 	}
 
 	validator = validators
-	
+
 	return
 }
-
 
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
@@ -102,7 +100,7 @@ func caduceus(arguments []string) int {
 		Duration:  caduceusConfig.ProfilerDuration,
 		QueueSize: caduceusConfig.ProfilerQueueSize,
 	}
-	
+
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
 
@@ -164,25 +162,23 @@ func caduceus(arguments []string) int {
 	mux.Handle("/api/v1/run", caduceusHandler.Then(serverWrapper))
 	mux.Handle("/api/v1/profile", caduceusHandler.Then(profileWrapper))
 
-
-
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
 		return 1
-	}	
+	}
 	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler()
 	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
 	// register webhook end points for api
 	mux.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
 	mux.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
-	
+
 	selfURL := &url.URL{
-		Scheme:   "https",
-		Host:     v.GetString("fqdn") + v.GetString("primary.address"),
+		Scheme: "https",
+		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
-	
+
 	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger)
 
 	caduceusHealth := &CaduceusHealth{}
@@ -204,11 +200,11 @@ func caduceus(arguments []string) int {
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
 	startChan := make(chan webhook.Result, 1)
 	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
-	var webhookStartResults webhook.Result = <- startChan
+	var webhookStartResults webhook.Result = <-startChan
 	if webhookStartResults.Error != nil {
 		logger.Error(webhookStartResults.Error)
 	} else {
-		webhookFactory.SetList( webhook.NewList(webhookStartResults.Hooks) )
+		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
 
