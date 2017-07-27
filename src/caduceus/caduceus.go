@@ -159,8 +159,11 @@ func caduceus(arguments []string) int {
 	caduceusHandler := alice.New(authHandler.Decorate)
 
 	mux := mux.NewRouter()
-	mux.Handle("/api/v1/run", caduceusHandler.Then(serverWrapper))
+	mux.Handle("/api/v1/notify", caduceusHandler.Then(serverWrapper))
 	mux.Handle("/api/v1/profile", caduceusHandler.Then(profileWrapper))
+
+	// Support the old endpoint too.
+	mux.Handle("/api/v2/notify", caduceusHandler.Then(serverWrapper))
 
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
