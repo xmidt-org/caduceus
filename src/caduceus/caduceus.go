@@ -3,6 +3,12 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
@@ -14,11 +20,6 @@ import (
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"net/http"
-	"net/url"
-	"os"
-	"os/signal"
-	"time"
 )
 
 const (
@@ -58,6 +59,15 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 				Resolver:      keyResolver,
 				JWTValidators: []*jwt.Validator{validatorDescriptor.Custom.New()},
 			},
+		)
+	}
+
+	// TODO: This should really be part of the unmarshalled validators somehow
+	basicAuth := v.GetStringSlice("authHeader")
+	for _, authValue := range basicAuth {
+		validators = append(
+			validators,
+			secure.ExactMatchValidator(authValue),
 		)
 	}
 
