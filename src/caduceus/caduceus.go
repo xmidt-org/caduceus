@@ -206,6 +206,12 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
+	// make sure dns is ready before preceeding
+	dnsReadyChan := make(chan bool, 1)
+	go caduceusHealth.dnsReady(selfURL.String(), dnsReadyChan)
+	<- dnsReadyChan
+	logger.Debug("DNS ready")
+	
 	webhookFactory.PrepareAndStart()
 
 	logger.Info("Caduceus is up and running!")
