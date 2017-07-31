@@ -1,5 +1,5 @@
-hash: 79d218d032586eff7871e291e80ba1c3be45c6db24df62634158728cedab0e1f
-updated: 2017-07-27T15:13:21.857883513-07:00
+hash: 46d6c69983a91db6d0a06271bc050c5272ae737ce14bfd5411928eab52099002
+updated: 2017-07-31T12:35:58.837405204-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -34,7 +34,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: d9d08a4533cc23274f3e1898893884a30be97054
+  version: 5fdd8759d862cad9515195b5497a52c9514683fd
   subpackages:
   - concurrent
   - handler
@@ -138,11 +138,11 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/sys
-  version: 35ef4487ce0a1ea5d4b616ffe71e34febe723695
+  version: 0f826bdd13b500be0f1d4004938ad978fcc6031e
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 836efe42bb4aa16aaa17b9c155d8813d336ed720
+  version: 3bd178b88a8180be2df394a1fbb81313916f0e7b
   subpackages:
   - transform
   - unicode/norm
