@@ -1,5 +1,5 @@
-hash: 0018c4634bac407f9a3d1a5ab50e18d7364ff05032a389d1a187b833b64c55d7
-updated: 2017-08-02T13:52:04.65967104-07:00
+hash: f198dc9abed833875765f1ed2a91d3d1cf3deeb152b4e365869d09984cdf6498
+updated: 2017-08-02T14:46:20.617647534-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -122,9 +122,10 @@ imports:
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
-  - mock
   - assert
   - require
+  - mock
+  - linux
 - name: github.com/t-k/fluent-logger-golang
   version: 0f8ec08f2057a61574b6943e75045fffbeae894e
   subpackages:
@@ -144,9 +145,8 @@ imports:
 - name: golang.org/x/text
   version: 3bd178b88a8180be2df394a1fbb81313916f0e7b
   subpackages:
+  - transform
   - unicode/norm
-- name: golang.org/x/text/transform
-  version: 3bd178b88a8180be2df394a1fbb81313916f0e7b
 - name: gopkg.in/yaml.v2
   version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
 devImports: []
