@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -209,9 +210,9 @@ func caduceus(arguments []string) int {
 	// make sure dns is ready before preceeding
 	dnsReadyChan := make(chan bool, 1)
 	go caduceusHealth.dnsReady(selfURL.String(), dnsReadyChan)
-	<- dnsReadyChan
+	<-dnsReadyChan
 	logger.Debug("DNS ready")
-	
+
 	webhookFactory.PrepareAndStart()
 
 	logger.Info("Caduceus is up and running!")
