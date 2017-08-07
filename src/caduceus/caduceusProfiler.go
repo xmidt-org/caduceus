@@ -121,6 +121,12 @@ func (a int64Array) Len() int           { return len(a) }
 func (a int64Array) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a int64Array) Less(i, j int) bool { return a[i] < a[j] }
 
+// get98th returns the 98% indice value.
+// example: in an array with length of 100. index 97 would be the 98th.
+func get98th(list []interface{}) int64 {
+	return int64( math.Ceil( float64(len(list))*0.98 ) - 1 )
+}
+
 func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 
 	rv := make([]interface{}, 1)
@@ -142,7 +148,9 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 			processingTotal += processingTime[i]
 			responseTotal += responseTime[i]
 		}
-		sort.Sort(int64Array(latency))
+		sort.Sort( int64Array(latency) )
+		sort.Sort( int64Array(processingTime) )
+		sort.Sort( int64Array(responseTime) )
 
 		// TODO There is a pattern for time based stats calculations that should be made common
 
@@ -151,11 +159,11 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 			Time:                 time.Now().String(),
 			Tonnage:              tonnage,
 			EventsSent:           len(raw),
-			ProcessingTimePerc98: time.Duration(processingTime[((len(processingTime) * 98) / 100)]).String(),
+			ProcessingTimePerc98: time.Duration(processingTime[get98th(processingTime)]).String(),
 			ProcessingTimeAvg:    time.Duration(processingTotal / int64(len(raw))).String(),
-			LatencyPerc98:        time.Duration(latency[((len(latency) * 98) / 100)]).String(),
+			LatencyPerc98:        time.Duration(latency[get98th(latency)]).String(),
 			LatencyAvg:           time.Duration(latencyTotal / int64(len(raw))).String(),
-			ResponsePerc98:       time.Duration(responseTime[((len(responseTime) * 98) / 100)]).String(),
+			ResponsePerc98:       time.Duration(responseTime[get98th(resonseTime)]).String(),
 			ResponseAvg:          time.Duration(responseTotal / int64(len(raw))).String(),
 		}
 		// TODO This is a hack until we can get the results to be merged back into a profiler manager or similar.
