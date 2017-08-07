@@ -99,7 +99,6 @@ func TestCaduceusHandler(t *testing.T) {
 	fakeSenderWrapper.On("Queue", mock.AnythingOfType("CaduceusRequest")).Return().Once()
 
 	fakeProfiler := new(mockServerProfiler)
-	fakeProfiler.On("Send", mock.AnythingOfType("CaduceusRequest")).Return(nil).Once()
 
 	testHandler := CaduceusHandler{
 		handlerProfiler: fakeProfiler,

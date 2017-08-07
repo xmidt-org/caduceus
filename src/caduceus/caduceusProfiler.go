@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -14,13 +16,14 @@ type ServerProfilerFactory struct {
 
 // New will be used to initialize a new server profiler for caduceus and get
 // the gears in motion for aggregating data
-func (spf ServerProfilerFactory) New() (serverProfiler ServerProfiler, err error) {
+func (spf ServerProfilerFactory) New(name string) (serverProfiler ServerProfiler, err error) {
 	if spf.Frequency < 1 || spf.Duration < 1 || spf.QueueSize < 1 {
 		err = errors.New("No parameter to the ServerProfilerFactory can be less than 1.")
 		return
 	}
 
 	newCaduceusProfiler := &caduceusProfiler{
+		name:         name,
 		frequency:    spf.Frequency,
 		profilerRing: NewCaduceusRing(spf.Duration),
 		inChan:       make(chan interface{}, spf.QueueSize),
@@ -43,6 +46,7 @@ type ServerProfiler interface {
 type Tick func(time.Duration) <-chan time.Time
 
 type caduceusProfiler struct {
+	name         string
 	frequency    int
 	tick         Tick
 	profilerRing ServerRing
@@ -92,11 +96,16 @@ func (cp *caduceusProfiler) aggregate(quit <-chan struct{}) {
 	for {
 		select {
 		case <-ticker:
-			// add the data to the ring and clear the temporary structure
-			cp.rwMutex.Lock()
-			cp.profilerRing.Add(data)
-			cp.rwMutex.Unlock()
-			data = nil
+			if 0 < len(data) {
+				// perform some analysis
+				refined := cp.process(data)
+
+				// add the data to the ring and clear the temporary structure
+				cp.rwMutex.Lock()
+				cp.profilerRing.Add(refined)
+				cp.rwMutex.Unlock()
+				data = nil
+			}
 		case inData := <-cp.inChan:
 			// add the data to a temporary structure
 			data = append(data, inData)
@@ -104,4 +113,54 @@ func (cp *caduceusProfiler) aggregate(quit <-chan struct{}) {
 			return
 		}
 	}
+}
+
+type int64Array []int64
+
+func (a int64Array) Len() int           { return len(a) }
+func (a int64Array) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a int64Array) Less(i, j int) bool { return a[i] < a[j] }
+
+func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
+
+	rv := make([]interface{}, 1)
+
+	if 0 < len(raw) {
+		// in nanoseconds
+		latency := make([]int64, len(raw))
+		processingTime := make([]int64, len(raw))
+		responseTime := make([]int64, len(raw))
+		tonnage := 0
+		var responseTotal, processingTotal, latencyTotal int64
+
+		for i := range raw {
+			tonnage += raw[i].(CaduceusTelemetry).PayloadSize
+			latency[i] = raw[i].(CaduceusTelemetry).TimeSent.Sub(raw[i].(CaduceusTelemetry).TimeReceived).Nanoseconds()
+			processingTime[i] = raw[i].(CaduceusTelemetry).TimeOutboundAccepted.Sub(raw[i].(CaduceusTelemetry).TimeReceived).Nanoseconds()
+			responseTime[i] = raw[i].(CaduceusTelemetry).TimeResponded.Sub(raw[i].(CaduceusTelemetry).TimeSent).Nanoseconds()
+			latencyTotal += latency[i]
+			processingTotal += processingTime[i]
+			responseTotal += responseTime[i]
+		}
+		sort.Sort(int64Array(latency))
+
+		// TODO There is a pattern for time based stats calculations that should be made common
+
+		rv[0] = &CaduceusStats{
+			Name:                 cp.name,
+			Time:                 time.Now().String(),
+			Tonnage:              tonnage,
+			EventsSent:           len(raw),
+			ProcessingTimePerc98: time.Duration(processingTime[((len(processingTime) * 98) / 100)]).String(),
+			ProcessingTimeAvg:    time.Duration(processingTotal / int64(len(raw))).String(),
+			LatencyPerc98:        time.Duration(latency[((len(latency) * 98) / 100)]).String(),
+			LatencyAvg:           time.Duration(latencyTotal / int64(len(raw))).String(),
+			ResponsePerc98:       time.Duration(responseTime[((len(responseTime) * 98) / 100)]).String(),
+			ResponseAvg:          time.Duration(responseTotal / int64(len(raw))).String(),
+		}
+		// TODO This is a hack until we can get the results to be merged back into a profiler manager or similar.
+		fmt.Printf("stats: %+v\n", rv[0])
+	}
+
+	return rv
 }

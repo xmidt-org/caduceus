@@ -24,7 +24,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	sh.Info("Receiving incoming request...")
 
-	timeStamps := CaduceusTimestamps{
+	stats := CaduceusTelemetry{
 		TimeReceived: time.Now(),
 	}
 
@@ -34,7 +34,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
-	myPayload, err := ioutil.ReadAll(request.Body)
+	payload, err := ioutil.ReadAll(request.Body)
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unable to retrieve the request body: %s.\n", err.Error)))
@@ -71,13 +71,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	targetURL := request.URL.String()
 
 	caduceusRequest := CaduceusRequest{
-		Payload:     myPayload,
+		Payload:     payload,
 		ContentType: contentType,
 		TargetURL:   targetURL,
-		Timestamps:  timeStamps,
+		Telemetry:   stats,
 	}
 
-	caduceusRequest.Timestamps.TimeAccepted = time.Now()
+	caduceusRequest.Telemetry.PayloadSize = len(payload)
+	caduceusRequest.Telemetry.TimeAccepted = time.Now()
 
 	err = sh.doJob(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
 	if err != nil {
@@ -88,7 +89,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
-		sh.caduceusHealth.IncrementBucket(len(myPayload))
+		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.PayloadSize)
 	}
 }
 

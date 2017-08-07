@@ -52,14 +52,30 @@ type CaduceusRequest struct {
 	Payload     []byte
 	ContentType string
 	TargetURL   string
-	Timestamps  CaduceusTimestamps
+	Telemetry   CaduceusTelemetry
 }
 
-type CaduceusTimestamps struct {
-	TimeReceived               time.Time
-	TimeAccepted               time.Time
-	TimeSentToOutbound         time.Time
-	TimeOutboundStatusReceived time.Time
+type CaduceusTelemetry struct {
+	PayloadSize          int
+	TimeReceived         time.Time
+	TimeAccepted         time.Time
+	TimeSentToOutbound   time.Time
+	TimeOutboundAccepted time.Time
+	TimeSent             time.Time
+	TimeResponded        time.Time
+}
+
+type CaduceusStats struct {
+	Name                 string `json:"endpoint-name"`
+	Time                 string `json:"time"`
+	Tonnage              int    `json:"tonnage"`
+	EventsSent           int    `json:"events-sent"`
+	ProcessingTimePerc98 string `json:"processing-time-perc98"`
+	ProcessingTimeAvg    string `json:"processing-time-avg"`
+	LatencyPerc98        string `json:"latency-perc98"`
+	LatencyAvg           string `json:"latency-avg"`
+	ResponsePerc98       string `json:"response-perc98"`
+	ResponseAvg          string `json:"response-avg"`
 }
 
 type RequestHandler interface {
@@ -73,15 +89,10 @@ type CaduceusHandler struct {
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	inRequest.Timestamps.TimeSentToOutbound = time.Now()
+	inRequest.Telemetry.TimeSentToOutbound = time.Now()
 
 	ch.Info("Worker #%d received a request, now passing on to sender wrapper...", workerID)
 	ch.senderWrapper.Queue(inRequest)
-
-	inRequest.Timestamps.TimeOutboundStatusReceived = time.Now()
-
-	ch.handlerProfiler.Send(inRequest)
-	ch.Info("Worker #%d finished; printing message time stats:\t%v", workerID, inRequest.Timestamps)
 }
 
 type HealthTracker interface {

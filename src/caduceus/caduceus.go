@@ -133,7 +133,7 @@ func caduceus(arguments []string) int {
 	}
 
 	// here we create a profiler specifically for our main server handler
-	caduceusHandlerProfiler, err := caduceusProfilerFactory.New()
+	caduceusHandlerProfiler, err := caduceusProfilerFactory.New("invalid")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to profiler for main caduceus handler: %s\n", err)
 		return 1

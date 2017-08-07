@@ -149,7 +149,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		}
 	}
 
-	caduceusOutboundSender.profiler, err = osf.ProfilerFactory.New()
+	caduceusOutboundSender.profiler, err = osf.ProfilerFactory.New(osf.Listener.Config.URL)
 	if err != nil {
 		return
 	}
@@ -262,12 +262,14 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 				}
 				if matchDevice {
 					if len(obs.queue) < obs.queueSize {
-						outboundReq := outboundRequest{req: req,
+						outboundReq := outboundRequest{
+							req:         req,
 							event:       eventType,
 							transID:     transID,
 							deviceID:    deviceID,
 							contentType: "application/json",
 						}
+						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						obs.queue <- outboundReq
 					} else {
 						obs.queueOverflow()
@@ -335,6 +337,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 							deviceID:    deviceID,
 							contentType: "application/wrp",
 						}
+						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						obs.queue <- outboundReq
 					} else {
 						obs.queueOverflow()
@@ -387,22 +390,21 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				}
 
 				// Send it
+				work.req.Telemetry.TimeSent = time.Now()
 				resp, err := obs.client.Do(req)
+				work.req.Telemetry.TimeResponded = time.Now()
 				if nil != err {
 					// Report failure
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
-						obs.profiler.Send(work.req)
+						obs.profiler.Send(work.req.Telemetry)
 					} else {
 						// Report partial success
-						obs.profiler.Send(work.req)
+						obs.profiler.Send(work.req.Telemetry)
 					}
 				}
 			}
-
-		} else {
-			// Report drop
 		}
 	}
 }
