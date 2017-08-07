@@ -125,20 +125,26 @@ func (a int64Array) Less(i, j int) bool { return a[i] < a[j] }
 func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 
 	rv := make([]interface{}, 1)
-
-	if 0 < len(raw) {
+	raw = filterNonTelemetryElements(raw)
+	n := len(raw)
+	
+	if 0 < n {
 		// in nanoseconds
-		latency := make([]int64, len(raw))
-		processingTime := make([]int64, len(raw))
-		responseTime := make([]int64, len(raw))
+		latency := make([]int64, n)
+		processingTime := make([]int64, n)
+		responseTime := make([]int64, n)
 		tonnage := 0
 		var responseTotal, processingTotal, latencyTotal int64
 
-		for i := range raw {
-			tonnage += raw[i].(CaduceusTelemetry).PayloadSize
-			latency[i] = raw[i].(CaduceusTelemetry).TimeSent.Sub(raw[i].(CaduceusTelemetry).TimeReceived).Nanoseconds()
-			processingTime[i] = raw[i].(CaduceusTelemetry).TimeOutboundAccepted.Sub(raw[i].(CaduceusTelemetry).TimeReceived).Nanoseconds()
-			responseTime[i] = raw[i].(CaduceusTelemetry).TimeResponded.Sub(raw[i].(CaduceusTelemetry).TimeSent).Nanoseconds()
+		for i, rawElement := range raw {
+			telemetryData := rawElement.(CaduceusTelemetry)
+
+			tonnage += telemetryData.PayloadSize
+
+			latency[i] = telemetryData.TimeSent.Sub(telemetryData.TimeReceived).Nanoseconds()
+			processingTime[i] = telemetryData.TimeOutboundAccepted.Sub(telemetryData.TimeReceived).Nanoseconds()
+			responseTime[i] = telemetryData.TimeResponded.Sub(telemetryData.TimeSent).Nanoseconds()
+
 			latencyTotal += latency[i]
 			processingTotal += processingTime[i]
 			responseTotal += responseTime[i]
@@ -159,17 +165,28 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 			Name:                 cp.name,
 			Time:                 time.Now().String(),
 			Tonnage:              tonnage,
-			EventsSent:           len(raw),
+			EventsSent:           n,
 			ProcessingTimePerc98: time.Duration(processingTime[get98th(processingTime)]).String(),
-			ProcessingTimeAvg:    time.Duration(processingTotal / int64(len(raw))).String(),
+			ProcessingTimeAvg:    time.Duration(processingTotal / int64(n)).String(),
 			LatencyPerc98:        time.Duration(latency[get98th(latency)]).String(),
-			LatencyAvg:           time.Duration(latencyTotal / int64(len(raw))).String(),
+			LatencyAvg:           time.Duration(latencyTotal / int64(n)).String(),
 			ResponsePerc98:       time.Duration(responseTime[get98th(responseTime)]).String(),
-			ResponseAvg:          time.Duration(responseTotal / int64(len(raw))).String(),
+			ResponseAvg:          time.Duration(responseTotal / int64(n)).String(),
 		}
 		// TODO This is a hack until we can get the results to be merged back into a profiler manager or similar.
 		fmt.Printf("stats: %+v\n", rv[0])
 	}
 
 	return rv
+}
+
+//Input: An array A of interfaces
+//Output: An array A' containing those elements in A that cast to type CaduceusTelemetry
+func filterNonTelemetryElements(elements []interface{}) (output[]interface{}) {
+	for _, element := range elements {
+		if _, isCaduceusTelemetry := element.(CaduceusTelemetry); isCaduceusTelemetry {
+			output = append(output,element)
+		}
+	}
+	return
 }
