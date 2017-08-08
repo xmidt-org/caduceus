@@ -106,10 +106,16 @@ func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	stats := ph.profilerData.Report()
 	b, err := json.Marshal(stats)
 
+	if nil == stats {
+		b = []byte("[]")
+		err = nil
+	}
+
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte("Error marshalling the data into a JSON object."))
 	} else {
+		response.Header().Set("Content-Type", "application/json")
 		response.WriteHeader(http.StatusOK)
 		response.Write(b)
 		response.Write([]byte("\n"))
