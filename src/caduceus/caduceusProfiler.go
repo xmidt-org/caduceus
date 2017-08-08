@@ -127,7 +127,7 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 	rv := make([]interface{}, 1)
 	raw = filterNonTelemetryElements(raw)
 	n := len(raw)
-	
+
 	if 0 < n {
 		// in nanoseconds
 		latency := make([]int64, n)
@@ -149,16 +149,16 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 			processingTotal += processingTime[i]
 			responseTotal += responseTime[i]
 		}
-		sort.Sort( int64Array(latency) )
-		sort.Sort( int64Array(processingTime) )
-		sort.Sort( int64Array(responseTime) )
+		sort.Sort(int64Array(latency))
+		sort.Sort(int64Array(processingTime))
+		sort.Sort(int64Array(responseTime))
 
 		// TODO There is a pattern for time based stats calculations that should be made common
 
 		// get98th returns the 98% indice value.
 		// example: in an array with length of 100. index 97 would be the 98th.
 		get98th := func(list []int64) int64 {
-			return int64( math.Ceil( float64(len(list))*0.98 ) - 1 )
+			return int64(math.Ceil(float64(len(list))*0.98) - 1)
 		}
 
 		rv[0] = &CaduceusStats{
@@ -182,10 +182,10 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 
 //Input: An array A of interfaces
 //Output: An array A' containing those elements in A that cast to type CaduceusTelemetry
-func filterNonTelemetryElements(elements []interface{}) (output[]interface{}) {
+func filterNonTelemetryElements(elements []interface{}) (output []interface{}) {
 	for _, element := range elements {
 		if _, isCaduceusTelemetry := element.(CaduceusTelemetry); isCaduceusTelemetry {
-			output = append(output,element)
+			output = append(output, element)
 		}
 	}
 	return

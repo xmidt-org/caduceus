@@ -117,7 +117,7 @@ func (ch *CaduceusHealth) IncrementBucket(inSize int) {
 	}
 }
 
-func (ch *CaduceusHealth) dnsReady(address string, ready chan bool) {	
+func (ch *CaduceusHealth) dnsReady(address string, ready chan bool) {
 	req, err := http.NewRequest("GET", address, nil)
 	if err != nil {
 		return
