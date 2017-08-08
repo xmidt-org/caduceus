@@ -55,6 +55,12 @@ type CaduceusRequest struct {
 	Telemetry   CaduceusTelemetry
 }
 
+const (
+	TelemetryStatusSuccess        = iota
+	TelemetryStatusPartialSuccess = iota
+	TelemetryStatusFailure        = iota
+)
+
 type CaduceusTelemetry struct {
 	PayloadSize          int
 	TimeReceived         time.Time
@@ -63,6 +69,7 @@ type CaduceusTelemetry struct {
 	TimeOutboundAccepted time.Time
 	TimeSent             time.Time
 	TimeResponded        time.Time
+	Status               int
 }
 
 type CaduceusStats struct {

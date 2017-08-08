@@ -277,8 +277,6 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 				}
 			}
 		}
-	} else {
-		// Report drop
 	}
 }
 
@@ -345,8 +343,6 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 				}
 			}
 		}
-	} else {
-		// Report drop
 	}
 }
 
@@ -395,12 +391,16 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				work.req.Telemetry.TimeResponded = time.Now()
 				if nil != err {
 					// Report failure
+					work.req.Telemetry.Status = TelemetryStatusFailure
+					obs.profiler.Send(work.req.Telemetry)
 				} else {
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
+						work.req.Telemetry.Status = TelemetryStatusSuccess
 						obs.profiler.Send(work.req.Telemetry)
 					} else {
 						// Report partial success
+						work.req.Telemetry.Status = TelemetryStatusPartialSuccess
 						obs.profiler.Send(work.req.Telemetry)
 					}
 				}
@@ -449,7 +449,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 				}
 			}
 		} else {
-			obs.logger.Error("No cut-off notification URL specified.")
+			obs.logger.Error("No cut-off notification URL specified for %s.", obs.listener.Config.URL)
 		}
 	}
 }
