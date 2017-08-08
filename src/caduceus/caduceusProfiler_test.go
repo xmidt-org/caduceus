@@ -90,6 +90,8 @@ func TestCaduceusProfiler(t *testing.T) {
 		rwMutex:      new(sync.RWMutex),
 	}
 
+	testWG.Add(1)
+
 	// start this up for later
 	go testProfiler.aggregate(testProfiler.quit)
 
@@ -122,7 +124,6 @@ func TestCaduceusProfiler(t *testing.T) {
 	// check to see if the data that we put on to the queue earlier is still there
 	t.Run("TestCaduceusProfilerReport", func(t *testing.T) {
 		require.NotNil(t, testProfiler)
-		testWG.Add(1)
 		testChan <- time.Now()
 		testWG.Wait()
 		testResults := testProfiler.Report()
