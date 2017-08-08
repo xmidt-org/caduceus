@@ -106,11 +106,22 @@ func caduceus(arguments []string) int {
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
-	caduceusProfilerFactory := ServerProfilerFactory{
+	mainCaduceusProfilerFactory := ServerProfilerFactory{
 		Frequency: caduceusConfig.ProfilerFrequency,
 		Duration:  caduceusConfig.ProfilerDuration,
 		QueueSize: caduceusConfig.ProfilerQueueSize,
+		Logger:    logger,
 	}
+
+	// here we create a profiler specifically for our main server handler
+	caduceusHandlerProfiler, err := mainCaduceusProfilerFactory.New("main")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to profiler for main caduceus handler: %s\n", err)
+		return 1
+	}
+
+	childCaduceusProfilerFactory := mainCaduceusProfilerFactory
+	childCaduceusProfilerFactory.Parent = caduceusHandlerProfiler
 
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
@@ -122,20 +133,13 @@ func caduceus(arguments []string) int {
 		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
 		CutOffPeriod:        time.Duration(caduceusConfig.SenderCutOffPeriod) * time.Second,
 		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
-		ProfilerFactory:     caduceusProfilerFactory,
+		ProfilerFactory:     childCaduceusProfilerFactory,
 		Logger:              logger,
 		Client:              &http.Client{Transport: tr, Timeout: timeout},
 	}.New()
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to initialize new caduceus sender wrapper: %s\n", err)
-		return 1
-	}
-
-	// here we create a profiler specifically for our main server handler
-	caduceusHandlerProfiler, err := caduceusProfilerFactory.New("invalid")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to profiler for main caduceus handler: %s\n", err)
 		return 1
 	}
 

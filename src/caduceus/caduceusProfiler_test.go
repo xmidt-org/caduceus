@@ -73,7 +73,7 @@ func TestCaduceusProfiler(t *testing.T) {
 
 	// used to mock out a ring that the server profiler uses
 	fakeRing := new(mockRing)
-	fakeRing.On("Add", mock.AnythingOfType("[]interface {}")).Run(
+	fakeRing.On("Add", mock.AnythingOfType("main.CaduceusTelemetry")).Run(
 		func(args mock.Arguments) {
 			testWG.Done()
 		}).Once()

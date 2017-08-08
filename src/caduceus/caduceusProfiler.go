@@ -1,8 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
+	"github.com/Comcast/webpa-common/logging"
 	"math"
 	"sort"
 	"sync"
@@ -13,6 +14,8 @@ type ServerProfilerFactory struct {
 	Frequency int
 	Duration  int
 	QueueSize int
+	Parent    ServerProfiler
+	Logger    logging.Logger
 }
 
 // New will be used to initialize a new server profiler for caduceus and get
@@ -30,6 +33,8 @@ func (spf ServerProfilerFactory) New(name string) (serverProfiler ServerProfiler
 		inChan:       make(chan interface{}, spf.QueueSize),
 		quit:         make(chan struct{}),
 		rwMutex:      new(sync.RWMutex),
+		parent:       spf.Parent,
+		logger:       spf.Logger,
 	}
 
 	go newCaduceusProfiler.aggregate(newCaduceusProfiler.quit)
@@ -54,6 +59,8 @@ type caduceusProfiler struct {
 	inChan       chan interface{}
 	quit         chan struct{}
 	rwMutex      *sync.RWMutex
+	parent       ServerProfiler
+	logger       logging.Logger
 }
 
 // Send will add data that we retrieve onto the
@@ -94,22 +101,29 @@ func (cp *caduceusProfiler) aggregate(quit <-chan struct{}) {
 		ticker = cp.tick(time.Duration(cp.frequency) * time.Second)
 	}
 
+	// Send out a stat at the start of time.
+	if nil != cp.parent {
+		cp.parent.Send(cp.process(data))
+	}
+
 	for {
 		select {
 		case <-ticker:
-			if 0 < len(data) {
+			if nil != cp.parent {
 				// perform some analysis
-				refined := cp.process(data)
-
+				cp.parent.Send(cp.process(data))
+			}
+			data = nil
+		case inData := <-cp.inChan:
+			if nil != cp.parent {
+				// add the data to a temporary structure
+				data = append(data, inData)
+			} else {
 				// add the data to the ring and clear the temporary structure
 				cp.rwMutex.Lock()
-				cp.profilerRing.Add(refined)
+				cp.profilerRing.Add(inData)
 				cp.rwMutex.Unlock()
-				data = nil
 			}
-		case inData := <-cp.inChan:
-			// add the data to a temporary structure
-			data = append(data, inData)
 		case <-quit:
 			return
 		}
@@ -122,11 +136,15 @@ func (a int64Array) Len() int           { return len(a) }
 func (a int64Array) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a int64Array) Less(i, j int) bool { return a[i] < a[j] }
 
-func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
+func (cp *caduceusProfiler) process(raw []interface{}) (rv interface{}) {
 
-	rv := make([]interface{}, 1)
 	raw = filterNonTelemetryElements(raw)
 	n := len(raw)
+
+	cs := CaduceusStats{
+		Name: cp.name,
+		Time: time.Now().String(),
+	}
 
 	if 0 < n {
 		// in nanoseconds
@@ -161,23 +179,25 @@ func (cp *caduceusProfiler) process(raw []interface{}) []interface{} {
 			return int64(math.Ceil(float64(len(list))*0.98) - 1)
 		}
 
-		rv[0] = &CaduceusStats{
-			Name:                 cp.name,
-			Time:                 time.Now().String(),
-			Tonnage:              tonnage,
-			EventsSent:           n,
-			ProcessingTimePerc98: time.Duration(processingTime[get98th(processingTime)]).String(),
-			ProcessingTimeAvg:    time.Duration(processingTotal / int64(n)).String(),
-			LatencyPerc98:        time.Duration(latency[get98th(latency)]).String(),
-			LatencyAvg:           time.Duration(latencyTotal / int64(n)).String(),
-			ResponsePerc98:       time.Duration(responseTime[get98th(responseTime)]).String(),
-			ResponseAvg:          time.Duration(responseTotal / int64(n)).String(),
-		}
-		// TODO This is a hack until we can get the results to be merged back into a profiler manager or similar.
-		fmt.Printf("stats: %+v\n", rv[0])
+		cs.EventsSent = n
+		cs.ProcessingTimePerc98 = time.Duration(processingTime[get98th(processingTime)]).String()
+		cs.ProcessingTimeAvg = time.Duration(processingTotal / int64(n)).String()
+		cs.LatencyPerc98 = time.Duration(latency[get98th(latency)]).String()
+		cs.LatencyAvg = time.Duration(latencyTotal / int64(n)).String()
+		cs.ResponsePerc98 = time.Duration(responseTime[get98th(responseTime)]).String()
+		cs.ResponseAvg = time.Duration(responseTotal / int64(n)).String()
 	}
 
-	return rv
+	rv = &cs
+
+	b, err := json.Marshal(cs)
+	if nil == err {
+		cp.logger.Error("Endpoint Delivery Stats: %s", string(b))
+	} else {
+		cp.logger.Error("Endpoint Delivery Stats: %+v", cs)
+	}
+
+	return
 }
 
 //Input: An array A of interfaces
