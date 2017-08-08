@@ -136,6 +136,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		},
 	}
 
+	// Don't share the secret with others when there is an error.
+	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
+
 	if "" != osf.Listener.Config.Secret {
 		caduceusOutboundSender.secret = []byte(osf.Listener.Config.Secret)
 	}
