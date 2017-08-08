@@ -413,13 +413,14 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.mutex.Unlock()
 
-	// Send a "you've been cut off" warning message
-	if "" != obs.listener.FailureURL {
-		msg, err := json.Marshal(obs.failureMsg)
+	msg, err := json.Marshal(obs.failureMsg)
+	if nil != err {
+		obs.logger.Error("Cut-off notification json.Marshal( %v ) failed for %s, err: %s", obs.failureMsg, obs.listener.Config.URL, err)
+	} else {
+		obs.logger.Error("Cut-off notification for %s ( %s )", obs.listener.Config.URL, msg)
 
-		if nil != err {
-			obs.logger.Error("json.Marshal( %v ) failed: %s", obs.failureMsg, err)
-		} else {
+		// Send a "you've been cut off" warning message
+		if "" != obs.listener.FailureURL {
 
 			payload := bytes.NewReader(msg)
 			req, err := http.NewRequest("POST", obs.listener.FailureURL, payload)
@@ -435,7 +436,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			resp, err := obs.client.Do(req)
 			if nil != err {
 				// Failure
-				obs.logger.Error("Unable to send cut-off notification (%s) err: %s", obs.listener.FailureURL, err)
+				obs.logger.Error("Unable to send cut-off notification (%s) for %s, err: %s", obs.listener.FailureURL, obs.listener.Config.URL, err)
 			} else {
 				if nil == resp {
 					// Failure
@@ -445,8 +446,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 					obs.logger.Error("Able to send cut-off notification (%s) status: %s", obs.listener.FailureURL, resp.Status)
 				}
 			}
+		} else {
+			obs.logger.Error("No cut-off notification URL specified.")
 		}
-	} else {
-		obs.logger.Error("No cut-off notification URL specified.")
 	}
 }
