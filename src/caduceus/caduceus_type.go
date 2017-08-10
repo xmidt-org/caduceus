@@ -6,7 +6,6 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
-	"net/http"
 	"time"
 )
 
