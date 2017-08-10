@@ -124,24 +124,6 @@ func (ch *CaduceusHealth) IncrementBucket(inSize int) {
 	}
 }
 
-func (ch *CaduceusHealth) dnsReady(address string, ready chan bool) {
-	req, err := http.NewRequest("GET", address, nil)
-	if err != nil {
-		return
-	}
-	client := http.Client{}
-
-	var resp *http.Response
-	for resp == nil {
-		resp, err = client.Do(req)
-		if err == nil {
-			ready <- true
-			break
-		}
-		time.Sleep(time.Second * 1)  // wait a moment between queries
-	}
-}
-
 // Below is the struct and implementation of our worker pool factory
 type WorkerPoolFactory struct {
 	NumWorkers int
