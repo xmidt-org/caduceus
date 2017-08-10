@@ -333,7 +333,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 							event:       eventType,
 							transID:     transID,
 							deviceID:    deviceID,
-							contentType: "application/wrp",
+							contentType: "application/msgpack",
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						obs.queue <- outboundReq

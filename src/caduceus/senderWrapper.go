@@ -156,7 +156,7 @@ func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
 			}
 		}
 
-	case "application/wrp":
+	case "application/msgpack":
 		decoder := wrp.NewDecoderBytes(req.Payload, wrp.Msgpack)
 		message := new(wrp.Message)
 		if err := decoder.Decode(message); nil == err {

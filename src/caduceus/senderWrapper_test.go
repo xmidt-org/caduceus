@@ -97,7 +97,7 @@ func TestSwSimple(t *testing.T) {
 	}
 	wrp := CaduceusRequest{
 		Payload:     buffer.Bytes(),
-		ContentType: "application/wrp",
+		ContentType: "application/msgpack",
 		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/wrp",
 	}
 
