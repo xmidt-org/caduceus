@@ -138,6 +138,7 @@ func (ch *CaduceusHealth) dnsReady(address string, ready chan bool) {
 			ready <- true
 			break
 		}
+		time.Sleep(time.Second * 1)  // wait a moment between queries
 	}
 }
 

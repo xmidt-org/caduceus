@@ -80,6 +80,8 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
 func caduceus(arguments []string) int {
+	totalTime := time.Now()
+
 	var (
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
@@ -212,26 +214,33 @@ func caduceus(arguments []string) int {
 	}
 
 	// make sure dns is ready before preceeding
+	logger.Debug("Reaching out to see if DNS is ready.")
+	now := time.Now()
 	dnsReadyChan := make(chan bool, 1)
 	go caduceusHealth.dnsReady(selfURL.String(), dnsReadyChan)
 	<-dnsReadyChan
-	logger.Debug("DNS ready")
+	logger.Debug("DNS is ready. elapsed time: %v", time.Since(now))
 
+	// todo: add message
 	webhookFactory.PrepareAndStart()
 
-	logger.Info("Caduceus is up and running!")
-
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
+	logger.Debug("Attempting to obtain current listener list from %v", v.GetString("start.apiPath"))
+	now = time.Now()
 	startChan := make(chan webhook.Result, 1)
 	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
 	var webhookStartResults webhook.Result = <-startChan
 	if webhookStartResults.Error != nil {
 		logger.Error(webhookStartResults.Error)
 	} else {
+		// todo: add message
 		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
+	logger.Debug("current listener retrieval, elapsed time: %v", time.Since(now))
 
+	logger.Info("Caduceus is up and running! elapsed time: %v", time.Since(totalTime))
+	
 	var (
 		signals = make(chan os.Signal, 1)
 	)
