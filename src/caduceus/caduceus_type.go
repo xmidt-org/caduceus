@@ -6,7 +6,6 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
-	"net/http"
 	"time"
 )
 
@@ -121,24 +120,6 @@ func (ch *CaduceusHealth) IncrementBucket(inSize int) {
 		ch.SendEvent(health.Inc(PayloadsOverThousand, 1))
 	} else {
 		ch.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
-	}
-}
-
-func (ch *CaduceusHealth) dnsReady(address string, ready chan bool) {
-	req, err := http.NewRequest("GET", address, nil)
-	if err != nil {
-		return
-	}
-	client := http.Client{}
-
-	var resp *http.Response
-	for resp == nil {
-		resp, err = client.Do(req)
-		if err == nil {
-			ready <- true
-			break
-		}
-		time.Sleep(time.Second * 1)  // wait a moment between queries
 	}
 }
 
