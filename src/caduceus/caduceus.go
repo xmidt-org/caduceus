@@ -239,7 +239,7 @@ func caduceus(arguments []string) int {
 	}
 	logger.Debug("current listener retrieval, elapsed time: %v", time.Since(now))
 
-	logger.Info("Caduceus is up and running! elapsed time: %v", time.Since(now))
+	logger.Info("Caduceus is up and running! elapsed time: %v", time.Since(totalTime))
 	
 	var (
 		signals = make(chan os.Signal, 1)
