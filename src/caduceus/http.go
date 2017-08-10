@@ -31,6 +31,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if request.Method != "POST" {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unsupported method \"%s\"... Caduceus only supports \"POST\" method.\n", request.Method)))
+		sh.Trace("Unsupported method \"%s\"... Caduceus only supports \"POST\" method.", request.Method)
 		return
 	}
 
@@ -38,6 +39,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unable to retrieve the request body: %s.\n", err.Error)))
+		sh.Trace("Unable to retrieve the request body: %s.", err.Error)
 		return
 	}
 
@@ -48,20 +50,23 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			switch contentType {
 			case "application/json":
 				// ok contentType
-			case "application/wrp":
+			case "application/msgpack":
 				// ok contentType
 			default:
 				response.WriteHeader(http.StatusBadRequest)
-				response.Write([]byte("Only Content-Type values of \"application/json\" or \"application/wrp\" are supported.\n"))
+				response.Write([]byte(fmt.Sprintf("Only Content-Type values of \"application/json\" or \"application/msgpack\" are supported got: [%s].\n", value)))
+				sh.Trace("Only Content-Type values of \"application/json\" or \"application/msgpack\" are supported got: [%s].", value)
 				return
 			}
 		} else {
 			response.WriteHeader(http.StatusBadRequest)
 			response.Write([]byte("Content-Type cannot have more than one specification.\n"))
+			sh.Trace("Content-Type cannot have more than one specification.")
 		}
 	} else {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Content-Type must be set in the header.\n"))
+		sh.Trace("Content-Type must be set in the header.")
 	}
 
 	if contentType == "" {
@@ -85,10 +90,12 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
 		response.Write([]byte("Unable to handle request at this time.\n"))
+		sh.Trace("Unable to handle request at this time.")
 	} else {
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
+		sh.Trace("Request placed on to queue.")
 		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.PayloadSize)
 	}
 }
