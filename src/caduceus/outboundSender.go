@@ -201,6 +201,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 // specified time.  The new delivery cutoff time must be after the previously
 // set delivery cutoff time.
 func (obs *CaduceusOutboundSender) Extend(until time.Time) {
+
 	obs.mutex.Lock()
 	if until.After(obs.deliverUntil) {
 		obs.deliverUntil = until
@@ -270,6 +271,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 							contentType: "application/json",
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
+						obs.logger.Trace("JSON Sent to obs queue [%s]\n", obs.listener.Config.URL)
 						obs.queue <- outboundReq
 					} else {
 						obs.queueOverflow()
@@ -337,12 +339,18 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						obs.queue <- outboundReq
+						obs.logger.Trace("WRP Sent to obs queue [%s]\n", obs.listener.Config.URL)
 					} else {
 						obs.queueOverflow()
 					}
 				}
+			} else {
+				obs.logger.Trace(fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n", eventType, eventRegex.String()))
 			}
 		}
+	} else {
+		obs.logger.Trace("Outside delivery window.\n")
+		obs.logger.Trace(fmt.Sprintf("now: %s, before: %s, after: %s\n", now.String(), deliverUntil.String(), dropUntil.String()))
 	}
 }
 
@@ -414,6 +422,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.mutex.Unlock()
+
+	obs.logger.Trace("queue overflowed for [%s]\n", obs.listener.Config.URL)
 
 	msg, err := json.Marshal(obs.failureMsg)
 	if nil != err {
