@@ -179,6 +179,7 @@ func (cp *caduceusProfiler) process(raw []interface{}) (rv interface{}) {
 			return int64(math.Ceil(float64(len(list))*0.98) - 1)
 		}
 
+		cs.Tonnage = tonnage
 		cs.EventsSent = n
 		cs.ProcessingTimePerc98 = time.Duration(processingTime[get98th(processingTime)]).String()
 		cs.ProcessingTimeAvg = time.Duration(processingTotal / int64(n)).String()
