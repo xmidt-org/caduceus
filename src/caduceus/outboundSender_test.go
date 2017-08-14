@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
@@ -71,7 +72,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 
 func simpleJSONRequest() CaduceusRequest {
 	req := CaduceusRequest{
-		Payload:     []byte("Hello, world."),
+		RawPayload:  []byte("Hello, world."),
 		ContentType: "application/json",
 		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
 	}
@@ -81,9 +82,10 @@ func simpleJSONRequest() CaduceusRequest {
 
 func simpleWrpRequest() CaduceusRequest {
 	req := CaduceusRequest{
-		Payload:     []byte("Hello, world."),
-		ContentType: "application/wrp",
-		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
+		RawPayload:   []byte("Hello, world."),
+		PayloadAsWrp: &wrp.Message{},
+		ContentType:  "application/wrp",
+		TargetURL:    "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
 	}
 
 	return req
@@ -169,9 +171,17 @@ func TestSimpleWrp(t *testing.T) {
 
 	req := simpleWrpRequest()
 
-	obs.QueueWrp(req, nil, "iot", "mac:112233445566", "1234")
-	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
-	obs.QueueWrp(req, nil, "no-match", "mac:112233445566", "1234")
+	req.PayloadAsWrp.Source = "mac:112233445566"
+	req.PayloadAsWrp.TransactionUUID = "1234"
+
+	req.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Destination = "no-match"
+	obs.QueueWrp(req)
 
 	obs.Shutdown(true)
 
@@ -191,10 +201,23 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 
 	req := simpleWrpRequest()
 
-	obs.QueueWrp(req, nil, "iot", "mac:112233445565", "1234")
-	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
-	obs.QueueWrp(req, nil, "iot", "mac:112233445560", "1234")
-	obs.QueueWrp(req, nil, "test", "mac:112233445560", "1234")
+	req.PayloadAsWrp.TransactionUUID = "1234"
+
+	req.PayloadAsWrp.Source = "mac:112233445566"
+	req.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Source = "mac:112233445565"
+	req.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Source = "mac:112233445560"
+	req.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Source = "mac:112233445560"
+	req.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(req)
 
 	obs.Shutdown(true)
 
@@ -215,10 +238,23 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 
 	req := simpleWrpRequest()
 
-	obs.QueueWrp(req, nil, "iot", "mac:112233445565", "1234")
-	obs.QueueWrp(req, nil, "test", "mac:112233445566", "1234")
-	obs.QueueWrp(req, nil, "iot", "mac:112233445560", "1234")
-	obs.QueueWrp(req, nil, "test", "mac:112233445560", "1234")
+	req.PayloadAsWrp.TransactionUUID = "1234"
+
+	req.PayloadAsWrp.Source = "mac:112233445566"
+	req.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Source = "mac:112233445565"
+	req.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Source = "mac:112233445560"
+	req.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(req)
+
+	req.PayloadAsWrp.Source = "mac:112233445560"
+	req.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(req)
 
 	obs.Shutdown(true)
 

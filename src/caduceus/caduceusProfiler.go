@@ -157,7 +157,7 @@ func (cp *caduceusProfiler) process(raw []interface{}) (rv interface{}) {
 		for i, rawElement := range raw {
 			telemetryData := rawElement.(CaduceusTelemetry)
 
-			tonnage += telemetryData.PayloadSize
+			tonnage += telemetryData.RawPayloadSize
 
 			latency[i] = telemetryData.TimeSent.Sub(telemetryData.TimeReceived).Nanoseconds()
 			processingTime[i] = telemetryData.TimeOutboundAccepted.Sub(telemetryData.TimeReceived).Nanoseconds()

@@ -77,7 +77,7 @@ type OutboundSender interface {
 	Shutdown(bool)
 	RetiredSince() time.Time
 	QueueJSON(CaduceusRequest, string, string, string)
-	QueueWrp(CaduceusRequest, map[string]string, string, string, string)
+	QueueWrp(CaduceusRequest)
 }
 
 // CaduceusOutboundSender is the outbound sender object.
@@ -263,6 +263,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 				}
 				if matchDevice {
 					if len(obs.queue) < obs.queueSize {
+						req.OutgoingPayload = req.RawPayload
 						outboundReq := outboundRequest{
 							req:         req,
 							event:       eventType,
@@ -285,8 +286,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 // QueueWrp is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[string]string,
-	eventType, deviceID, transID string) {
+func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
@@ -296,11 +296,11 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
 		for _, eventRegex := range obs.events {
-			if eventRegex.MatchString(eventType) {
+			if eventRegex.MatchString(req.PayloadAsWrp.Destination) {
 				matchDevice := (nil == obs.matcher)
 				if nil != obs.matcher {
 					for _, deviceRegex := range obs.matcher {
-						if deviceRegex.MatchString(deviceID) {
+						if deviceRegex.MatchString(req.PayloadAsWrp.Source) {
 							matchDevice = true
 							break
 						}
@@ -331,11 +331,27 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 				*/
 				if matchDevice {
 					if len(obs.queue) < obs.queueSize {
+						// TODO we should break this code out into a function set a object
+						// creation time & choose if we should send the raw WRP message
+						// or if we should send just the payload + headers in the "HTTP"
+						// form.
+
+						// TODO we should really transcode from WRP into an HTTP format if
+						// asked for, otherwise we should deliver the WRP in that form.
+						req.OutgoingPayload = req.PayloadAsWrp.Payload
+
+						// Default to "application/json" if there is no content type, otherwise
+						// use the one the source specified.
+						ct := req.PayloadAsWrp.ContentType
+						if "" == ct {
+							ct = "application/json"
+						}
+
 						outboundReq := outboundRequest{req: req,
-							event:       eventType,
-							transID:     transID,
-							deviceID:    deviceID,
-							contentType: "application/msgpack",
+							event:       req.PayloadAsWrp.Destination,
+							transID:     req.PayloadAsWrp.TransactionUUID,
+							deviceID:    req.PayloadAsWrp.Source,
+							contentType: ct,
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						obs.queue <- outboundReq
@@ -345,7 +361,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest, metaData map[st
 					}
 				}
 			} else {
-				obs.logger.Trace(fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n", eventType, eventRegex.String()))
+				obs.logger.Trace(fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n", req.PayloadAsWrp.Destination, eventRegex.String()))
 			}
 		}
 	} else {
@@ -375,20 +391,25 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 
 		now := time.Now()
 		if now.Before(deliverUntil) && now.After(dropUntil) {
-			payload := bytes.NewReader(work.req.Payload)
-			req, err := http.NewRequest("POST", obs.listener.Config.URL, payload)
+			payload := work.req.OutgoingPayload
+			payloadReader := bytes.NewReader(payload)
+			req, err := http.NewRequest("POST", obs.listener.Config.URL, payloadReader)
 			if nil != err {
 				// Report drop
 				obs.logger.Error("http.NewRequest(\"POST\", '%s', payload) failed: %s", obs.listener.Config.URL, err)
 			} else {
 				req.Header.Set("Content-Type", work.contentType)
+
+				// Provide the old headers for now
 				req.Header.Set("X-Webpa-Event", work.event)
 				req.Header.Set("X-Webpa-Transaction-Id", work.transID)
 				req.Header.Set("X-Webpa-Device-Id", work.deviceID)
 
+				// TODO Add the conversions to the new Xmidt headers
+
 				if nil != h {
 					h.Reset()
-					h.Write(work.req.Payload)
+					h.Write(payload)
 					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
 					req.Header.Set("X-Webpa-Signature", sig)
 				}

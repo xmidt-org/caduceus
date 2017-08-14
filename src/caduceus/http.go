@@ -76,13 +76,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	targetURL := request.URL.String()
 
 	caduceusRequest := CaduceusRequest{
-		Payload:     payload,
+		RawPayload:  payload,
 		ContentType: contentType,
 		TargetURL:   targetURL,
 		Telemetry:   stats,
 	}
 
-	caduceusRequest.Telemetry.PayloadSize = len(payload)
+	caduceusRequest.Telemetry.RawPayloadSize = len(payload)
 	caduceusRequest.Telemetry.TimeAccepted = time.Now()
 
 	err = sh.doJob(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
@@ -96,7 +96,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
 		sh.Trace("Request placed on to queue.")
-		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.PayloadSize)
+		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.RawPayloadSize)
 	}
 }
 

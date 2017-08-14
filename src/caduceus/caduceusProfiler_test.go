@@ -58,7 +58,7 @@ func TestCaduceusProfilerFactory(t *testing.T) {
 
 func TestCaduceusProfiler(t *testing.T) {
 	assert := assert.New(t)
-	testMsg := CaduceusTelemetry{PayloadSize: 12}
+	testMsg := CaduceusTelemetry{RawPayloadSize: 12}
 	testData := make([]interface{}, 0)
 	testData = append(testData, testMsg)
 
@@ -129,7 +129,7 @@ func TestCaduceusProfiler(t *testing.T) {
 		testResults := testProfiler.Report()
 
 		assert.Equal(1, len(testResults))
-		assert.Equal(CaduceusTelemetry{PayloadSize: 12}, testResults[0].(CaduceusTelemetry))
+		assert.Equal(CaduceusTelemetry{RawPayloadSize: 12}, testResults[0].(CaduceusTelemetry))
 
 		fakeRing.AssertExpectations(t)
 	})
@@ -141,12 +141,12 @@ func TestCaduceusProfiler(t *testing.T) {
 func TestCaduceusProfilerProcess(t *testing.T) {
 	set := []CaduceusTelemetry{
 		{
-			PayloadSize:  100,
+			RawPayloadSize:  100,
 			TimeReceived: time.Unix(1000, 0),
 			TimeSent:     time.Unix(1000, 10),
 		},
 		{
-			PayloadSize:  200,
+			RawPayloadSize:  200,
 			TimeReceived: time.Unix(1010, 0),
 			TimeSent:     time.Unix(1010, 12),
 		},
