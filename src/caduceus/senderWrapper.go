@@ -157,12 +157,13 @@ func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
 		}
 
 	case "application/msgpack":
-		decoder := wrp.NewDecoderBytes(req.Payload, wrp.Msgpack)
+		decoder := wrp.NewDecoderBytes(req.RawPayload, wrp.Msgpack)
 		message := new(wrp.Message)
 		if err := decoder.Decode(message); nil == err {
+			req.PayloadAsWrp = message
 			sw.mutex.RLock()
 			for _, v := range sw.senders {
-				v.QueueWrp(req, message.Metadata, message.Destination, message.Source, message.TransactionUUID)
+				v.QueueWrp(req)
 			}
 			sw.mutex.RUnlock()
 		}

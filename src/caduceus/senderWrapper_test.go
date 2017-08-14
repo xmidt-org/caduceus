@@ -86,17 +86,17 @@ func TestSwSimple(t *testing.T) {
 	assert.Nil(err)
 
 	iot := CaduceusRequest{
-		Payload:     []byte("Hello, world."),
+		RawPayload:  []byte("Hello, world."),
 		ContentType: "application/json",
 		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/iot",
 	}
 	test := CaduceusRequest{
-		Payload:     []byte("Hello, world."),
+		RawPayload:  []byte("Hello, world."),
 		ContentType: "application/json",
 		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/test",
 	}
 	wrp := CaduceusRequest{
-		Payload:     buffer.Bytes(),
+		RawPayload:  buffer.Bytes(),
 		ContentType: "application/msgpack",
 		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/wrp",
 	}

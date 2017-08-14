@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/Comcast/webpa-common/wrp"
 	"time"
 )
 
@@ -48,10 +49,12 @@ type JWTValidator struct {
 
 // Below is the struct we're using to create a request to caduceus
 type CaduceusRequest struct {
-	Payload     []byte
-	ContentType string
-	TargetURL   string
-	Telemetry   CaduceusTelemetry
+	RawPayload      []byte
+	PayloadAsWrp    *wrp.Message
+	OutgoingPayload []byte
+	ContentType     string
+	TargetURL       string
+	Telemetry       CaduceusTelemetry
 }
 
 const (
@@ -61,7 +64,7 @@ const (
 )
 
 type CaduceusTelemetry struct {
-	PayloadSize          int
+	RawPayloadSize       int
 	TimeReceived         time.Time
 	TimeAccepted         time.Time
 	TimeSentToOutbound   time.Time
