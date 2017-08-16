@@ -11,6 +11,8 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"hash"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -431,6 +433,13 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 						// Report partial success
 						work.req.Telemetry.Status = TelemetryStatusPartialSuccess
 						obs.profiler.Send(work.req.Telemetry)
+					}
+
+					// read until the response is complete before closing to allow
+					// connection reuse
+					if nil != resp.Body {
+						io.Copy(ioutil.Discard, resp.Body)
+						resp.Body.Close()
 					}
 				}
 			}
