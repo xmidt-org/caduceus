@@ -20,7 +20,6 @@ type ServerHandler struct {
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
 
 	sh.Info("Receiving incoming request...")
 
@@ -108,7 +107,6 @@ type ProfileHandler struct {
 // ServeHTTP method of ProfileHandler will output the most recent messages
 // that the main handler has successfully dealt with
 func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	defer request.Body.Close()
 
 	ph.Info("Receiving request for server stats...")
 	stats := ph.profilerData.Report()
