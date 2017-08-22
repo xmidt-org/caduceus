@@ -125,7 +125,12 @@ func caduceus(arguments []string) int {
 	childCaduceusProfilerFactory := mainCaduceusProfilerFactory
 	childCaduceusProfilerFactory.Parent = caduceusHandlerProfiler
 
-	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	tr := &http.Transport{
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		MaxIdleConnsPerHost:   caduceusConfig.SenderNumWorkersPerSender,
+		ResponseHeaderTimeout: 10 * time.Second, // TODO Make this configurable
+	}
+
 	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
 
 	// declare a new sender wrapper and pass it a profiler factory so that it can create
@@ -234,7 +239,7 @@ func caduceus(arguments []string) int {
 	logger.Debug("current listener retrieval, elapsed time: %v", time.Since(now))
 
 	logger.Info("Caduceus is up and running! elapsed time: %v", time.Since(totalTime))
-	
+
 	var (
 		signals = make(chan os.Signal, 1)
 	)
