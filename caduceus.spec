@@ -23,7 +23,7 @@ The Xmidt server for delivering events written in Go.
 %build
 export GOPATH=$(pwd)
 pushd src
-glide install
+glide install --strip-vendor
 cd caduceus
 go build %{name}
 popd
