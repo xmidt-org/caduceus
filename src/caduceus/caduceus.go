@@ -204,12 +204,12 @@ func caduceus(arguments []string) int {
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
-	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger)
+	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger, nil)
 
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
 
-	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, mux)
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, nil, mux)
 	serverWrapper.caduceusHealth = caduceusHealth
 
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
