@@ -11,6 +11,7 @@ before_install:
     - docker pull schmidtw/webpa.builder.centos6:latest
     - docker run -it -e BUILD_NUMBER=$TRAVIS_BUILD_NUMBER -d --name build schmidtw/webpa.builder.centos6 bash
     - env
+    - docker exec build rpm -q golang
     - docker exec build go version
     - docker exec build glide -v
     - docker exec build git clone https://github.com/Comcast/caduceus.git
