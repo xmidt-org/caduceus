@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
@@ -11,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"github.com/go-kit/kit/log"
 )
 
 type result struct {
@@ -45,11 +45,8 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func swGetLogger() logging.Logger {
-	loggerFactory := logging.DefaultLoggerFactory{}
-	logger, _ := loggerFactory.NewLogger("test")
-
-	return logger
+func swGetLogger() log.Logger {
+	return log.NewNopLogger()
 }
 
 func TestInvalidLinger(t *testing.T) {

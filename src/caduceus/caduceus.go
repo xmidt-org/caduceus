@@ -16,6 +16,7 @@ import (
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
@@ -94,7 +95,13 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	logger.Info("Using configuration file: %s", v.ConfigFileUsed())
+	var (
+		infoLog  = logging.Info(logger)
+		errorLog = logging.Error(logger)
+		debugLog = logging.Debug(logger)
+	)
+
+	infoLog.Log("configurationFile", v.ConfigFileUsed())
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -218,27 +225,31 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	logger.Debug("calling webhookFactory.PrepareAndStart")
+	debugLog.Log(logging.MessageKey(),"calling webhookFactory.PrepareAndStart")
 	now := time.Now()
 	webhookFactory.PrepareAndStart()
-	logger.Debug("webhookFactory.PrepareAndStart done. elapsed time: %v", time.Since(now))
+	debugLog.Log(logging.MessageKey(),"webhookFactory.PrepareAndStart done. elapsed time",
+		logging.TimestampKey(), time.Since(now))
 
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
-	logger.Debug("Attempting to obtain current listener list from %v", v.GetString("start.apiPath"))
+	debugLog.Log(logging.MessageKey(),"Attempting to obtain current listener list from source", "source",
+		v.GetString("start.apiPath"))
 	now = time.Now()
 	startChan := make(chan webhook.Result, 1)
 	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
 	var webhookStartResults webhook.Result = <-startChan
 	if webhookStartResults.Error != nil {
-		logger.Error(webhookStartResults.Error)
+		errorLog.Log(logging.ErrorKey(),webhookStartResults.Error)
 	} else {
 		// todo: add message
 		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
-	logger.Debug("current listener retrieval, elapsed time: %v", time.Since(now))
+	debugLog.Log(logging.MessageKey(),"current listener retrieval, elapsed time", logging.TimestampKey(),
+		time.Since(now))
 
-	logger.Info("Caduceus is up and running! elapsed time: %v", time.Since(totalTime))
+	infoLog.Log(logging.MessageKey(),"Caduceus is up and running! elapsed time", logging.TimestampKey(),
+		time.Since(totalTime))
 
 	var (
 		signals = make(chan os.Signal, 1)

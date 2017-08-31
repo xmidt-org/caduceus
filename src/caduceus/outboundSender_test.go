@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"github.com/go-kit/kit/log"
+	"io"
 )
 
 var (
@@ -34,11 +35,12 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return r, err
 }
 
-func getLogger() logging.Logger {
-	loggerFactory := logging.DefaultLoggerFactory{}
-	logger, _ := loggerFactory.NewLogger("test")
+func getLogger() log.Logger {
+	return log.NewNopLogger()
+}
 
-	return logger
+func getNewTestOutputLogger(out io.Writer) log.Logger {
+	return log.NewLogfmtLogger(out)
 }
 
 func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (obs OutboundSender, err error) {
@@ -592,8 +594,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	assert := assert.New(t)
 
 	var output bytes.Buffer
-	loggerFactory := logging.DefaultLoggerFactory{&output}
-	logger, _ := loggerFactory.NewLogger("test")
+	logger := getNewTestOutputLogger(&output)
 
 	w := webhook.W{
 		Until:  time.Now(),
@@ -626,8 +627,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	assert := assert.New(t)
 
 	var output bytes.Buffer
-	loggerFactory := logging.DefaultLoggerFactory{&output}
-	logger, _ := loggerFactory.NewLogger("test")
+	logger := getNewTestOutputLogger(&output)
 
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
@@ -676,8 +676,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	assert := assert.New(t)
 
 	var output bytes.Buffer
-	loggerFactory := logging.DefaultLoggerFactory{&output}
-	logger, _ := loggerFactory.NewLogger("test")
+	logger := getNewTestOutputLogger(&output)
 
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
@@ -727,8 +726,7 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	assert := assert.New(t)
 
 	var output bytes.Buffer
-	loggerFactory := logging.DefaultLoggerFactory{&output}
-	logger, _ := loggerFactory.NewLogger("test")
+	logger := getNewTestOutputLogger(&output)
 
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
@@ -769,8 +767,7 @@ func TestOverflow(t *testing.T) {
 	assert := assert.New(t)
 
 	var output bytes.Buffer
-	loggerFactory := logging.DefaultLoggerFactory{&output}
-	logger, _ := loggerFactory.NewLogger("test")
+	logger := getNewTestOutputLogger(&output)
 
 	var block int32
 	block = 0
