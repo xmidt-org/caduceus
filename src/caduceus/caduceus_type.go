@@ -101,8 +101,8 @@ type CaduceusHandler struct {
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
 	inRequest.Telemetry.TimeSentToOutbound = time.Now()
 
-	logging.Info(ch).Log("worker","Worker", "id", workerID, logging.MessageKey(),
-		"received a request, now passing on to sender wrapper...")
+	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing" +
+		" to sender")
 	ch.senderWrapper.Queue(inRequest)
 }
 

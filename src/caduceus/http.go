@@ -23,7 +23,9 @@ type ServerHandler struct {
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	debugLog := logging.Debug(sh.Logger)
 	infoLog := logging.Info(sh.Logger)
+	errorLog := logging.Error(sh.Logger)
 	messageKey := logging.MessageKey()
+	errorKey := logging.ErrorKey()
 
 	infoLog.Log(messageKey,"Receiving incoming request...")
 
@@ -35,8 +37,8 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unsupported method \"%s\"... Caduceus only supports \"POST\" method.\n", request.Method)))
 
-		debugLog.Log(messageKey, "Unsupported method", "method", request.Method, "explanation",
-		"Caduceus only supports \"POST\" method.")
+		errorLog.Log(errorKey, "Unsupported method", "method", request.Method, messageKey,
+		"Caduceus only supports POST method.")
 		return
 	}
 
@@ -44,7 +46,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unable to retrieve the request body: %s.\n", err.Error)))
-		debugLog.Log(messageKey, "Unable to retrieve the request body.", logging.ErrorKey(), err.Error)
+		errorLog.Log(messageKey, "Unable to retrieve the request body.", errorKey, err.Error)
 		return
 	}
 
@@ -62,8 +64,8 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 				response.Write([]byte(fmt.Sprintf("Only Content-Type values of \"application/json\" or " +
 					"\"application/msgpack\" are supported got: [%s].\n", value)))
 
-				debugLog.Log("explanation", "explanation","Only Content-Type values of \"application/json\" or " +
-					"\"application/msgpack\" are supported.", "actual", value)
+				errorLog.Log(messageKey,"Only Content-Type values 'application/json' or 'application/msgpack' are " +
+					"supported.", "contentType", value)
 				return
 			}
 		} else {
@@ -98,13 +100,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
 		response.Write([]byte("Unable to handle request at this time.\n"))
-
 		debugLog.Log(messageKey, "Unable to handle request at this time.")
 	} else {
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
 		debugLog.Log(messageKey, "Request placed on to queue.")
+
 		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.RawPayloadSize)
 	}
 }
@@ -118,6 +120,7 @@ type ProfileHandler struct {
 // that the main handler has successfully dealt with
 func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	logging.Info(ph.Logger).Log(logging.MessageKey(), "Receiving request for server stats...")
+
 	stats := ph.profilerData.Report()
 	b, err := json.Marshal(stats)
 

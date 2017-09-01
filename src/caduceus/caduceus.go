@@ -81,7 +81,7 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
 func caduceus(arguments []string) int {
-	totalTime := time.Now()
+	beginCaduceus := time.Now()
 
 	var (
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
@@ -224,17 +224,18 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
 	}
+	
+	var messageKey = logging.MessageKey()
 
-	debugLog.Log(logging.MessageKey(),"calling webhookFactory.PrepareAndStart")
-	now := time.Now()
+	debugLog.Log(messageKey,"Calling webhookFactory.PrepareAndStart")
+	beginPrepStart := time.Now()
 	webhookFactory.PrepareAndStart()
-	debugLog.Log(logging.MessageKey(),"webhookFactory.PrepareAndStart done. elapsed time",
-		logging.TimestampKey(), time.Since(now))
+	debugLog.Log(messageKey,"WebhookFactory.PrepareAndStart done.", "elapsedTime", time.Since(beginPrepStart))
 
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
-	debugLog.Log(logging.MessageKey(),"Attempting to obtain current listener list from source", "source",
+	debugLog.Log(messageKey,"Attempting to obtain current listener list from source", "source",
 		v.GetString("start.apiPath"))
-	now = time.Now()
+	beginObtainList := time.Now()
 	startChan := make(chan webhook.Result, 1)
 	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
 	var webhookStartResults webhook.Result = <-startChan
@@ -245,11 +246,9 @@ func caduceus(arguments []string) int {
 		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
-	debugLog.Log(logging.MessageKey(),"current listener retrieval, elapsed time", logging.TimestampKey(),
-		time.Since(now))
+	debugLog.Log(messageKey,"Current listener retrieval.", "elapsedTime", time.Since(beginObtainList))
 
-	infoLog.Log(logging.MessageKey(),"Caduceus is up and running! elapsed time", logging.TimestampKey(),
-		time.Since(totalTime))
+	infoLog.Log(messageKey,"Caduceus is up and running!","elapsedTime", time.Since(beginCaduceus))
 
 	var (
 		signals = make(chan os.Signal, 1)

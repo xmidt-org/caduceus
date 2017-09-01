@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 	"github.com/go-kit/kit/log"
+	"github.com/Comcast/webpa-common/logging"
 )
 
 type result struct {
@@ -46,7 +47,7 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func swGetLogger() log.Logger {
-	return log.NewNopLogger()
+	return logging.DefaultLogger()
 }
 
 func TestInvalidLinger(t *testing.T) {
