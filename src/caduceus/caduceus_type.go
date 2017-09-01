@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/wrp"
@@ -94,13 +95,14 @@ type RequestHandler interface {
 type CaduceusHandler struct {
 	handlerProfiler ServerProfiler
 	senderWrapper   SenderWrapper
-	logging.Logger
+	log.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
 	inRequest.Telemetry.TimeSentToOutbound = time.Now()
 
-	ch.Info("Worker #%d received a request, now passing on to sender wrapper...", workerID)
+	logging.Info(ch).Log("worker","Worker", "id", workerID, logging.MessageKey(),
+		"received a request, now passing on to sender wrapper...")
 	ch.senderWrapper.Queue(inRequest)
 }
 

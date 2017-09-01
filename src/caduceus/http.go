@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-kit/kit/log"
 	"github.com/Comcast/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
@@ -13,15 +14,18 @@ type Send func(inFunc func(workerID int)) error
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	logging.Logger
+	log.Logger
 	caduceusHandler RequestHandler
 	caduceusHealth  HealthTracker
 	doJob           Send
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	debugLog := logging.Debug(sh.Logger)
+	infoLog := logging.Info(sh.Logger)
+	messageKey := logging.MessageKey()
 
-	sh.Info("Receiving incoming request...")
+	infoLog.Log(messageKey,"Receiving incoming request...")
 
 	stats := CaduceusTelemetry{
 		TimeReceived: time.Now(),
@@ -30,7 +34,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if request.Method != "POST" {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unsupported method \"%s\"... Caduceus only supports \"POST\" method.\n", request.Method)))
-		sh.Trace("Unsupported method \"%s\"... Caduceus only supports \"POST\" method.", request.Method)
+
+		debugLog.Log(messageKey, "Unsupported method", "method", request.Method, "explanation",
+		"Caduceus only supports \"POST\" method.")
 		return
 	}
 
@@ -38,7 +44,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("Unable to retrieve the request body: %s.\n", err.Error)))
-		sh.Trace("Unable to retrieve the request body: %s.", err.Error)
+		debugLog.Log(messageKey, "Unable to retrieve the request body.", logging.ErrorKey(), err.Error)
 		return
 	}
 
@@ -53,19 +59,22 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 				// ok contentType
 			default:
 				response.WriteHeader(http.StatusBadRequest)
-				response.Write([]byte(fmt.Sprintf("Only Content-Type values of \"application/json\" or \"application/msgpack\" are supported got: [%s].\n", value)))
-				sh.Trace("Only Content-Type values of \"application/json\" or \"application/msgpack\" are supported got: [%s].", value)
+				response.Write([]byte(fmt.Sprintf("Only Content-Type values of \"application/json\" or " +
+					"\"application/msgpack\" are supported got: [%s].\n", value)))
+
+				debugLog.Log("explanation", "explanation","Only Content-Type values of \"application/json\" or " +
+					"\"application/msgpack\" are supported.", "actual", value)
 				return
 			}
 		} else {
 			response.WriteHeader(http.StatusBadRequest)
 			response.Write([]byte("Content-Type cannot have more than one specification.\n"))
-			sh.Trace("Content-Type cannot have more than one specification.")
+			debugLog.Log(messageKey, "Content-Type cannot have more than one specification.")
 		}
 	} else {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Content-Type must be set in the header.\n"))
-		sh.Trace("Content-Type must be set in the header.")
+		debugLog.Log(messageKey, "Content-Type must be set in the header.")
 	}
 
 	if contentType == "" {
@@ -89,26 +98,26 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
 		response.Write([]byte("Unable to handle request at this time.\n"))
-		sh.Trace("Unable to handle request at this time.")
+
+		debugLog.Log(messageKey, "Unable to handle request at this time.")
 	} else {
 		// return a 202
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
-		sh.Trace("Request placed on to queue.")
+		debugLog.Log(messageKey, "Request placed on to queue.")
 		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.RawPayloadSize)
 	}
 }
 
 type ProfileHandler struct {
 	profilerData ServerProfiler
-	logging.Logger
+	log.Logger
 }
 
 // ServeHTTP method of ProfileHandler will output the most recent messages
 // that the main handler has successfully dealt with
 func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-
-	ph.Info("Receiving request for server stats...")
+	logging.Info(ph.Logger).Log(logging.MessageKey(), "Receiving request for server stats...")
 	stats := ph.profilerData.Report()
 	b, err := json.Marshal(stats)
 

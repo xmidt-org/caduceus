@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/go-kit/kit/log"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
@@ -32,7 +32,7 @@ type SenderWrapperFactory struct {
 	ProfilerFactory ServerProfilerFactory
 
 	// The logger implementation to share with OutboundSenders.
-	Logger logging.Logger
+	Logger log.Logger
 
 	// The http client to share with OutboundSenders.
 	Client *http.Client
@@ -51,7 +51,7 @@ type CaduceusSenderWrapper struct {
 	queueSizePerSender  int
 	cutOffPeriod        time.Duration
 	linger              time.Duration
-	logger              logging.Logger
+	logger              log.Logger
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
 	profilerFactory     ServerProfilerFactory

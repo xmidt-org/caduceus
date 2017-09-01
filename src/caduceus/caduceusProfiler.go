@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Comcast/webpa-common/logging"
 	"math"
 	"sort"
 	"sync"
 	"time"
+	"github.com/go-kit/kit/log"
+	"github.com/Comcast/webpa-common/logging"
 )
 
 type ServerProfilerFactory struct {
@@ -15,7 +16,7 @@ type ServerProfilerFactory struct {
 	Duration  int
 	QueueSize int
 	Parent    ServerProfiler
-	Logger    logging.Logger
+	Logger    log.Logger
 }
 
 // New will be used to initialize a new server profiler for caduceus and get
@@ -60,7 +61,7 @@ type caduceusProfiler struct {
 	quit         chan struct{}
 	rwMutex      *sync.RWMutex
 	parent       ServerProfiler
-	logger       logging.Logger
+	logger       log.Logger
 }
 
 // Send will add data that we retrieve onto the
@@ -193,9 +194,9 @@ func (cp *caduceusProfiler) process(raw []interface{}) (rv interface{}) {
 
 	b, err := json.Marshal(cs)
 	if nil == err {
-		cp.logger.Error("Endpoint Delivery Stats: %s", string(b))
+		logging.Error(cp.logger).Log(logging.MessageKey(), "Endpoint Delivery Stats", "stats", string(b))
 	} else {
-		cp.logger.Error("Endpoint Delivery Stats: %+v", cs)
+		logging.Error(cp.logger).Log(logging.MessageKey(), "Endpoint Delivery Stats", "stats", cs)
 	}
 
 	return
