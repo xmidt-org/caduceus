@@ -9,3 +9,5 @@ import:
   - secure
   - server
   - webhook
+- package: github.com/go-kit/kit
+  version: 0.5.0
