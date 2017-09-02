@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"github.com/go-kit/kit/log"
 	"github.com/Comcast/webpa-common/logging"
 )
 
@@ -46,16 +45,12 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func swGetLogger() log.Logger {
-	return logging.DefaultLogger()
-}
-
 func TestInvalidLinger(t *testing.T) {
 	sw, err := SenderWrapperFactory{
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,
-		Logger:              swGetLogger(),
+		Logger:              logging.DefaultLogger(), 
 		Linger:              0 * time.Second,
 		ProfilerFactory: ServerProfilerFactory{
 			Frequency: 10,
@@ -106,7 +101,7 @@ func TestSwSimple(t *testing.T) {
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,
 		Client:              &http.Client{Transport: trans},
-		Logger:              swGetLogger(),
+		Logger:              logging.DefaultLogger(),
 		Linger:              1 * time.Second,
 		ProfilerFactory: ServerProfilerFactory{
 			Frequency: 10,
