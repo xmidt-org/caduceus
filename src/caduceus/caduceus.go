@@ -80,6 +80,7 @@ func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
 
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
+
 func caduceus(arguments []string) int {
 	beginCaduceus := time.Now()
 
@@ -187,12 +188,11 @@ func caduceus(arguments []string) int {
 
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	mux := mux.NewRouter()
-	mux.Handle("/api/v3/notify", caduceusHandler.Then(serverWrapper))
-	mux.Handle("/api/v3/profile", caduceusHandler.Then(profileWrapper))
+	router := mux.NewRouter()
 
-	// Support the old endpoint too.
-	mux.Handle("/api/v2/notify/{deviceid}/event/{eventtype:.*}", caduceusHandler.Then(serverWrapper))
+	router = configServerRouter(router, caduceusHandler, serverWrapper)
+
+	router.Handle("/api/v3/profile", caduceusHandler.Then(profileWrapper))
 
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
@@ -203,20 +203,20 @@ func caduceus(arguments []string) int {
 	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
 	// register webhook end points for api
-	mux.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
-	mux.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
+	router.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
+	router.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
 
 	selfURL := &url.URL{
 		Scheme: "https",
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
-	webhookFactory.Initialize(mux, selfURL, webhookHandler, logger, nil)
+	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, nil)
 
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
 
-	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, nil, mux)
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, nil, router)
 	serverWrapper.caduceusHealth = caduceusHealth
 
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
@@ -263,6 +263,23 @@ func caduceus(arguments []string) int {
 	caduceusSenderWrapper.Shutdown(true)
 
 	return 0
+}
+
+
+func configServerRouter(router *mux.Router, caduceusHandler alice.Chain, serverWrapper *ServerHandler)(*mux.Router){
+	var singleContentType = func (r *http.Request, _ *mux.RouteMatch) bool {
+		return len(r.Header["Content-Type"]) == 1  //require single specification for Content-Type Header
+	}
+
+	router.Handle("/api/v3/notify", caduceusHandler.Then(serverWrapper)).Methods("POST").
+		HeadersRegexp("Content-Type", "application/(json|msgpack)").MatcherFunc(singleContentType)
+
+	// Support the old endpoint too.
+	router.Handle("/api/v2/notify/{deviceid}/event/{eventtype:.*}", caduceusHandler.Then(serverWrapper)).
+		Methods("POST").HeadersRegexp("Content-Type", "application/(json|msgpack)").
+		MatcherFunc(singleContentType)
+
+	return router
 }
 
 func main() {

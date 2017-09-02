@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/Comcast/webpa-common/logging"
 	"io/ioutil"
@@ -33,53 +32,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		TimeReceived: time.Now(),
 	}
 
-	if request.Method != "POST" {
-		response.WriteHeader(http.StatusBadRequest)
-		response.Write([]byte(fmt.Sprintf("Unsupported method \"%s\"... Caduceus only supports \"POST\" method.\n", request.Method)))
-
-		errorLog.Log(errorKey, "Unsupported method", "method", request.Method, messageKey,
-		"Caduceus only supports POST method.")
-		return
-	}
-
 	payload, err := ioutil.ReadAll(request.Body)
 	if err != nil {
-		response.WriteHeader(http.StatusBadRequest)
-		response.Write([]byte(fmt.Sprintf("Unable to retrieve the request body: %s.\n", err.Error)))
 		errorLog.Log(messageKey, "Unable to retrieve the request body.", errorKey, err.Error)
-		return
-	}
-
-	var contentType string
-	if value, ok := request.Header["Content-Type"]; ok {
-		if len(value) == 1 {
-			contentType = value[0]
-			switch contentType {
-			case "application/json":
-				// ok contentType
-			case "application/msgpack":
-				// ok contentType
-			default:
-				response.WriteHeader(http.StatusBadRequest)
-				response.Write([]byte(fmt.Sprintf("Only Content-Type values of \"application/json\" or " +
-					"\"application/msgpack\" are supported got: [%s].\n", value)))
-
-				errorLog.Log(messageKey,"Only Content-Type values 'application/json' or 'application/msgpack' are " +
-					"supported.", "contentType", value)
-				return
-			}
-		} else {
-			response.WriteHeader(http.StatusBadRequest)
-			response.Write([]byte("Content-Type cannot have more than one specification.\n"))
-			debugLog.Log(messageKey, "Content-Type cannot have more than one specification.")
-		}
-	} else {
-		response.WriteHeader(http.StatusBadRequest)
-		response.Write([]byte("Content-Type must be set in the header.\n"))
-		debugLog.Log(messageKey, "Content-Type must be set in the header.")
-	}
-
-	if contentType == "" {
 		return
 	}
 
@@ -87,7 +42,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	caduceusRequest := CaduceusRequest{
 		RawPayload:  payload,
-		ContentType: contentType,
+		ContentType: request.Header.Get("Content-Type"),
 		TargetURL:   targetURL,
 		Telemetry:   stats,
 	}
@@ -96,6 +51,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	caduceusRequest.Telemetry.TimeAccepted = time.Now()
 
 	err = sh.doJob(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
+
 	if err != nil {
 		// return a 408
 		response.WriteHeader(http.StatusRequestTimeout)
@@ -122,6 +78,7 @@ func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	logging.Info(ph.Logger).Log(logging.MessageKey(), "Receiving request for server stats...")
 
 	stats := ph.profilerData.Report()
+
 	b, err := json.Marshal(stats)
 
 	if nil == stats {
