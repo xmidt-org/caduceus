@@ -4,12 +4,12 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
-	"github.com/go-kit/kit/log"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation

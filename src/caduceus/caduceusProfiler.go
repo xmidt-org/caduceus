@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"math"
 	"sort"
 	"sync"
 	"time"
-	"github.com/go-kit/kit/log"
-	"github.com/Comcast/webpa-common/logging"
 )
 
 type ServerProfilerFactory struct {

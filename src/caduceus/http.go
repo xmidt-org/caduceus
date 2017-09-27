@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/go-kit/kit/log"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -26,7 +26,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	messageKey := logging.MessageKey()
 	errorKey := logging.ErrorKey()
 
-	infoLog.Log(messageKey,"Receiving incoming request...")
+	infoLog.Log(messageKey, "Receiving incoming request...")
 
 	stats := CaduceusTelemetry{
 		TimeReceived: time.Now(),

@@ -1,16 +1,16 @@
 package main
 
 import (
-	"testing"
-	"net/http/httptest"
-	"strings"
-	"errors"
 	"encoding/json"
+	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"net/http"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 )
 
 func TestServerHandler(t *testing.T) {
@@ -101,8 +101,7 @@ func TestProfilerHandler(t *testing.T) {
 		fakeProfiler.AssertExpectations(t)
 	})
 
-
-	t.Run("TestServeHTTPSadPath", func(t *testing.T){
+	t.Run("TestServeHTTPSadPath", func(t *testing.T) {
 		innocentList := make([]interface{}, 1)
 		innocentList[0] = make(chan int) //channels cannot be marshaled
 

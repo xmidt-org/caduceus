@@ -1,14 +1,14 @@
 package main
 
 import (
-	"testing"
-	"sync"
-	"github.com/stretchr/testify/require"
-	"math"
-	"github.com/stretchr/testify/mock"
+	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
-	"github.com/Comcast/webpa-common/health"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"math"
+	"sync"
+	"testing"
 )
 
 func TestWorkerPool(t *testing.T) {

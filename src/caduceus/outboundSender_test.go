@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
-	"github.com/go-kit/kit/log"
-	"io"
 )
 
 var (

@@ -1,27 +1,26 @@
 package main
 
 import (
-	"os"
-	"testing"
+	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure/handler"
-	"github.com/stretchr/testify/mock"
-	"net/http/httptest"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"net/http"
-	"errors"
+	"net/http/httptest"
+	"os"
+	"testing"
 )
 
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-
 /*
-Simply tests that no bad requests make it to the caduceus listener. 
- */
+Simply tests that no bad requests make it to the caduceus listener.
+*/
 
 func TestMuxServerConfig(t *testing.T) {
 	assert := assert.New(t)
@@ -45,7 +44,7 @@ func TestMuxServerConfig(t *testing.T) {
 		doJob:           forceTimeOut,
 	}
 
-	authHandler := handler.AuthorizationHandler{Validator:nil}
+	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper)
 
@@ -70,7 +69,6 @@ func TestMuxServerConfig(t *testing.T) {
 
 		assert.Equal(http.StatusRequestTimeout, resp.StatusCode)
 	})
-
 
 	t.Run("TestMuxResponseManyHeaders", func(t *testing.T) {
 		req.Header.Add("Content-Type", "too/many/headers")

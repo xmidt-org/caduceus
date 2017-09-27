@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"github.com/Comcast/webpa-common/logging"
 )
 
 type result struct {
@@ -50,7 +50,7 @@ func TestInvalidLinger(t *testing.T) {
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,
-		Logger:              logging.DefaultLogger(), 
+		Logger:              logging.DefaultLogger(),
 		Linger:              0 * time.Second,
 		ProfilerFactory: ServerProfilerFactory{
 			Frequency: 10,

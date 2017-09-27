@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/go-kit/kit/log"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/go-kit/kit/log"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -275,7 +275,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 							contentType: "application/json",
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
-						logging.Debug(obs.logger).Log(logging.MessageKey(),"JSON Sent to obs queue", "url",
+						logging.Debug(obs.logger).Log(logging.MessageKey(), "JSON Sent to obs queue", "url",
 							obs.listener.Config.URL)
 						obs.queue <- outboundReq
 					} else {
@@ -373,7 +373,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 			}
 		}
 	} else {
-		debugLog.Log(logging.MessageKey(),"Outside delivery window")
+		debugLog.Log(logging.MessageKey(), "Outside delivery window")
 		debugLog.Log("now", now, "before", deliverUntil, "after", dropUntil)
 	}
 }
@@ -460,7 +460,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.mutex.Unlock()
 
-	var(
+	var (
 		debugLog = logging.Debug(obs.logger)
 		errorLog = logging.Error(obs.logger)
 	)
@@ -469,10 +469,10 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	msg, err := json.Marshal(obs.failureMsg)
 	if nil != err {
-		errorLog.Log(logging.MessageKey(),"Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
+		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
 			"for", obs.listener.Config.URL, logging.ErrorKey(), err)
 	} else {
-		errorLog.Log(logging.MessageKey(),"Cut-off notification", "failureMessage", msg, "for", obs.listener.Config.URL)
+		errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.listener.Config.URL)
 
 		// Send a "you've been cut off" warning message
 		if "" != obs.listener.FailureURL {
@@ -491,12 +491,12 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			resp, err := obs.client.Do(req)
 			if nil != err {
 				// Failure
-				errorLog.Log(logging.MessageKey(),"Unable to send cut-off notification", "notification",
+				errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
 					obs.listener.FailureURL, "for", obs.listener.Config.URL, logging.ErrorKey(), err)
 			} else {
 				if nil == resp {
 					// Failure
-					errorLog.Log(logging.MessageKey(),"Unable to send cut-off notification, nil response",
+					errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
 						"notification", obs.listener.FailureURL)
 				} else {
 					// Success

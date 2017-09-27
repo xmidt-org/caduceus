@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/concurrent"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
@@ -224,31 +224,31 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
 	}
-	
+
 	var messageKey = logging.MessageKey()
 
-	debugLog.Log(messageKey,"Calling webhookFactory.PrepareAndStart")
+	debugLog.Log(messageKey, "Calling webhookFactory.PrepareAndStart")
 	beginPrepStart := time.Now()
 	webhookFactory.PrepareAndStart()
-	debugLog.Log(messageKey,"WebhookFactory.PrepareAndStart done.", "elapsedTime", time.Since(beginPrepStart))
+	debugLog.Log(messageKey, "WebhookFactory.PrepareAndStart done.", "elapsedTime", time.Since(beginPrepStart))
 
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
-	debugLog.Log(messageKey,"Attempting to obtain current listener list from source", "source",
+	debugLog.Log(messageKey, "Attempting to obtain current listener list from source", "source",
 		v.GetString("start.apiPath"))
 	beginObtainList := time.Now()
 	startChan := make(chan webhook.Result, 1)
 	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
 	var webhookStartResults webhook.Result = <-startChan
 	if webhookStartResults.Error != nil {
-		errorLog.Log(logging.ErrorKey(),webhookStartResults.Error)
+		errorLog.Log(logging.ErrorKey(), webhookStartResults.Error)
 	} else {
 		// todo: add message
 		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
-	debugLog.Log(messageKey,"Current listener retrieval.", "elapsedTime", time.Since(beginObtainList))
+	debugLog.Log(messageKey, "Current listener retrieval.", "elapsedTime", time.Since(beginObtainList))
 
-	infoLog.Log(messageKey,"Caduceus is up and running!","elapsedTime", time.Since(beginCaduceus))
+	infoLog.Log(messageKey, "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
 	var (
 		signals = make(chan os.Signal, 1)
@@ -265,10 +265,9 @@ func caduceus(arguments []string) int {
 	return 0
 }
 
-
-func configServerRouter(router *mux.Router, caduceusHandler alice.Chain, serverWrapper *ServerHandler)(*mux.Router){
-	var singleContentType = func (r *http.Request, _ *mux.RouteMatch) bool {
-		return len(r.Header["Content-Type"]) == 1  //require single specification for Content-Type Header
+func configServerRouter(router *mux.Router, caduceusHandler alice.Chain, serverWrapper *ServerHandler) *mux.Router {
+	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
+		return len(r.Header["Content-Type"]) == 1 //require single specification for Content-Type Header
 	}
 
 	router.Handle("/api/v3/notify", caduceusHandler.Then(serverWrapper)).Methods("POST").
