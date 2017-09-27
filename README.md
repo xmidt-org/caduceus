@@ -13,14 +13,14 @@ The Xmidt server for delivering events written in Go.
 
 ## Centos 6
 
-1. Import the public GPG key (replace `v0.0.1-65alpha` with the release you want)
+1. Import the public GPG key (replace `0.0.1-65` with the release you want)
 
 ```
-rpm --import https://github.com/Comcast/caduceus/releases/download/v0.0.1-65alpha/RPM-GPG-KEY-comcast-webpa
+rpm --import https://github.com/Comcast/caduceus/releases/download/0.0.1-65/RPM-GPG-KEY-comcast-xmidt
 ```
 
 2. Install the rpm with yum (so it installs any/all dependencies for you)
 
 ```
-yum install https://github.com/Comcast/caduceus/releases/download/v0.0.1-65alpha/caduceus-0.0.1-65.el6.x86_64.rpm
+yum install https://github.com/Comcast/caduceus/releases/download/0.0.1-65/caduceus-0.0.1-65.el6.x86_64.rpm
 ```
