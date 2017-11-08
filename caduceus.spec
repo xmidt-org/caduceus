@@ -40,6 +40,7 @@ popd
 
 # Install Configuration
 %{__install} -d %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p etc/%{name}/%{name}.env.example %{buildroot}%{_sysconfdir}/%{name}/%{name}.env.example
 %{__install} -p etc/%{name}/%{name}.json %{buildroot}%{_sysconfdir}/%{name}/%{name}.json
 %{__install} -p etc/%{name}/supervisord.conf %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
 
@@ -61,6 +62,7 @@ popd
 
 # Configuration
 %dir %{_sysconfdir}/%{name}
+%config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/%{name}.env.example
 %config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/%{name}.json
 %config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/supervisord.conf
 
