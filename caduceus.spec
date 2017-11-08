@@ -61,6 +61,7 @@ popd
 
 # Configuration
 %dir %{_sysconfdir}/%{name}
+%config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/%{name}.env.example
 %config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/%{name}.json
 %config %attr(644, caduceus, caduceus) %{_sysconfdir}/%{name}/supervisord.conf
 
