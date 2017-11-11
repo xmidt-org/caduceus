@@ -54,7 +54,6 @@ mkdir -p %{buildroot}%{_initddir}
 %defattr(644, caduceus, caduceus, 755)
 
 # Binary
-%dir %{_bindir}
 %attr(755, caduceus, caduceus) %{_bindir}/%{name} 
 
 # Init.d
