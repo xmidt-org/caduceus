@@ -31,11 +31,9 @@ popd
 %install
 
 # Install Binary
-%{__install} -d %{buildroot}%{_bindir}
 %{__install} -p src/caduceus/%{name} %{buildroot}%{_bindir}
 
 # Install Service
-%{__install} -d %{buildroot}%{_initddir}
 %{__install} -p etc/init.d/%{name} %{buildroot}%{_initddir}
 
 # Install Configuration
