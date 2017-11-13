@@ -1,0 +1,12 @@
+[Unit]
+Description=The Xmidt server for delivering events.
+After=network.target
+
+[Service]
+Type=simple
+User=caduceus
+ExecStart=/usr/bin/caduceus
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
