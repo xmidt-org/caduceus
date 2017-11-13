@@ -1,0 +1,93 @@
+%define debug_package %{nil}
+
+Name:       caduceus
+Version:    %{_ver}
+Release:    %{_releaseno}%{?dist}
+Summary:    The Xmidt event delivery server.
+
+Group:      System Environment/Daemons
+License:    ASL 2.0
+URL:        https://github.com/Comcast/%{name}
+Source0:    %{name}-%{_fullver}.tar.gz
+
+BuildRequires:  golang >= 1.8
+BuildRequires:  systemd
+Requires:       systemd
+
+Provides:       %{name}
+
+%description
+The Xmidt server for delivering events.
+
+%prep
+%setup -q
+
+
+%build
+export GOPATH=$(pwd)
+pushd src
+glide install --strip-vendor
+cd %{name}
+go build %{name}
+popd
+
+%install
+
+# Install Binary
+mkdir -p %{buildroot}%{_bindir}
+%{__install} -p src/%{name}/%{name} %{buildroot}%{_bindir}
+
+# Install Service
+mkdir -p %{buildroot}%{_unitdir}/
+%{__install} -m644 etc/systemd/%{name}.service %{buildroot}%{_unitdir}
+
+# Install Configuration
+%{__install} -d %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p etc/%{name}/%{name}.json %{buildroot}%{_sysconfdir}/%{name}/%{name}.json
+
+# Create Logging Location
+%{__install} -d %{buildroot}%{_localstatedir}/log/%{name}
+
+%files
+%defattr(644, %{name}, %{name}, 755)
+
+# Binary
+%attr(755, %{name}, %{name}) %{_bindir}/%{name} 
+
+# Systemd
+%attr(755, %{name}, %{name}) %{_unitdir}/%{name}.service
+
+# Configuration
+%dir %{_sysconfdir}/%{name}
+%config %attr(644, %{name}, %{name}) %{_sysconfdir}/%{name}/%{name}.json
+
+# Logging Location
+%dir %{_localstatedir}/log/%{name}
+
+%pre
+# If app user does not exist, create
+id %{name} >/dev/null 2>&1
+if [ $? != 0 ]; then
+    /usr/sbin/groupadd -r %{name} >/dev/null 2>&1
+    /usr/sbin/useradd -r -g %{name} %{name} >/dev/null 2>&1
+fi
+
+
+%post
+%systemd_post %{name}.service
+
+%preun
+%systemd_preun %{name}.service
+
+%postun
+%systemd_postun_with_restart %{name}.service
+
+# Do not remove anything if this is not an uninstall
+if [ $1 = 0 ]; then
+    /usr/sbin/userdel -r %{name} >/dev/null 2>&1
+    /usr/sbin/groupdel %{name} >/dev/null 2>&1
+    # Ignore errors from above
+    true
+fi
+
+%changelog

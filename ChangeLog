@@ -1,2 +1,4 @@
+* Sun Nov 12 2017 Weston Schmidt - 0.1.1
+- update to support centos 7 / systemd
 * Tue Mar 28 2017 Weston Schmidt - 0.1.1
 - initial creation
