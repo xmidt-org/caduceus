@@ -42,9 +42,9 @@ mkdir -p %{buildroot}%{_initddir}
 
 # Install Configuration
 %{__install} -d %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p etc/%{name}/%{name}.env.example %{buildroot}%{_sysconfdir}/%{name}/%{name}.env.example
-%{__install} -p etc/%{name}/%{name}.json %{buildroot}%{_sysconfdir}/%{name}/%{name}.json
-%{__install} -p etc/%{name}/supervisord.conf %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
+%{__install} -p etc/init.d/%{name}.env.example %{buildroot}%{_sysconfdir}/%{name}/%{name}.env.example
+%{__install} -p etc/init.d/%{name}.json %{buildroot}%{_sysconfdir}/%{name}/%{name}.json
+%{__install} -p etc/init.d/supervisord.conf %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
 
 # Create Logging Location
 %{__install} -d %{buildroot}%{_localstatedir}/log/%{name}
