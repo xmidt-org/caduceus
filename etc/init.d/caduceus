@@ -1,0 +1,94 @@
+#!bin/bash
+#
+# caduceus Application Startup Script
+#
+# chkconfig: 345 90 14
+# description: Application Startup Script
+# config: /etc/caduceus/supervisord.conf
+# pidfile: /var/run/caduceus/caduceus.pid
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+# Source the optional environment setup file
+if [ -f /etc/caduceus/caduceus.env ]; then
+	. /etc/caduceus/caduceus.env
+fi
+
+RETVAL=0
+
+# Set limits here in addition to limits.conf
+#-------------------------------------------------------------------------------
+if [ -n "$ULIMIT_OPEN_FILES" ]; then
+	sysctl -w fs.file-max=$ULIMIT_OPEN_FILES > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "fs.file-max=$ULIMIT_OPEN_FILES failed" && exit $RETVAL
+
+	sysctl -w fs.nr_open=$ULIMIT_OPEN_FILES > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "fs.nr_open=$ULIMIT_OPEN_FILES failed" && exit $RETVAL
+
+	ulimit -n $ULIMIT_OPEN_FILES > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "ulimit -n $ULIMIT_OPEN_FILES failed" && exit $RETVAL
+fi
+if [ -n "$NET_IPV4_TCP_MEM" ]; then
+	sysctl -w net.ipv4.tcp_mem=$NET_IPV4_TCP_MEM > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "net.ipv4.tcp_mem=$NET_IPV4_TCP_MEM failed" && exit $RETVAL
+fi
+if [ -n "$NET_CORE_SOMAXCONN" ]; then
+	sysctl -w net.core.somaxconn=$NET_CORE_SOMAXCONN > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "net.core.somaxconn=$NET_CORE_SOMAXCONN failed" && exit $RETVAL
+fi
+if [ -n "$NET_IPV4_TCP_MAX_SYN_BACKLOG" ]; then
+	sysctl -w net.ipv4.tcp_max_syn_backlog=$NET_IPV4_TCP_MAX_SYN_BACKLOG > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "net.ipv4.tcp_max_syn_backlog=$NET_IPV4_TCP_MAX_SYN_BACKLOG failed" && exit $RETVAL
+fi
+#-------------------------------------------------------------------------------
+
+start() {
+	echo -n $"Starting caduceus: "
+	daemon supervisord -c /etc/caduceus/supervisord.conf
+	RETVAL=$?
+	echo
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/caduceus
+}
+
+stop() {
+	echo -n $"Stopping caduceus: "
+	killproc supervisord
+	echo
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/caduceus
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop) 
+	stop
+	;;
+  restart|force-reload|reload)
+	restart
+	;;
+  condrestart)
+	[ -f /var/lock/subsys/caduceus ] && restart
+	;;
+  status)
+	status supervisord
+	RETVAL=$?
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart}"
+	exit 1
+esac
+
+exit $RETVAL
