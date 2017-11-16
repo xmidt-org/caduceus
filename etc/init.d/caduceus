@@ -60,6 +60,9 @@ start() {
 stop() {
 	echo -n $"Stopping caduceus: "
 	killproc supervisord
+	kill $(cat /var/run/caduceus.pid)
+	RETVAL=$?
+	rm -f /var/run/caduceus.pid
 	echo
 	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/caduceus
 }
