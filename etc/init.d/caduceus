@@ -83,7 +83,7 @@ case "$1" in
 	[ -f /var/lock/subsys/caduceus ] && restart
 	;;
   status)
-	status supervisord
+	status caduceus
 	RETVAL=$?
 	;;
   *)
