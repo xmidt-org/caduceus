@@ -202,7 +202,7 @@ func caduceus(arguments []string) int {
 		Logger:              logger,
 	}
 
-	caduceusHandler := alice.New(authHandler.Decorate)
+	caduceusHandler := alice.New(authHandler.Decorate, TrackEmptyRequestBody(metricsRegistry))
 
 	router := mux.NewRouter()
 
