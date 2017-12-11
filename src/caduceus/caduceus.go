@@ -104,7 +104,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, webPA, err = server.Initialize(applicationName, arguments, f, v)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v)
 	)
 
 	if err != nil {
@@ -232,7 +232,7 @@ func caduceus(arguments []string) int {
 	caduceusHealth := &CaduceusHealth{}
 	var runnable concurrent.Runnable
 
-	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, nil, router)
+	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, nil, metricsRegistry, router)
 	serverWrapper.caduceusHealth = caduceusHealth
 
 	waitGroup, shutdown, err := concurrent.Execute(runnable)

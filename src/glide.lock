@@ -1,5 +1,5 @@
-hash: 9a29df21710397474cf59363c5af91f46a829a24a234cb7cd85bb63964fcf254
-updated: 2017-12-04T20:07:45.475425047-08:00
+hash: 29bee3213c7046deb4916c0b7a9c4b23cb8343c283bb07a798095f4c67ccdb51
+updated: 2017-12-11T11:03:48.947602037-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -25,6 +25,7 @@ imports:
   - private/protocol/query/queryutil
   - private/protocol/rest
   - private/protocol/xml/xmlutil
+  - service
   - service/sns
   - service/sns/snsiface
   - service/sts
@@ -37,10 +38,9 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 05311131729efe5e0a1b9aae6b6e6bc4674bf5b0
+  version: e630982de53ef5a555610825c4dbca78c097549d
   subpackages:
   - concurrent
-  - handler
   - health
   - httperror
   - logging
@@ -53,8 +53,9 @@ imports:
   - webhook
   - webhook/aws
   - wrp
+  - xmetrics
 - name: github.com/davecgh/go-spew
-  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
@@ -90,7 +91,7 @@ imports:
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
-  version: 7625a85c14e615274a4ee4bc8654f72310a563e4
+  version: 392c28fe23e1c45ddba891b0320b3b5df220beea
 - name: github.com/hashicorp/hcl
   version: a4b07c25de5ff55ad3b8936cea69a79a3d95a855
   subpackages:
@@ -133,7 +134,7 @@ imports:
   subpackages:
   - difflib
 - name: github.com/prometheus/client_golang
-  version: 661e31bf844dfca9aeba15f27ea8aa0d485ad212
+  version: 967789050ba94deca04a5e84cce8ad472ce313c1
   subpackages:
   - prometheus
   - prometheus/promhttp
@@ -172,13 +173,14 @@ imports:
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
-  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  version: 890a5c3458b43e6104ff5da8dfa139d013d77544
   subpackages:
   - assert
+  - linux
   - mock
   - require
 - name: github.com/ugorji/go
-  version: d23841a297e5489e787e72fceffabf9d2994b52a
+  version: 00a57e09e383d445aeef6c6cd642969dc4360231
   subpackages:
   - codec
 - name: github.com/VividCortex/gohistogram

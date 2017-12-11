@@ -1,13 +1,4 @@
 package: .
 import:
 - package: github.com/Comcast/webpa-common
-  version: 05311131729efe5e0a1b9aae6b6e6bc4674bf5b0
-  subpackages:
-  - concurrent
-  - handler
-  - logging
-  - secure
-  - server
-  - webhook
-- package: github.com/go-kit/kit
-  version: 0.5.0
+  version: e630982de53ef5a555610825c4dbca78c097549d
