@@ -181,7 +181,8 @@ func caduceus(arguments []string) int {
 			senderWrapper:   caduceusSenderWrapper,
 			Logger:          logger,
 		},
-		doJob: workerPool.Send,
+		emptyRequests: metricsRegistry.NewCounter(EmptyRequestBodyCounter),
+		doJob:         workerPool.Send,
 	}
 
 	profileWrapper := &ProfileHandler{
@@ -202,7 +203,7 @@ func caduceus(arguments []string) int {
 		Logger:              logger,
 	}
 
-	caduceusHandler := alice.New(authHandler.Decorate, TrackEmptyRequestBody(metricsRegistry))
+	caduceusHandler := alice.New(authHandler.Decorate)
 
 	router := mux.NewRouter()
 
