@@ -104,7 +104,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics)
 	)
 
 	if err != nil {
@@ -202,7 +202,7 @@ func caduceus(arguments []string) int {
 		Logger:              logger,
 	}
 
-	caduceusHandler := alice.New(authHandler.Decorate)
+	caduceusHandler := alice.New(authHandler.Decorate, TrackEmptyRequestBody(metricsRegistry))
 
 	router := mux.NewRouter()
 
