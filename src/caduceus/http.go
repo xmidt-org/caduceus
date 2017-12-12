@@ -18,11 +18,13 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/go-kit/kit/log"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 )
 
 type Send func(inFunc func(workerID int)) error
@@ -32,6 +34,7 @@ type ServerHandler struct {
 	log.Logger
 	caduceusHandler RequestHandler
 	caduceusHealth  HealthTracker
+	emptyRequests   metrics.Counter
 	doJob           Send
 }
 
@@ -52,6 +55,10 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if err != nil {
 		errorLog.Log(messageKey, "Unable to retrieve the request body.", errorKey, err.Error)
 		return
+	}
+
+	if len(payload) == 0 {
+		sh.emptyRequests.Add(1.0)
 	}
 
 	targetURL := request.URL.String()
