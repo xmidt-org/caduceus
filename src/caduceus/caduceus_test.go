@@ -53,10 +53,14 @@ func TestMuxServerConfig(t *testing.T) {
 		return errors.New("time out!")
 	}
 
+	fakeEmptyRequests := new(mockCounter)
+	fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
+
 	serverWrapper := &ServerHandler{
 		Logger:          logger,
 		caduceusHandler: fakeHandler,
 		caduceusHealth:  fakeHealth,
+		emptyRequests:   fakeEmptyRequests,
 		doJob:           forceTimeOut,
 	}
 

@@ -19,6 +19,7 @@ package main
 import (
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 	"net/http"
 	"time"
@@ -115,4 +116,18 @@ func (m *mockServerProfiler) Report() (values []interface{}) {
 
 func (m *mockServerProfiler) Close() {
 	m.Called()
+}
+
+// mockCounter provides the mock implementation of the metrics.Counter object
+type mockCounter struct {
+	mock.Mock
+}
+
+func (m *mockCounter) Add(delta float64) {
+	m.Called(delta)
+}
+
+func (m *mockCounter) With(labelValues ...string) metrics.Counter {
+	m.Called(labelValues)
+	return nil
 }
