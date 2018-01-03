@@ -56,12 +56,20 @@ func TestMuxServerConfig(t *testing.T) {
 	fakeEmptyRequests := new(mockCounter)
 	fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
 
+	fakeErrorRequests := new(mockCounter)
+	fakeErrorRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
+
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
+
 	serverWrapper := &ServerHandler{
-		Logger:          logger,
-		caduceusHandler: fakeHandler,
-		caduceusHealth:  fakeHealth,
-		emptyRequests:   fakeEmptyRequests,
-		doJob:           forceTimeOut,
+		Logger:             logger,
+		caduceusHandler:    fakeHandler,
+		caduceusHealth:     fakeHealth,
+		errorRequests:      fakeErrorRequests,
+		emptyRequests:      fakeEmptyRequests,
+		incomingQueueDepth: fakeQueueDepth,
+		doJob:              forceTimeOut,
 	}
 
 	authHandler := handler.AuthorizationHandler{Validator: nil}

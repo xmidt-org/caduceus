@@ -23,6 +23,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	//"github.com/stretchr/testify/mock"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -59,7 +60,11 @@ func getNewTestOutputLogger(out io.Writer) log.Logger {
 	return log.NewLogfmtLogger(out)
 }
 
-func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (obs OutboundSender, err error) {
+func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (OutboundSender, error) {
+	return simpleFactorySetup(trans, cutOffPeriod, matcher).New()
+}
+
+func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		resp = &http.Response{Status: "200 OK",
 			StatusCode: 200,
@@ -76,16 +81,41 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 	w.Config.Secret = "123456"
 	w.Matcher.DeviceId = matcher
 
-	obs, err = OutboundSenderFactory{
+	fakeDC := new(mockCounter)
+	fakeDC.On("With", []string{w.Config.URL, "200"}).Return(fakeDC).
+		On("With", []string{w.Config.URL, "201"}).Return(fakeDC).
+		On("With", []string{w.Config.URL, "202"}).Return(fakeDC).
+		On("With", []string{w.Config.URL, "204"}).Return(fakeDC)
+	fakeDC.On("Add", 1.0).Return()
+
+	fakeSlow := new(mockCounter)
+	fakeSlow.On("With", []string{w.Config.URL}).Return(fakeSlow)
+	fakeSlow.On("Add", 1.0).Return()
+
+	fakeDroppedSlow := new(mockCounter)
+	fakeDroppedSlow.On("With", []string{w.Config.URL}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("Add", 1.0).Return()
+
+	fakeQdepth := new(mockCounter)
+	fakeQdepth.On("With", []string{w.Config.URL}).Return(fakeQdepth)
+	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
+
+	fakeRegistry := new(mockCaduceusMetricsRegistry)
+	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
+	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
+	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
+	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeQdepth)
+
+	return &OutboundSenderFactory{
 		Listener:        w,
 		Client:          &http.Client{Transport: trans},
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
 		ProfilerFactory: testServerProfilerFactory,
+		MetricsRegistry: fakeRegistry,
 		Logger:          getLogger(),
-	}.New()
-	return
+	}
 }
 
 func simpleJSONRequest() CaduceusRequest {
@@ -433,21 +463,10 @@ func TestInvalidUrl(t *testing.T) {
 func TestInvalidClient(t *testing.T) {
 	assert := assert.New(t)
 
-	w := webhook.W{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"iot"},
-	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = "application/json"
-
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Client = nil
+	obs, err := obsf.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
 }
@@ -463,14 +482,13 @@ func TestInvalidLogger(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Client = &http.Client{}
+	obsf.Logger = nil
+	obs, err := obsf.New()
+
 	assert.Nil(obs)
 	assert.NotNil(err)
 }
@@ -487,15 +505,11 @@ func TestFailureURL(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Client = &http.Client{}
+	obs, err := obsf.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
 }
@@ -510,15 +524,12 @@ func TestInvalidEvents(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Client = &http.Client{}
+	obs, err := obsf.New()
+
 	assert.Nil(obs)
 	assert.NotNil(err)
 
@@ -529,15 +540,10 @@ func TestInvalidEvents(t *testing.T) {
 	w2.Config.URL = "http://localhost:9999/foo"
 	w2.Config.ContentType = "application/json"
 
-	obs, err = OutboundSenderFactory{
-		Listener:        w2,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		Logger:          getLogger(),
-		ProfilerFactory: testServerProfilerFactory,
-	}.New()
+	obsf = simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w2
+	obsf.Client = &http.Client{}
+	obs, err = obsf.New()
 
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -554,15 +560,12 @@ func TestInvalidProfilerFactory(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		Logger:          getLogger(),
-		ProfilerFactory: ServerProfilerFactory{},
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Client = &http.Client{}
+	obsf.ProfilerFactory = ServerProfilerFactory{}
+	obs, err := obsf.New()
 
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -580,15 +583,11 @@ func TestExtend(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Client = &http.Client{}
+	obs, err := obsf.New()
 	assert.Nil(err)
 
 	if _, ok := obs.(*CaduceusOutboundSender); !ok {
@@ -619,15 +618,13 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		Logger:          logger,
-		ProfilerFactory: testServerProfilerFactory,
-	}.New()
+	trans := &transport{}
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Logger = logger
+	obsf.Client = &http.Client{}
+	obs, err := obsf.New()
+
 	assert.Nil(err)
 
 	if _, ok := obs.(*CaduceusOutboundSender); !ok {
@@ -668,15 +665,10 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{Transport: trans},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          logger,
-	}.New()
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Logger = logger
+	obs, err := obsf.New()
 	assert.Nil(err)
 
 	if _, ok := obs.(*CaduceusOutboundSender); !ok {
@@ -718,15 +710,10 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	w.Config.ContentType = "application/json"
 	w.Config.Secret = "123456"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{Transport: trans},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          logger,
-	}.New()
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Logger = logger
+	obs, err := obsf.New()
 	assert.Nil(err)
 
 	if _, ok := obs.(*CaduceusOutboundSender); !ok {
@@ -759,15 +746,10 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{Transport: trans},
-		CutOffPeriod:    time.Second,
-		NumWorkers:      10,
-		QueueSize:       10,
-		Logger:          logger,
-		ProfilerFactory: testServerProfilerFactory,
-	}.New()
+	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf.Listener = w
+	obsf.Logger = logger
+	obs, err := obsf.New()
 	assert.Nil(err)
 
 	if _, ok := obs.(*CaduceusOutboundSender); !ok {
@@ -812,15 +794,11 @@ func TestOverflow(t *testing.T) {
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 
-	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{Transport: trans},
-		CutOffPeriod:    4 * time.Second,
-		NumWorkers:      1,
-		QueueSize:       2,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          logger,
-	}.New()
+	obsf := simpleFactorySetup(trans, 4*time.Second, nil)
+	obsf.NumWorkers = 1
+	obsf.QueueSize = 2
+	obsf.Logger = logger
+	obs, err := obsf.New()
 	assert.Nil(err)
 
 	req := simpleJSONRequest()

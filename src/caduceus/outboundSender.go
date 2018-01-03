@@ -24,17 +24,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/go-kit/kit/log"
 	"hash"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 )
 
 // failureText is human readable text for the failure message
@@ -87,6 +90,9 @@ type OutboundSenderFactory struct {
 	// outboundSender basis
 	ProfilerFactory ServerProfilerFactory
 
+	// Metrics registry.
+	MetricsRegistry CaduceusMetricsRegistry
+
 	// The logger to use.
 	Logger log.Logger
 }
@@ -101,21 +107,25 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	listener     webhook.W
-	deliverUntil time.Time
-	dropUntil    time.Time
-	client       *http.Client
-	secret       []byte
-	events       []*regexp.Regexp
-	matcher      []*regexp.Regexp
-	queueSize    int
-	queue        chan outboundRequest
-	profiler     ServerProfiler
-	wg           sync.WaitGroup
-	cutOffPeriod time.Duration
-	failureMsg   FailureMessage
-	logger       log.Logger
-	mutex        sync.RWMutex
+	listener          webhook.W
+	deliverUntil      time.Time
+	dropUntil         time.Time
+	client            *http.Client
+	secret            []byte
+	events            []*regexp.Regexp
+	matcher           []*regexp.Regexp
+	queueSize         int
+	queue             chan outboundRequest
+	profiler          ServerProfiler
+	deliveryCounter   metrics.Counter
+	droppedCounter    metrics.Counter
+	cutOffCounter     metrics.Counter
+	queueDepthCounter metrics.Counter
+	wg                sync.WaitGroup
+	cutOffPeriod      time.Duration
+	failureMsg        FailureMessage
+	logger            log.Logger
+	mutex             sync.RWMutex
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -154,6 +164,14 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			Workers:      osf.NumWorkers,
 		},
 	}
+
+	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
+	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
+		NewCounter(SlowConsumerCounter).With(osf.Listener.Config.URL)
+	caduceusOutboundSender.droppedCounter = osf.MetricsRegistry.
+		NewCounter(SlowConsumerDroppedMsgCounter).With(osf.Listener.Config.URL)
+	caduceusOutboundSender.queueDepthCounter = osf.MetricsRegistry.
+		NewCounter(OutgoingQueueDepth).With(osf.Listener.Config.URL)
 
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
@@ -293,8 +311,10 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						logging.Debug(obs.logger).Log(logging.MessageKey(), "JSON Sent to obs queue", "url",
 							obs.listener.Config.URL)
+						obs.queueDepthCounter.Add(1.0)
 						obs.queue <- outboundReq
 					} else {
+						obs.droppedCounter.Add(1.0)
 						obs.queueOverflow()
 					}
 				}
@@ -376,10 +396,12 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 							contentType: ct,
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
+						obs.queueDepthCounter.Add(1.0)
 						obs.queue <- outboundReq
 						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.listener.Config.URL)
 					} else {
 						obs.queueOverflow()
+						obs.droppedCounter.Add(1.0)
 					}
 				}
 			} else {
@@ -391,7 +413,18 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	} else {
 		debugLog.Log(logging.MessageKey(), "Outside delivery window")
 		debugLog.Log("now", now, "before", deliverUntil, "after", dropUntil)
+		obs.droppedCounter.Add(1.0)
 	}
+}
+
+// helper function to get the right delivery counter to increment
+func (obs *CaduceusOutboundSender) getDeliveryCounter(status int) metrics.Counter {
+	if -1 == status {
+		return obs.deliveryCounter.With(obs.listener.Config.URL, "failure")
+	}
+
+	s := strconv.Itoa(status)
+	return obs.deliveryCounter.With(obs.listener.Config.URL, s)
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -407,7 +440,14 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		h = hmac.New(sha1.New, obs.secret)
 	}
 
+	// Only optimize the successful answers
+	delivered200 := obs.getDeliveryCounter(200)
+	delivered201 := obs.getDeliveryCounter(201)
+	delivered202 := obs.getDeliveryCounter(202)
+	delivered204 := obs.getDeliveryCounter(204)
+
 	for work := range obs.queue {
+		obs.queueDepthCounter.Add(-1.0)
 		obs.mutex.RLock()
 		deliverUntil := obs.deliverUntil
 		dropUntil := obs.dropUntil
@@ -420,6 +460,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 			req, err := http.NewRequest("POST", obs.listener.Config.URL, payloadReader)
 			if nil != err {
 				// Report drop
+				obs.droppedCounter.Add(1.0)
 				logging.Error(obs.logger).Log(logging.MessageKey(), "New Post request", "url", obs.listener.Config.URL,
 					logging.ErrorKey(), err)
 			} else {
@@ -445,9 +486,24 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				work.req.Telemetry.TimeResponded = time.Now()
 				if nil != err {
 					// Report failure
+					obs.getDeliveryCounter(-1).Add(1.0)
 					work.req.Telemetry.Status = TelemetryStatusFailure
 					obs.profiler.Send(work.req.Telemetry)
 				} else {
+					// Report Result
+					switch resp.StatusCode {
+					case 200:
+						delivered200.Add(1.0)
+					case 201:
+						delivered201.Add(1.0)
+					case 202:
+						delivered202.Add(1.0)
+					case 204:
+						delivered204.Add(1.0)
+					default:
+						obs.getDeliveryCounter(resp.StatusCode).Add(1.0)
+					}
+
 					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
 						// Report success
 						work.req.Telemetry.Status = TelemetryStatusSuccess
@@ -466,6 +522,8 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 					}
 				}
 			}
+		} else {
+			obs.droppedCounter.Add(1.0)
 		}
 	}
 }
@@ -481,6 +539,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		errorLog = logging.Error(obs.logger)
 	)
 
+	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.listener.Config.URL)
 
 	msg, err := json.Marshal(obs.failureMsg)

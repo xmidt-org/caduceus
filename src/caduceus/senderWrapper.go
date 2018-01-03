@@ -18,14 +18,16 @@ package main
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/go-kit/kit/log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
@@ -42,6 +44,15 @@ type SenderWrapperFactory struct {
 	// The amount of time to let expired OutboundSenders linger before
 	// shutting them down and cleaning up the resources associated with them.
 	Linger time.Duration
+
+	// Metrics registry.
+	MetricsRegistry CaduceusMetricsRegistry
+
+	// The metrics counter for content-type
+	ContentTypeCounter metrics.Counter
+
+	// The metrics counter for dropped messages due to invalid payloads
+	DroppedMsgCounter metrics.Counter
 
 	// The factory that we'll use to make new ServerProfilers on a per
 	// outboundSender basis
@@ -71,6 +82,11 @@ type CaduceusSenderWrapper struct {
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
 	profilerFactory     ServerProfilerFactory
+	metricsRegistry     CaduceusMetricsRegistry
+	msgpackCount        metrics.Counter
+	jsonCount           metrics.Counter
+	unknownCount        metrics.Counter
+	invalidCount        metrics.Counter
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 }
@@ -78,6 +94,9 @@ type CaduceusSenderWrapper struct {
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
 // based on the factory configuration.
 func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
+	contentTypeCounter := swf.MetricsRegistry.NewCounter(IncomingContentTypeCounter)
+	droppedCounter := swf.MetricsRegistry.NewCounter(DropsDueToInvalidPayload)
+
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
 		client:              swf.Client,
 		numWorkersPerSender: swf.NumWorkersPerSender,
@@ -86,6 +105,11 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		linger:              swf.Linger,
 		logger:              swf.Logger,
 		profilerFactory:     swf.ProfilerFactory,
+		metricsRegistry:     swf.MetricsRegistry,
+		msgpackCount:        contentTypeCounter.With("msgpack"),
+		jsonCount:           contentTypeCounter.With("json"),
+		unknownCount:        contentTypeCounter.With("unknown"),
+		invalidCount:        droppedCounter,
 	}
 
 	if swf.Linger <= 0 {
@@ -114,6 +138,7 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 		CutOffPeriod:    sw.cutOffPeriod,
 		NumWorkers:      sw.numWorkersPerSender,
 		QueueSize:       sw.queueSizePerSender,
+		MetricsRegistry: sw.metricsRegistry,
 		ProfilerFactory: sw.profilerFactory,
 		Logger:          sw.logger,
 	}
@@ -169,7 +194,12 @@ func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
 					v.QueueJSON(req, eventType, deviceID, transID)
 				}
 				sw.mutex.RUnlock()
+				sw.jsonCount.Add(1.0)
+			} else {
+				sw.invalidCount.Add(1.0)
 			}
+		} else {
+			sw.invalidCount.Add(1.0)
 		}
 
 	case "application/msgpack":
@@ -182,7 +212,13 @@ func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
 				v.QueueWrp(req)
 			}
 			sw.mutex.RUnlock()
+			sw.msgpackCount.Add(1.0)
+		} else {
+			sw.invalidCount.Add(1.0)
 		}
+
+	default:
+		sw.unknownCount.Add(1.0)
 	}
 }
 

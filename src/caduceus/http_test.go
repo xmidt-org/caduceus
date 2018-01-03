@@ -48,12 +48,20 @@ func TestServerHandler(t *testing.T) {
 	fakeEmptyRequests := new(mockCounter)
 	fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
 
+	fakeErrorRequests := new(mockCounter)
+	fakeErrorRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
+
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
+
 	serverWrapper := &ServerHandler{
-		Logger:          logger,
-		caduceusHandler: fakeHandler,
-		caduceusHealth:  fakeHealth,
-		emptyRequests:   fakeEmptyRequests,
-		doJob:           requestSuccessful,
+		Logger:             logger,
+		caduceusHandler:    fakeHandler,
+		caduceusHealth:     fakeHealth,
+		errorRequests:      fakeErrorRequests,
+		emptyRequests:      fakeEmptyRequests,
+		incomingQueueDepth: fakeQueueDepth,
+		doJob:              requestSuccessful,
 	}
 
 	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))

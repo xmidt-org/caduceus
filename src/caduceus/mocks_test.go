@@ -128,6 +128,40 @@ func (m *mockCounter) Add(delta float64) {
 }
 
 func (m *mockCounter) With(labelValues ...string) metrics.Counter {
-	m.Called(labelValues)
-	return nil
+	args := m.Called(labelValues)
+	return args.Get(0).(metrics.Counter)
+}
+
+// mockGauge provides the mock implementation of the metrics.Counter object
+type mockGauge struct {
+	mock.Mock
+}
+
+func (m *mockGauge) Add(delta float64) {
+	m.Called(delta)
+}
+
+func (m *mockGauge) Set(value float64) {
+	m.Called(value)
+}
+
+func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
+	args := m.Called(labelValues)
+	return args.Get(0).(metrics.Gauge)
+}
+
+// mockCaduceusMetricsRegistry provides the mock implementation of the
+// CaduceusMetricsRegistry  object
+type mockCaduceusMetricsRegistry struct {
+	mock.Mock
+}
+
+func (m *mockCaduceusMetricsRegistry) NewCounter(name string) metrics.Counter {
+	args := m.Called(name)
+	return args.Get(0).(metrics.Counter)
+}
+
+func (m *mockCaduceusMetricsRegistry) NewGauge(name string) metrics.Gauge {
+	args := m.Called(name)
+	return args.Get(0).(metrics.Gauge)
 }
