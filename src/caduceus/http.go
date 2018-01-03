@@ -32,10 +32,12 @@ type Send func(inFunc func(workerID int)) error
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
 	log.Logger
-	caduceusHandler RequestHandler
-	caduceusHealth  HealthTracker
-	emptyRequests   metrics.Counter
-	doJob           Send
+	caduceusHandler    RequestHandler
+	caduceusHealth     HealthTracker
+	errorRequests      metrics.Counter
+	emptyRequests      metrics.Counter
+	incomingQueueDepth metrics.Gauge
+	doJob              Send
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -53,12 +55,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	payload, err := ioutil.ReadAll(request.Body)
 	if err != nil {
+		sh.errorRequests.Add(1.0)
 		errorLog.Log(messageKey, "Unable to retrieve the request body.", errorKey, err.Error)
 		return
 	}
 
 	if len(payload) == 0 {
 		sh.emptyRequests.Add(1.0)
+		errorLog.Log(messageKey, "Empty request body.", errorKey)
 	}
 
 	targetURL := request.URL.String()
@@ -73,7 +77,11 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	caduceusRequest.Telemetry.RawPayloadSize = len(payload)
 	caduceusRequest.Telemetry.TimeAccepted = time.Now()
 
-	err = sh.doJob(func(workerID int) { sh.caduceusHandler.HandleRequest(workerID, caduceusRequest) })
+	sh.incomingQueueDepth.Add(1.0)
+	err = sh.doJob(func(workerID int) {
+		sh.incomingQueueDepth.Add(-1.0)
+		sh.caduceusHandler.HandleRequest(workerID, caduceusRequest)
+	})
 
 	if err != nil {
 		// return a 408

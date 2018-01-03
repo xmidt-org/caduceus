@@ -24,6 +24,7 @@ import (
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 	"time"
 )
 
@@ -102,6 +103,11 @@ type CaduceusStats struct {
 	LatencyAvg           string `json:"latency-avg"`
 	ResponsePerc98       string `json:"response-perc98"`
 	ResponseAvg          string `json:"response-avg"`
+}
+
+type CaduceusMetricsRegistry interface {
+	NewCounter(name string) metrics.Counter
+	NewGauge(name string) metrics.Gauge
 }
 
 type RequestHandler interface {

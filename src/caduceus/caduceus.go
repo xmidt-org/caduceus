@@ -164,6 +164,7 @@ func caduceus(arguments []string) int {
 		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
 		CutOffPeriod:        time.Duration(caduceusConfig.SenderCutOffPeriod) * time.Second,
 		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
+		MetricsRegistry:     metricsRegistry,
 		ProfilerFactory:     childCaduceusProfilerFactory,
 		Logger:              logger,
 		Client:              &http.Client{Transport: tr, Timeout: timeout},
@@ -181,8 +182,10 @@ func caduceus(arguments []string) int {
 			senderWrapper:   caduceusSenderWrapper,
 			Logger:          logger,
 		},
-		emptyRequests: metricsRegistry.NewCounter(EmptyRequestBodyCounter),
-		doJob:         workerPool.Send,
+		errorRequests:      metricsRegistry.NewCounter(ErrorRequestBodyCounter),
+		emptyRequests:      metricsRegistry.NewCounter(EmptyRequestBodyCounter),
+		incomingQueueDepth: metricsRegistry.NewGauge(IncomingQueueDepth),
+		doJob:              workerPool.Send,
 	}
 
 	profileWrapper := &ProfileHandler{

@@ -61,19 +61,61 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-func TestInvalidLinger(t *testing.T) {
-	sw, err := SenderWrapperFactory{
+func getFakeFactory() *SenderWrapperFactory {
+	fakeICTC := new(mockCounter)
+	fakeICTC.On("With", []string{"msgpack"}).Return(fakeICTC).
+		On("With", []string{"json"}).Return(fakeICTC).
+		On("With", []string{"unknown"}).Return(fakeICTC).
+		On("Add", 1.0).Return()
+
+	fakeDDTIP := new(mockCounter)
+	fakeDDTIP.On("Add", 1.0).Return()
+
+	fakeGauge := new(mockGauge)
+	fakeGauge.On("Add", 1.0).Return().
+		On("Add", -1.0).Return().
+		On("With", []string{"http://localhost:8888/foo"}).Return(fakeGauge).
+		On("With", []string{"http://localhost:9999/foo"}).Return(fakeGauge)
+
+	fakeIgnore := new(mockCounter)
+	fakeIgnore.On("Add", 1.0).Return().
+		On("With", []string{"http://localhost:8888/foo"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:9999/foo"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:8888/foo", "200"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:8888/foo", "201"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:8888/foo", "202"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:8888/foo", "204"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:9999/foo", "200"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:9999/foo", "201"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:9999/foo", "202"}).Return(fakeIgnore).
+		On("With", []string{"http://localhost:9999/foo", "204"}).Return(fakeIgnore)
+
+	fakeRegistry := new(mockCaduceusMetricsRegistry)
+	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeICTC)
+	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
+	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
+
+	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,
 		Logger:              logging.DefaultLogger(),
 		Linger:              0 * time.Second,
+		MetricsRegistry:     fakeRegistry,
 		ProfilerFactory: ServerProfilerFactory{
 			Frequency: 10,
 			Duration:  6,
 			QueueSize: 100,
 		},
-	}.New()
+	}
+}
+
+func TestInvalidLinger(t *testing.T) {
+	swf := getFakeFactory()
+	sw, err := swf.New()
 
 	assert := assert.New(t)
 	assert.Nil(sw)
@@ -112,19 +154,10 @@ func TestSwSimple(t *testing.T) {
 
 	trans := &swTransport{}
 
-	sw, err := SenderWrapperFactory{
-		NumWorkersPerSender: 10,
-		QueueSizePerSender:  10,
-		CutOffPeriod:        30 * time.Second,
-		Client:              &http.Client{Transport: trans},
-		Logger:              logging.DefaultLogger(),
-		Linger:              1 * time.Second,
-		ProfilerFactory: ServerProfilerFactory{
-			Frequency: 10,
-			Duration:  6,
-			QueueSize: 100,
-		},
-	}.New()
+	swf := getFakeFactory()
+	swf.Client = &http.Client{Transport: trans}
+	swf.Linger = 1 * time.Second
+	sw, err := swf.New()
 
 	assert.Nil(err)
 	assert.NotNil(sw)
