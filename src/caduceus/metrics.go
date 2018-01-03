@@ -65,7 +65,7 @@ func Metrics() []xmetrics.Metric {
 		xmetrics.Metric{
 			Name:       OutgoingQueueDepth,
 			Help:       "The depth of the queue per outgoing url.",
-			Type:       "counter",
+			Type:       "gauge",
 			LabelNames: []string{"url"},
 		},
 	}
