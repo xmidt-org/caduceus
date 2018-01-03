@@ -96,7 +96,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDroppedSlow.On("With", []string{w.Config.URL}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
 
-	fakeQdepth := new(mockCounter)
+	fakeQdepth := new(mockGauge)
 	fakeQdepth.On("With", []string{w.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
@@ -104,7 +104,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
-	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
 
 	return &OutboundSenderFactory{
 		Listener:        w,

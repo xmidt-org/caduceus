@@ -107,25 +107,25 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	listener          webhook.W
-	deliverUntil      time.Time
-	dropUntil         time.Time
-	client            *http.Client
-	secret            []byte
-	events            []*regexp.Regexp
-	matcher           []*regexp.Regexp
-	queueSize         int
-	queue             chan outboundRequest
-	profiler          ServerProfiler
-	deliveryCounter   metrics.Counter
-	droppedCounter    metrics.Counter
-	cutOffCounter     metrics.Counter
-	queueDepthCounter metrics.Counter
-	wg                sync.WaitGroup
-	cutOffPeriod      time.Duration
-	failureMsg        FailureMessage
-	logger            log.Logger
-	mutex             sync.RWMutex
+	listener        webhook.W
+	deliverUntil    time.Time
+	dropUntil       time.Time
+	client          *http.Client
+	secret          []byte
+	events          []*regexp.Regexp
+	matcher         []*regexp.Regexp
+	queueSize       int
+	queue           chan outboundRequest
+	profiler        ServerProfiler
+	deliveryCounter metrics.Counter
+	droppedCounter  metrics.Counter
+	cutOffCounter   metrics.Counter
+	queueDepthGauge metrics.Gauge
+	wg              sync.WaitGroup
+	cutOffPeriod    time.Duration
+	failureMsg      FailureMessage
+	logger          log.Logger
+	mutex           sync.RWMutex
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -170,8 +170,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		NewCounter(SlowConsumerCounter).With(osf.Listener.Config.URL)
 	caduceusOutboundSender.droppedCounter = osf.MetricsRegistry.
 		NewCounter(SlowConsumerDroppedMsgCounter).With(osf.Listener.Config.URL)
-	caduceusOutboundSender.queueDepthCounter = osf.MetricsRegistry.
-		NewCounter(OutgoingQueueDepth).With(osf.Listener.Config.URL)
+	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
+		NewGauge(OutgoingQueueDepth).With(osf.Listener.Config.URL)
 
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
@@ -311,7 +311,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						logging.Debug(obs.logger).Log(logging.MessageKey(), "JSON Sent to obs queue", "url",
 							obs.listener.Config.URL)
-						obs.queueDepthCounter.Add(1.0)
+						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- outboundReq
 					} else {
 						obs.droppedCounter.Add(1.0)
@@ -396,7 +396,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 							contentType: ct,
 						}
 						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
-						obs.queueDepthCounter.Add(1.0)
+						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- outboundReq
 						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.listener.Config.URL)
 					} else {
@@ -447,7 +447,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	delivered204 := obs.getDeliveryCounter(204)
 
 	for work := range obs.queue {
-		obs.queueDepthCounter.Add(-1.0)
+		obs.queueDepthGauge.Add(-1.0)
 		obs.mutex.RLock()
 		deliverUntil := obs.deliverUntil
 		dropUntil := obs.dropUntil

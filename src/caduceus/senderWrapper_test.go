@@ -71,9 +71,14 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeDDTIP := new(mockCounter)
 	fakeDDTIP.On("Add", 1.0).Return()
 
+	fakeGauge := new(mockGauge)
+	fakeGauge.On("Add", 1.0).Return().
+		On("Add", -1.0).Return().
+		On("With", []string{"http://localhost:8888/foo"}).Return(fakeGauge).
+		On("With", []string{"http://localhost:9999/foo"}).Return(fakeGauge)
+
 	fakeIgnore := new(mockCounter)
 	fakeIgnore.On("Add", 1.0).Return().
-		On("Add", -1.0).Return().
 		On("With", []string{"http://localhost:8888/foo"}).Return(fakeIgnore).
 		On("With", []string{"http://localhost:9999/foo"}).Return(fakeIgnore).
 		On("With", []string{"http://localhost:8888/foo", "200"}).Return(fakeIgnore).
@@ -91,7 +96,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeIgnore)
+	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,

@@ -107,6 +107,7 @@ type CaduceusStats struct {
 
 type CaduceusMetricsRegistry interface {
 	NewCounter(name string) metrics.Counter
+	NewGauge(name string) metrics.Gauge
 }
 
 type RequestHandler interface {
