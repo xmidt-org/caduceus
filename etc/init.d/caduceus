@@ -59,10 +59,8 @@ start() {
 
 stop() {
 	echo -n $"Stopping caduceus: "
-	killproc supervisord
-	kill $(cat /var/run/caduceus.pid)
+	supervisorctl -c /etc/caduceus/supervisord.conf shutdown > /dev/null
 	RETVAL=$?
-	rm -f /var/run/caduceus.pid
 	echo
 	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/caduceus
 }
@@ -86,7 +84,7 @@ case "$1" in
 	[ -f /var/lock/subsys/caduceus ] && restart
 	;;
   status)
-	status caduceus
+	supervisorctl -c /etc/caduceus/supervisord.conf status
 	RETVAL=$?
 	;;
   *)
