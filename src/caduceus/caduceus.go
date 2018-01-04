@@ -274,13 +274,15 @@ func caduceus(arguments []string) int {
 		signals = make(chan os.Signal, 1)
 	)
 
-	signal.Notify(signals)
-	<-signals
+	signal.Notify(signals, os.Interrupt, os.Kill)
+	s := <-signals
+	errorLog.Log(messageKey, "received signal, shutting down", "signal", s)
 	close(shutdown)
 	waitGroup.Wait()
 
 	// shutdown the sender wrapper gently so that all queued messages get serviced
 	caduceusSenderWrapper.Shutdown(true)
+	fmt.Println("received signal, shutting down: ", s)
 
 	return 0
 }
