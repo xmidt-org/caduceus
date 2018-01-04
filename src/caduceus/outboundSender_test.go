@@ -82,22 +82,22 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	w.Matcher.DeviceId = matcher
 
 	fakeDC := new(mockCounter)
-	fakeDC.On("With", []string{w.Config.URL, "200"}).Return(fakeDC).
-		On("With", []string{w.Config.URL, "201"}).Return(fakeDC).
-		On("With", []string{w.Config.URL, "202"}).Return(fakeDC).
-		On("With", []string{w.Config.URL, "204"}).Return(fakeDC)
+	fakeDC.On("With", []string{"url", w.Config.URL, "code", "200"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "201"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "202"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 
 	fakeSlow := new(mockCounter)
-	fakeSlow.On("With", []string{w.Config.URL}).Return(fakeSlow)
+	fakeSlow.On("With", []string{"url", w.Config.URL}).Return(fakeSlow)
 	fakeSlow.On("Add", 1.0).Return()
 
 	fakeDroppedSlow := new(mockCounter)
-	fakeDroppedSlow.On("With", []string{w.Config.URL}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Config.URL}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
 
 	fakeQdepth := new(mockGauge)
-	fakeQdepth.On("With", []string{w.Config.URL}).Return(fakeQdepth)
+	fakeQdepth.On("With", []string{"url", w.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)

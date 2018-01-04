@@ -106,9 +106,9 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		logger:              swf.Logger,
 		profilerFactory:     swf.ProfilerFactory,
 		metricsRegistry:     swf.MetricsRegistry,
-		msgpackCount:        contentTypeCounter.With("msgpack"),
-		jsonCount:           contentTypeCounter.With("json"),
-		unknownCount:        contentTypeCounter.With("unknown"),
+		msgpackCount:        contentTypeCounter.With("content_type", "msgpack"),
+		jsonCount:           contentTypeCounter.With("content_type", "json"),
+		unknownCount:        contentTypeCounter.With("content_type", "unknown"),
 		invalidCount:        droppedCounter,
 	}
 

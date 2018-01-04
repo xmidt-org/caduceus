@@ -167,11 +167,11 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
 	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerCounter).With(osf.Listener.Config.URL)
+		NewCounter(SlowConsumerCounter).With("url", osf.Listener.Config.URL)
 	caduceusOutboundSender.droppedCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With(osf.Listener.Config.URL)
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL)
 	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
-		NewGauge(OutgoingQueueDepth).With(osf.Listener.Config.URL)
+		NewGauge(OutgoingQueueDepth).With("url", osf.Listener.Config.URL)
 
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
@@ -420,11 +420,11 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 // helper function to get the right delivery counter to increment
 func (obs *CaduceusOutboundSender) getDeliveryCounter(status int) metrics.Counter {
 	if -1 == status {
-		return obs.deliveryCounter.With(obs.listener.Config.URL, "failure")
+		return obs.deliveryCounter.With("url", obs.listener.Config.URL, "code", "failure")
 	}
 
 	s := strconv.Itoa(status)
-	return obs.deliveryCounter.With(obs.listener.Config.URL, s)
+	return obs.deliveryCounter.With("url", obs.listener.Config.URL, "code", s)
 }
 
 // worker is the routine that actually takes the queued messages and delivers
