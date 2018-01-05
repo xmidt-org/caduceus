@@ -6,6 +6,7 @@ src/vendor
 *.out
 *.a
 *.so
+*.bak
 src/caduceus/caduceus
 src/caduceus/debug
 src/caduceus/output
