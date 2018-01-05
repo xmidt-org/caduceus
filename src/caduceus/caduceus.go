@@ -266,24 +266,19 @@ func caduceus(arguments []string) int {
 		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
 		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
 	}
-	debugLog.Log(messageKey, "Current listener retrieval.", "elapsedTime", time.Since(beginObtainList))
 
+	debugLog.Log(messageKey, "Current listener retrieval.", "elapsedTime", time.Since(beginObtainList))
 	infoLog.Log(messageKey, "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
-	var (
-		signals = make(chan os.Signal, 1)
-	)
-
-	signal.Notify(signals, os.Interrupt, os.Kill)
-	s := <-signals
-	errorLog.Log(messageKey, "received signal, shutting down", "signal", s)
+	signals := make(chan os.Signal, 10)
+	signal.Notify(signals)
+	s := server.SignalWait(infoLog, signals, os.Interrupt, os.Kill)
+	errorLog.Log(logging.MessageKey(), "exiting due to signal", "signal", s)
 	close(shutdown)
 	waitGroup.Wait()
 
 	// shutdown the sender wrapper gently so that all queued messages get serviced
 	caduceusSenderWrapper.Shutdown(true)
-	fmt.Println("received signal, shutting down: ", s)
-
 	return 0
 }
 
