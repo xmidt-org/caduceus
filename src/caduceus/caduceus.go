@@ -228,7 +228,7 @@ func caduceus(arguments []string) int {
 
 	selfURL := &url.URL{
 		Scheme: "https",
-		Host:   v.GetString("server") + v.GetString("primary.address"),
+		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
 	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, nil)
