@@ -46,9 +46,6 @@ func TestMuxServerConfig(t *testing.T) {
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("CaduceusRequest")).Return().Once()
 
-	fakeHealth := new(mockHealthTracker)
-	fakeHealth.On("IncrementBucket", mock.AnythingOfType("int")).Return().Once()
-
 	forceTimeOut := func(func(workerID int)) error {
 		return errors.New("time out!")
 	}
@@ -65,7 +62,6 @@ func TestMuxServerConfig(t *testing.T) {
 	serverWrapper := &ServerHandler{
 		Logger:             logger,
 		caduceusHandler:    fakeHandler,
-		caduceusHealth:     fakeHealth,
 		errorRequests:      fakeErrorRequests,
 		emptyRequests:      fakeEmptyRequests,
 		incomingQueueDepth: fakeQueueDepth,

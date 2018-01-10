@@ -18,42 +18,26 @@ package main
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"time"
-)
-
-const (
-	// Stuff we're looking at health-wise
-	// TODO: figure out how to add per IP buckets
-	PayloadsOverZero        health.Stat = "PayloadsOverZero"
-	PayloadsOverHundred     health.Stat = "PayloadsOverHundred"
-	PayloadsOverThousand    health.Stat = "PayloadsOverThousand"
-	PayloadsOverTenThousand health.Stat = "PayloadsOverTenThousand"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
 // TODO: Try to figure out how to make bucket ranges configurable
 type CaduceusConfig struct {
-	AuthHeader                          []string
-	NumWorkerThreads                    int
-	JobQueueSize                        int
-	SenderNumWorkersPerSender           int
-	SenderQueueSizePerSender            int
-	SenderCutOffPeriod                  int
-	SenderLinger                        int
-	SenderClientTimeout                 int
-	ProfilerFrequency                   int
-	ProfilerDuration                    int
-	ProfilerQueueSize                   int
-	TotalIncomingPayloadSizeBuckets     []int
-	PerSourceIncomingPayloadSizeBuckets []int
-	JWTValidators                       []JWTValidator
+	AuthHeader                []string
+	NumWorkerThreads          int
+	JobQueueSize              int
+	SenderNumWorkersPerSender int
+	SenderQueueSizePerSender  int
+	SenderCutOffPeriod        int
+	SenderLinger              int
+	SenderClientTimeout       int
+	JWTValidators             []JWTValidator
 }
 
 type JWTValidator struct {
@@ -72,37 +56,6 @@ type CaduceusRequest struct {
 	OutgoingPayload []byte
 	ContentType     string
 	TargetURL       string
-	Telemetry       CaduceusTelemetry
-}
-
-const (
-	TelemetryStatusSuccess        = iota
-	TelemetryStatusPartialSuccess = iota
-	TelemetryStatusFailure        = iota
-)
-
-type CaduceusTelemetry struct {
-	RawPayloadSize       int
-	TimeReceived         time.Time
-	TimeAccepted         time.Time
-	TimeSentToOutbound   time.Time
-	TimeOutboundAccepted time.Time
-	TimeSent             time.Time
-	TimeResponded        time.Time
-	Status               int
-}
-
-type CaduceusStats struct {
-	Name                 string `json:"endpoint-name"`
-	Time                 string `json:"time"`
-	Tonnage              int    `json:"tonnage"`
-	EventsSent           int    `json:"events-sent"`
-	ProcessingTimePerc98 string `json:"processing-time-perc98"`
-	ProcessingTimeAvg    string `json:"processing-time-avg"`
-	LatencyPerc98        string `json:"latency-perc98"`
-	LatencyAvg           string `json:"latency-avg"`
-	ResponsePerc98       string `json:"response-perc98"`
-	ResponseAvg          string `json:"response-avg"`
 }
 
 type CaduceusMetricsRegistry interface {
@@ -115,39 +68,15 @@ type RequestHandler interface {
 }
 
 type CaduceusHandler struct {
-	handlerProfiler ServerProfiler
-	senderWrapper   SenderWrapper
+	senderWrapper SenderWrapper
 	log.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	inRequest.Telemetry.TimeSentToOutbound = time.Now()
 
 	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
 		" to sender")
 	ch.senderWrapper.Queue(inRequest)
-}
-
-type HealthTracker interface {
-	SendEvent(health.HealthFunc)
-	IncrementBucket(inSize int)
-}
-
-// Below is the struct and implementation of how we're tracking health stuff
-type CaduceusHealth struct {
-	health.Monitor
-}
-
-func (ch *CaduceusHealth) IncrementBucket(inSize int) {
-	if inSize < 101 {
-		ch.SendEvent(health.Inc(PayloadsOverZero, 1))
-	} else if inSize < 1001 {
-		ch.SendEvent(health.Inc(PayloadsOverHundred, 1))
-	} else if inSize < 10001 {
-		ch.SendEvent(health.Inc(PayloadsOverThousand, 1))
-	} else {
-		ch.SendEvent(health.Inc(PayloadsOverTenThousand, 1))
-	}
 }
 
 // Below is the struct and implementation of our worker pool factory

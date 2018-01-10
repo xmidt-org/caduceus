@@ -32,14 +32,6 @@ import (
 	"time"
 )
 
-var (
-	testServerProfilerFactory = ServerProfilerFactory{
-		Frequency: 10,
-		Duration:  6,
-		QueueSize: 100,
-	}
-)
-
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type transport struct {
 	i  int32
@@ -114,7 +106,6 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
 		MetricsRegistry: fakeRegistry,
 		Logger:          getLogger(),
 	}
@@ -407,12 +398,11 @@ func TestInvalidEventRegex(t *testing.T) {
 	w.Config.ContentType = "application/json"
 
 	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
+		Listener:   w,
+		Client:     &http.Client{},
+		NumWorkers: 10,
+		QueueSize:  10,
+		Logger:     getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -432,12 +422,11 @@ func TestInvalidUrl(t *testing.T) {
 	w.Config.ContentType = "application/json"
 
 	obs, err := OutboundSenderFactory{
-		Listener:        w,
-		Client:          &http.Client{},
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
+		Listener:   w,
+		Client:     &http.Client{},
+		NumWorkers: 10,
+		QueueSize:  10,
+		Logger:     getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -449,12 +438,11 @@ func TestInvalidUrl(t *testing.T) {
 	w2.Config.ContentType = "application/json"
 
 	obs, err = OutboundSenderFactory{
-		Listener:        w2,
-		Client:          &http.Client{},
-		NumWorkers:      10,
-		QueueSize:       10,
-		ProfilerFactory: testServerProfilerFactory,
-		Logger:          getLogger(),
+		Listener:   w2,
+		Client:     &http.Client{},
+		NumWorkers: 10,
+		QueueSize:  10,
+		Logger:     getLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -546,28 +534,6 @@ func TestInvalidEvents(t *testing.T) {
 	obsf.Listener = w2
 	obsf.Client = &http.Client{}
 	obs, err = obsf.New()
-
-	assert.Nil(obs)
-	assert.NotNil(err)
-}
-
-// Simple test that checks for no profiler
-func TestInvalidProfilerFactory(t *testing.T) {
-	assert := assert.New(t)
-
-	w := webhook.W{
-		Until:  time.Now(),
-		Events: []string{"iot", "test"},
-	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = "application/json"
-
-	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
-	obsf.Client = &http.Client{}
-	obsf.ProfilerFactory = ServerProfilerFactory{}
-	obs, err := obsf.New()
 
 	assert.Nil(obs)
 	assert.NotNil(err)

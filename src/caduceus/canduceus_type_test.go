@@ -17,12 +17,10 @@
 package main
 
 import (
-	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"math"
 	"sync"
 	"testing"
 )
@@ -63,60 +61,20 @@ func TestWorkerPool(t *testing.T) {
 	})
 }
 
-func TestCaduceusHealth(t *testing.T) {
-	assert := assert.New(t)
-
-	testData := []struct {
-		inSize       int
-		expectedStat health.Stat
-	}{
-		{inSize: -1, expectedStat: PayloadsOverZero},
-		{inSize: 0, expectedStat: PayloadsOverZero},
-		{inSize: 99, expectedStat: PayloadsOverZero},
-		{inSize: 999, expectedStat: PayloadsOverHundred},
-		{inSize: 9999, expectedStat: PayloadsOverThousand},
-		{inSize: 10001, expectedStat: PayloadsOverTenThousand},
-		{inSize: math.MaxInt32, expectedStat: PayloadsOverTenThousand},
-	}
-
-	t.Run("TestIncrementBucket", func(t *testing.T) {
-		for _, data := range testData {
-			fakeMonitor := new(mockHealthTracker)
-			fakeMonitor.On("SendEvent", mock.AnythingOfType("health.HealthFunc")).Run(
-				func(args mock.Arguments) {
-					healthFunc := args.Get(0).(health.HealthFunc)
-					stats := make(health.Stats)
-
-					healthFunc(stats)
-					assert.Equal(1, stats[data.expectedStat])
-				}).Once()
-
-			caduceusHealth := &CaduceusHealth{fakeMonitor}
-
-			caduceusHealth.IncrementBucket(data.inSize)
-			fakeMonitor.AssertExpectations(t)
-		}
-	})
-}
-
 func TestCaduceusHandler(t *testing.T) {
 	logger := logging.DefaultLogger()
 
 	fakeSenderWrapper := new(mockSenderWrapper)
 	fakeSenderWrapper.On("Queue", mock.AnythingOfType("CaduceusRequest")).Return().Once()
 
-	fakeProfiler := new(mockServerProfiler)
-
 	testHandler := CaduceusHandler{
-		handlerProfiler: fakeProfiler,
-		senderWrapper:   fakeSenderWrapper,
-		Logger:          logger,
+		senderWrapper: fakeSenderWrapper,
+		Logger:        logger,
 	}
 
 	t.Run("TestHandleRequest", func(t *testing.T) {
 		testHandler.HandleRequest(0, CaduceusRequest{})
 
 		fakeSenderWrapper.AssertExpectations(t)
-		fakeProfiler.AssertExpectations(t)
 	})
 }
