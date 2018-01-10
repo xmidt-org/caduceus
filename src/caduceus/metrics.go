@@ -54,7 +54,7 @@ func Metrics() []xmetrics.Metric {
 			Name:       SlowConsumerDroppedMsgCounter,
 			Help:       "Count of dropped messages due to a slow consumer",
 			Type:       "counter",
-			LabelNames: []string{"url"},
+			LabelNames: []string{"url", "reason"},
 		},
 		xmetrics.Metric{
 			Name:       SlowConsumerCounter,

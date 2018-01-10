@@ -93,7 +93,9 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeSlow.On("Add", 1.0).Return()
 
 	fakeDroppedSlow := new(mockCounter)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
 
 	fakeQdepth := new(mockGauge)

@@ -107,25 +107,27 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	listener        webhook.W
-	deliverUntil    time.Time
-	dropUntil       time.Time
-	client          *http.Client
-	secret          []byte
-	events          []*regexp.Regexp
-	matcher         []*regexp.Regexp
-	queueSize       int
-	queue           chan outboundRequest
-	profiler        ServerProfiler
-	deliveryCounter metrics.Counter
-	droppedCounter  metrics.Counter
-	cutOffCounter   metrics.Counter
-	queueDepthGauge metrics.Gauge
-	wg              sync.WaitGroup
-	cutOffPeriod    time.Duration
-	failureMsg      FailureMessage
-	logger          log.Logger
-	mutex           sync.RWMutex
+	listener                 webhook.W
+	deliverUntil             time.Time
+	dropUntil                time.Time
+	client                   *http.Client
+	secret                   []byte
+	events                   []*regexp.Regexp
+	matcher                  []*regexp.Regexp
+	queueSize                int
+	queue                    chan outboundRequest
+	profiler                 ServerProfiler
+	deliveryCounter          metrics.Counter
+	droppedQueueFullCounter  metrics.Counter
+	droppedExpiredCounter    metrics.Counter
+	droppedNetworkErrCounter metrics.Counter
+	cutOffCounter            metrics.Counter
+	queueDepthGauge          metrics.Gauge
+	wg                       sync.WaitGroup
+	cutOffPeriod             time.Duration
+	failureMsg               FailureMessage
+	logger                   log.Logger
+	mutex                    sync.RWMutex
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -166,10 +168,19 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
+
 	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
 		NewCounter(SlowConsumerCounter).With("url", osf.Listener.Config.URL)
-	caduceusOutboundSender.droppedCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL)
+
+	caduceusOutboundSender.droppedQueueFullCounter = osf.MetricsRegistry.
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "queue_full")
+
+	caduceusOutboundSender.droppedExpiredCounter = osf.MetricsRegistry.
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "expired")
+
+	caduceusOutboundSender.droppedNetworkErrCounter = osf.MetricsRegistry.
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "network_err")
+
 	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
 		NewGauge(OutgoingQueueDepth).With("url", osf.Listener.Config.URL)
 
@@ -314,7 +325,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- outboundReq
 					} else {
-						obs.droppedCounter.Add(1.0)
+						obs.droppedQueueFullCounter.Add(1.0)
 						obs.queueOverflow()
 					}
 				}
@@ -401,7 +412,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.listener.Config.URL)
 					} else {
 						obs.queueOverflow()
-						obs.droppedCounter.Add(1.0)
+						obs.droppedQueueFullCounter.Add(1.0)
 					}
 				}
 			} else {
@@ -413,7 +424,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	} else {
 		debugLog.Log(logging.MessageKey(), "Outside delivery window")
 		debugLog.Log("now", now, "before", deliverUntil, "after", dropUntil)
-		obs.droppedCounter.Add(1.0)
+		obs.droppedExpiredCounter.Add(1.0)
 	}
 }
 
@@ -460,7 +471,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 			req, err := http.NewRequest("POST", obs.listener.Config.URL, payloadReader)
 			if nil != err {
 				// Report drop
-				obs.droppedCounter.Add(1.0)
+				obs.droppedNetworkErrCounter.Add(1.0)
 				logging.Error(obs.logger).Log(logging.MessageKey(), "New Post request", "url", obs.listener.Config.URL,
 					logging.ErrorKey(), err)
 			} else {
@@ -523,7 +534,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				}
 			}
 		} else {
-			obs.droppedCounter.Add(1.0)
+			obs.droppedExpiredCounter.Add(1.0)
 		}
 	}
 }
