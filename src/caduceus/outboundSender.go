@@ -86,10 +86,6 @@ type OutboundSenderFactory struct {
 	// Must be greater then 0 seconds
 	CutOffPeriod time.Duration
 
-	// The factory that we'll use to make new ServerProfilers on a per
-	// outboundSender basis
-	ProfilerFactory ServerProfilerFactory
-
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
@@ -116,7 +112,6 @@ type CaduceusOutboundSender struct {
 	matcher                  []*regexp.Regexp
 	queueSize                int
 	queue                    chan outboundRequest
-	profiler                 ServerProfiler
 	deliveryCounter          metrics.Counter
 	droppedQueueFullCounter  metrics.Counter
 	droppedExpiredCounter    metrics.Counter
@@ -195,11 +190,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		if _, err = url.ParseRequestURI(osf.Listener.FailureURL); nil != err {
 			return
 		}
-	}
-
-	caduceusOutboundSender.profiler, err = osf.ProfilerFactory.New(osf.Listener.Config.URL)
-	if err != nil {
-		return
 	}
 
 	// Give us some head room so that we don't block when we get near the
@@ -319,7 +309,6 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 							deviceID:    deviceID,
 							contentType: "application/json",
 						}
-						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						logging.Debug(obs.logger).Log(logging.MessageKey(), "JSON Sent to obs queue", "url",
 							obs.listener.Config.URL)
 						obs.queueDepthGauge.Add(1.0)
@@ -406,7 +395,6 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 							deviceID:    req.PayloadAsWrp.Source,
 							contentType: ct,
 						}
-						outboundReq.req.Telemetry.TimeOutboundAccepted = time.Now()
 						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- outboundReq
 						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.listener.Config.URL)
@@ -492,14 +480,10 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				}
 
 				// Send it
-				work.req.Telemetry.TimeSent = time.Now()
 				resp, err := obs.client.Do(req)
-				work.req.Telemetry.TimeResponded = time.Now()
 				if nil != err {
 					// Report failure
 					obs.getDeliveryCounter(-1).Add(1.0)
-					work.req.Telemetry.Status = TelemetryStatusFailure
-					obs.profiler.Send(work.req.Telemetry)
 				} else {
 					// Report Result
 					switch resp.StatusCode {
@@ -513,16 +497,6 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 						delivered204.Add(1.0)
 					default:
 						obs.getDeliveryCounter(resp.StatusCode).Add(1.0)
-					}
-
-					if (200 <= resp.StatusCode) && (resp.StatusCode <= 204) {
-						// Report success
-						work.req.Telemetry.Status = TelemetryStatusSuccess
-						obs.profiler.Send(work.req.Telemetry)
-					} else {
-						// Report partial success
-						work.req.Telemetry.Status = TelemetryStatusPartialSuccess
-						obs.profiler.Send(work.req.Telemetry)
 					}
 
 					// read until the response is complete before closing to allow

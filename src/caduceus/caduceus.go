@@ -132,23 +132,6 @@ func caduceus(arguments []string) int {
 		QueueSize:  caduceusConfig.JobQueueSize,
 	}.New()
 
-	mainCaduceusProfilerFactory := ServerProfilerFactory{
-		Frequency: caduceusConfig.ProfilerFrequency,
-		Duration:  caduceusConfig.ProfilerDuration,
-		QueueSize: caduceusConfig.ProfilerQueueSize,
-		Logger:    logger,
-	}
-
-	// here we create a profiler specifically for our main server handler
-	caduceusHandlerProfiler, err := mainCaduceusProfilerFactory.New("main")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to profiler for main caduceus handler: %s\n", err)
-		return 1
-	}
-
-	childCaduceusProfilerFactory := mainCaduceusProfilerFactory
-	childCaduceusProfilerFactory.Parent = caduceusHandlerProfiler
-
 	tr := &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 		MaxIdleConnsPerHost:   caduceusConfig.SenderNumWorkersPerSender,
@@ -157,15 +140,12 @@ func caduceus(arguments []string) int {
 
 	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
 
-	// declare a new sender wrapper and pass it a profiler factory so that it can create
-	// unique profilers on a per outboundSender basis
 	caduceusSenderWrapper, err := SenderWrapperFactory{
 		NumWorkersPerSender: caduceusConfig.SenderNumWorkersPerSender,
 		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
 		CutOffPeriod:        time.Duration(caduceusConfig.SenderCutOffPeriod) * time.Second,
 		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
 		MetricsRegistry:     metricsRegistry,
-		ProfilerFactory:     childCaduceusProfilerFactory,
 		Logger:              logger,
 		Client:              &http.Client{Transport: tr, Timeout: timeout},
 	}.New()
@@ -178,19 +158,13 @@ func caduceus(arguments []string) int {
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
-			handlerProfiler: caduceusHandlerProfiler,
-			senderWrapper:   caduceusSenderWrapper,
-			Logger:          logger,
+			senderWrapper: caduceusSenderWrapper,
+			Logger:        logger,
 		},
 		errorRequests:      metricsRegistry.NewCounter(ErrorRequestBodyCounter),
 		emptyRequests:      metricsRegistry.NewCounter(EmptyRequestBodyCounter),
 		incomingQueueDepth: metricsRegistry.NewGauge(IncomingQueueDepth),
 		doJob:              workerPool.Send,
-	}
-
-	profileWrapper := &ProfileHandler{
-		profilerData: caduceusHandlerProfiler,
-		Logger:       logger,
 	}
 
 	validator, err := getValidator(v)
@@ -212,8 +186,6 @@ func caduceus(arguments []string) int {
 
 	router = configServerRouter(router, caduceusHandler, serverWrapper)
 
-	router.Handle("/api/v3/profile", caduceusHandler.Then(profileWrapper))
-
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
@@ -233,11 +205,7 @@ func caduceus(arguments []string) int {
 
 	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, nil)
 
-	caduceusHealth := &CaduceusHealth{}
-	var runnable concurrent.Runnable
-
-	caduceusHealth.Monitor, runnable = webPA.Prepare(logger, nil, metricsRegistry, router)
-	serverWrapper.caduceusHealth = caduceusHealth
+	_, runnable := webPA.Prepare(logger, nil, metricsRegistry, router)
 
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {

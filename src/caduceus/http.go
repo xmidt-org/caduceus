@@ -17,10 +17,8 @@
 package main
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
@@ -33,7 +31,6 @@ type Send func(inFunc func(workerID int)) error
 type ServerHandler struct {
 	log.Logger
 	caduceusHandler    RequestHandler
-	caduceusHealth     HealthTracker
 	errorRequests      metrics.Counter
 	emptyRequests      metrics.Counter
 	incomingQueueDepth metrics.Gauge
@@ -48,10 +45,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	errorKey := logging.ErrorKey()
 
 	infoLog.Log(messageKey, "Receiving incoming request...")
-
-	stats := CaduceusTelemetry{
-		TimeReceived: time.Now(),
-	}
 
 	payload, err := ioutil.ReadAll(request.Body)
 	if err != nil {
@@ -71,11 +64,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		RawPayload:  payload,
 		ContentType: request.Header.Get("Content-Type"),
 		TargetURL:   targetURL,
-		Telemetry:   stats,
 	}
-
-	caduceusRequest.Telemetry.RawPayloadSize = len(payload)
-	caduceusRequest.Telemetry.TimeAccepted = time.Now()
 
 	sh.incomingQueueDepth.Add(1.0)
 	err = sh.doJob(func(workerID int) {
@@ -93,37 +82,5 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusAccepted)
 		response.Write([]byte("Request placed on to queue.\n"))
 		debugLog.Log(messageKey, "Request placed on to queue.")
-
-		sh.caduceusHealth.IncrementBucket(caduceusRequest.Telemetry.RawPayloadSize)
-	}
-}
-
-type ProfileHandler struct {
-	profilerData ServerProfiler
-	log.Logger
-}
-
-// ServeHTTP method of ProfileHandler will output the most recent messages
-// that the main handler has successfully dealt with
-func (ph *ProfileHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	logging.Info(ph.Logger).Log(logging.MessageKey(), "Receiving request for server stats...")
-
-	stats := ph.profilerData.Report()
-
-	b, err := json.Marshal(stats)
-
-	if nil == stats {
-		b = []byte("[]")
-		err = nil
-	}
-
-	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte("Error marshalling the data into a JSON object."))
-	} else {
-		response.Header().Set("Content-Type", "application/json")
-		response.WriteHeader(http.StatusOK)
-		response.Write(b)
-		response.Write([]byte("\n"))
 	}
 }

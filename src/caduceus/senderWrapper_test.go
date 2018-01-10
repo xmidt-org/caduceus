@@ -111,11 +111,6 @@ func getFakeFactory() *SenderWrapperFactory {
 		Logger:              logging.DefaultLogger(),
 		Linger:              0 * time.Second,
 		MetricsRegistry:     fakeRegistry,
-		ProfilerFactory: ServerProfilerFactory{
-			Frequency: 10,
-			Duration:  6,
-			QueueSize: 100,
-		},
 	}
 }
 

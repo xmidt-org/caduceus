@@ -54,10 +54,6 @@ type SenderWrapperFactory struct {
 	// The metrics counter for dropped messages due to invalid payloads
 	DroppedMsgCounter metrics.Counter
 
-	// The factory that we'll use to make new ServerProfilers on a per
-	// outboundSender basis
-	ProfilerFactory ServerProfilerFactory
-
 	// The logger implementation to share with OutboundSenders.
 	Logger log.Logger
 
@@ -81,7 +77,6 @@ type CaduceusSenderWrapper struct {
 	logger              log.Logger
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
-	profilerFactory     ServerProfilerFactory
 	metricsRegistry     CaduceusMetricsRegistry
 	msgpackCount        metrics.Counter
 	jsonCount           metrics.Counter
@@ -104,7 +99,6 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		cutOffPeriod:        swf.CutOffPeriod,
 		linger:              swf.Linger,
 		logger:              swf.Logger,
-		profilerFactory:     swf.ProfilerFactory,
 		metricsRegistry:     swf.MetricsRegistry,
 		msgpackCount:        contentTypeCounter.With("content_type", "msgpack"),
 		jsonCount:           contentTypeCounter.With("content_type", "json"),
@@ -139,7 +133,6 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 		NumWorkers:      sw.numWorkersPerSender,
 		QueueSize:       sw.queueSizePerSender,
 		MetricsRegistry: sw.metricsRegistry,
-		ProfilerFactory: sw.profilerFactory,
 		Logger:          sw.logger,
 	}
 
