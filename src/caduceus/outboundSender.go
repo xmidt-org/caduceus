@@ -472,10 +472,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				// Ensure there is a transaction id even if we make one up
 				tid := work.transID
 				if "" == tid {
-					u, err := uuid.NewV4()
-					if nil == err {
-						tid = u.String()
-					}
+					tid = uuid.NewV4().String()
 				}
 				req.Header.Set("X-Webpa-Transaction-Id", tid)
 				req.Header.Set("X-Webpa-Device-Id", work.deviceID)
