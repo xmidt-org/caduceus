@@ -48,7 +48,7 @@ func Metrics() []xmetrics.Metric {
 			Name:       DeliveryCounter,
 			Help:       "Count of delivered messages to a url with a status code",
 			Type:       "counter",
-			LabelNames: []string{"url", "code", "eventType"},
+			LabelNames: []string{"url", "code", "event"},
 		},
 		xmetrics.Metric{
 			Name:       SlowConsumerDroppedMsgCounter,
