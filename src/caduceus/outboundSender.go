@@ -38,6 +38,7 @@ import (
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"github.com/satori/go.uuid"
 )
 
 // failureText is human readable text for the failure message
@@ -467,7 +468,16 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 
 				// Provide the old headers for now
 				req.Header.Set("X-Webpa-Event", work.event)
-				req.Header.Set("X-Webpa-Transaction-Id", work.transID)
+
+				// Ensure there is a transaction id even if we make one up
+				tid := work.transID
+				if "" == tid {
+					u, err := uuid.NewV4()
+					if nil == err {
+						tid = u.String()
+					}
+				}
+				req.Header.Set("X-Webpa-Transaction-Id", tid)
 				req.Header.Set("X-Webpa-Device-Id", work.deviceID)
 
 				// TODO Add the conversions to the new Xmidt headers
