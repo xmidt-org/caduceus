@@ -490,20 +490,20 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				resp, err := obs.client.Do(req)
 				if nil != err {
 					// Report failure
-					obs.getDeliveryCounter(-1).Add(1.0)
+					obs.getDeliveryCounter(-1).With("event", work.event).Add(1.0)
 				} else {
 					// Report Result
 					switch resp.StatusCode {
 					case 200:
-						delivered200.Add(1.0)
+						delivered200.With("event", work.event).Add(1.0)
 					case 201:
-						delivered201.Add(1.0)
+						delivered201.With("event", work.event).Add(1.0)
 					case 202:
-						delivered202.Add(1.0)
+						delivered202.With("event", work.event).Add(1.0)
 					case 204:
-						delivered204.Add(1.0)
+						delivered204.With("event", work.event).Add(1.0)
 					default:
-						obs.getDeliveryCounter(resp.StatusCode).Add(1.0)
+						obs.getDeliveryCounter(resp.StatusCode).With("event", work.event).Add(1.0)
 					}
 
 					// read until the response is complete before closing to allow

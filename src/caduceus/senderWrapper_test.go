@@ -94,7 +94,10 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "200"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "201"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "202"}).Return(fakeIgnore).
-		On("With", []string{"url", "http://localhost:9999/foo", "code", "204"}).Return(fakeIgnore)
+		On("With", []string{"url", "http://localhost:9999/foo", "code", "204"}).Return(fakeIgnore).
+		On("With", []string{"event", "test"}).Return(fakeIgnore).
+		On("With", []string{"event", "wrp"}).Return(fakeIgnore).
+		On("With", []string{"event", "iot"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeICTC)

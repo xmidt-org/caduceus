@@ -77,7 +77,9 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDC.On("With", []string{"url", w.Config.URL, "code", "200"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "201"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "202"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC)
+		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC).
+		On("With", []string{"event", "iot"}).Return(fakeDC).
+		On("With", []string{"event", "test"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 
 	fakeSlow := new(mockCounter)
