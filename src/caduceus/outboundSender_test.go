@@ -125,10 +125,13 @@ func simpleJSONRequest() CaduceusRequest {
 
 func simpleWrpRequest() CaduceusRequest {
 	req := CaduceusRequest{
-		RawPayload:   []byte("Hello, world."),
-		PayloadAsWrp: &wrp.Message{},
-		ContentType:  "application/wrp",
-		TargetURL:    "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
+		RawPayload: []byte("Hello, world."),
+		PayloadAsWrp: &wrp.Message{
+			Source:      "mac:112233445566/lmlite",
+			Destination: "event:bob/magic/dog",
+		},
+		ContentType: "application/msgpack",
+		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
 	}
 
 	return req
@@ -213,18 +216,22 @@ func TestSimpleWrp(t *testing.T) {
 	assert.Nil(err)
 
 	req := simpleWrpRequest()
-
 	req.PayloadAsWrp.Source = "mac:112233445566"
 	req.PayloadAsWrp.TransactionUUID = "1234"
-
 	req.PayloadAsWrp.Destination = "iot"
 	obs.QueueWrp(req)
 
-	req.PayloadAsWrp.Destination = "test"
-	obs.QueueWrp(req)
+	r2 := simpleWrpRequest()
+	r2.PayloadAsWrp.Source = "mac:112233445566"
+	r2.PayloadAsWrp.TransactionUUID = "1234"
+	r2.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(r2)
 
-	req.PayloadAsWrp.Destination = "no-match"
-	obs.QueueWrp(req)
+	r3 := simpleWrpRequest()
+	r3.PayloadAsWrp.Source = "mac:112233445566"
+	r3.PayloadAsWrp.TransactionUUID = "1234"
+	r3.PayloadAsWrp.Destination = "no-match"
+	obs.QueueWrp(r3)
 
 	obs.Shutdown(true)
 
@@ -243,24 +250,28 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 	assert.Nil(err)
 
 	req := simpleWrpRequest()
-
 	req.PayloadAsWrp.TransactionUUID = "1234"
-
 	req.PayloadAsWrp.Source = "mac:112233445566"
 	req.PayloadAsWrp.Destination = "iot"
 	obs.QueueWrp(req)
 
-	req.PayloadAsWrp.Source = "mac:112233445565"
-	req.PayloadAsWrp.Destination = "test"
-	obs.QueueWrp(req)
+	r2 := simpleWrpRequest()
+	r2.PayloadAsWrp.TransactionUUID = "1234"
+	r2.PayloadAsWrp.Source = "mac:112233445565"
+	r2.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(r2)
 
-	req.PayloadAsWrp.Source = "mac:112233445560"
-	req.PayloadAsWrp.Destination = "iot"
-	obs.QueueWrp(req)
+	r3 := simpleWrpRequest()
+	r3.PayloadAsWrp.TransactionUUID = "1234"
+	r3.PayloadAsWrp.Source = "mac:112233445560"
+	r3.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(r3)
 
-	req.PayloadAsWrp.Source = "mac:112233445560"
-	req.PayloadAsWrp.Destination = "test"
-	obs.QueueWrp(req)
+	r4 := simpleWrpRequest()
+	r4.PayloadAsWrp.TransactionUUID = "1234"
+	r4.PayloadAsWrp.Source = "mac:112233445560"
+	r4.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(r4)
 
 	obs.Shutdown(true)
 
@@ -280,24 +291,28 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	assert.Nil(err)
 
 	req := simpleWrpRequest()
-
 	req.PayloadAsWrp.TransactionUUID = "1234"
-
 	req.PayloadAsWrp.Source = "mac:112233445566"
 	req.PayloadAsWrp.Destination = "iot"
 	obs.QueueWrp(req)
 
-	req.PayloadAsWrp.Source = "mac:112233445565"
-	req.PayloadAsWrp.Destination = "test"
-	obs.QueueWrp(req)
+	r2 := simpleWrpRequest()
+	r2.PayloadAsWrp.TransactionUUID = "1234"
+	r2.PayloadAsWrp.Source = "mac:112233445565"
+	r2.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(r2)
 
-	req.PayloadAsWrp.Source = "mac:112233445560"
-	req.PayloadAsWrp.Destination = "iot"
-	obs.QueueWrp(req)
+	r3 := simpleWrpRequest()
+	r3.PayloadAsWrp.TransactionUUID = "1234"
+	r3.PayloadAsWrp.Source = "mac:112233445560"
+	r3.PayloadAsWrp.Destination = "iot"
+	obs.QueueWrp(r3)
 
-	req.PayloadAsWrp.Source = "mac:112233445560"
-	req.PayloadAsWrp.Destination = "test"
-	obs.QueueWrp(req)
+	r4 := simpleWrpRequest()
+	r4.PayloadAsWrp.TransactionUUID = "1234"
+	r4.PayloadAsWrp.Source = "mac:112233445560"
+	r4.PayloadAsWrp.Destination = "test"
+	obs.QueueWrp(r4)
 
 	obs.Shutdown(true)
 
