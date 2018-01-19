@@ -34,8 +34,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp/wrphttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/satori/go.uuid"
@@ -475,9 +477,15 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 					tid = uuid.NewV4().String()
 				}
 				req.Header.Set("X-Webpa-Transaction-Id", tid)
-				req.Header.Set("X-Webpa-Device-Id", work.deviceID)
 
-				// TODO Add the conversions to the new Xmidt headers
+				// Add the device id without the trailing service
+				id, _ := device.ParseID(work.deviceID)
+				req.Header.Set("X-Webpa-Device-Id", string(id))
+
+				// Add x-Midt-* headers if possible
+				if nil != work.req.PayloadAsWrp {
+					wrphttp.AddMessageHeaders(req.Header, work.req.PayloadAsWrp)
+				}
 
 				if nil != h {
 					h.Reset()
