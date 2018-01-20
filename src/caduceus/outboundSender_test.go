@@ -218,19 +218,19 @@ func TestSimpleWrp(t *testing.T) {
 	req := simpleWrpRequest()
 	req.PayloadAsWrp.Source = "mac:112233445566"
 	req.PayloadAsWrp.TransactionUUID = "1234"
-	req.PayloadAsWrp.Destination = "iot"
+	req.PayloadAsWrp.Destination = "event:iot"
 	obs.QueueWrp(req)
 
 	r2 := simpleWrpRequest()
 	r2.PayloadAsWrp.Source = "mac:112233445566"
 	r2.PayloadAsWrp.TransactionUUID = "1234"
-	r2.PayloadAsWrp.Destination = "test"
+	r2.PayloadAsWrp.Destination = "event:test"
 	obs.QueueWrp(r2)
 
 	r3 := simpleWrpRequest()
 	r3.PayloadAsWrp.Source = "mac:112233445566"
 	r3.PayloadAsWrp.TransactionUUID = "1234"
-	r3.PayloadAsWrp.Destination = "no-match"
+	r3.PayloadAsWrp.Destination = "event:no-match"
 	obs.QueueWrp(r3)
 
 	obs.Shutdown(true)
@@ -252,25 +252,25 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 	req := simpleWrpRequest()
 	req.PayloadAsWrp.TransactionUUID = "1234"
 	req.PayloadAsWrp.Source = "mac:112233445566"
-	req.PayloadAsWrp.Destination = "iot"
+	req.PayloadAsWrp.Destination = "event:iot"
 	obs.QueueWrp(req)
 
 	r2 := simpleWrpRequest()
 	r2.PayloadAsWrp.TransactionUUID = "1234"
 	r2.PayloadAsWrp.Source = "mac:112233445565"
-	r2.PayloadAsWrp.Destination = "test"
+	r2.PayloadAsWrp.Destination = "event:test"
 	obs.QueueWrp(r2)
 
 	r3 := simpleWrpRequest()
 	r3.PayloadAsWrp.TransactionUUID = "1234"
 	r3.PayloadAsWrp.Source = "mac:112233445560"
-	r3.PayloadAsWrp.Destination = "iot"
+	r3.PayloadAsWrp.Destination = "event:iot"
 	obs.QueueWrp(r3)
 
 	r4 := simpleWrpRequest()
 	r4.PayloadAsWrp.TransactionUUID = "1234"
 	r4.PayloadAsWrp.Source = "mac:112233445560"
-	r4.PayloadAsWrp.Destination = "test"
+	r4.PayloadAsWrp.Destination = "event:test"
 	obs.QueueWrp(r4)
 
 	obs.Shutdown(true)
@@ -293,25 +293,25 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	req := simpleWrpRequest()
 	req.PayloadAsWrp.TransactionUUID = "1234"
 	req.PayloadAsWrp.Source = "mac:112233445566"
-	req.PayloadAsWrp.Destination = "iot"
+	req.PayloadAsWrp.Destination = "event:iot"
 	obs.QueueWrp(req)
 
 	r2 := simpleWrpRequest()
 	r2.PayloadAsWrp.TransactionUUID = "1234"
 	r2.PayloadAsWrp.Source = "mac:112233445565"
-	r2.PayloadAsWrp.Destination = "test"
+	r2.PayloadAsWrp.Destination = "event:test"
 	obs.QueueWrp(r2)
 
 	r3 := simpleWrpRequest()
 	r3.PayloadAsWrp.TransactionUUID = "1234"
 	r3.PayloadAsWrp.Source = "mac:112233445560"
-	r3.PayloadAsWrp.Destination = "iot"
+	r3.PayloadAsWrp.Destination = "event:iot"
 	obs.QueueWrp(r3)
 
 	r4 := simpleWrpRequest()
 	r4.PayloadAsWrp.TransactionUUID = "1234"
 	r4.PayloadAsWrp.Source = "mac:112233445560"
-	r4.PayloadAsWrp.Destination = "test"
+	r4.PayloadAsWrp.Destination = "event:test"
 	obs.QueueWrp(r4)
 
 	obs.Shutdown(true)
