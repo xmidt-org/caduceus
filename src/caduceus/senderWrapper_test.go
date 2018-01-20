@@ -131,7 +131,7 @@ func TestSwSimple(t *testing.T) {
 
 	wrpMessage := wrp.SimpleRequestResponse{
 		Source:          "mac:112233445566",
-		Destination:     "wrp",
+		Destination:     "event:wrp",
 		TransactionUUID: "12345",
 	}
 
