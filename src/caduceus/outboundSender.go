@@ -478,7 +478,13 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				logging.Error(obs.logger).Log(logging.MessageKey(), "New Post request", "url", obs.listener.Config.URL,
 					logging.ErrorKey(), err)
 			} else {
+
 				req.Header.Set("Content-Type", work.contentType)
+
+				// Add x-Midt-* headers if possible
+				if nil != work.req.PayloadAsWrp {
+					wrphttp.AddMessageHeaders(req.Header, work.req.PayloadAsWrp)
+				}
 
 				// Provide the old headers for now
 				req.Header.Set("X-Webpa-Event", work.event)
@@ -493,11 +499,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				// Add the device id without the trailing service
 				id, _ := device.ParseID(work.deviceID)
 				req.Header.Set("X-Webpa-Device-Id", string(id))
-
-				// Add x-Midt-* headers if possible
-				if nil != work.req.PayloadAsWrp {
-					wrphttp.AddMessageHeaders(req.Header, work.req.PayloadAsWrp)
-				}
+				req.Header.Set("X-Webpa-Device-Name", string(id))
 
 				if nil != h {
 					h.Reset()
