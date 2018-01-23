@@ -50,6 +50,12 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 	`capacity to handle notifications, or reduce the number of notifications ` +
 	`you have requested.`
 
+var (
+	// eventPattern is the precompiled regex that selects the top level event
+	// classifier
+	eventPattern = regexp.MustCompile(`^event:(?P<event>[^/]+)`)
+)
+
 // outboundRequest stores the outgoing request and assorted data that has been
 // collected so far (to save on processing the information again).
 type outboundRequest struct {
@@ -392,8 +398,14 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 							ct = "application/json"
 						}
 
+						match := eventPattern.FindStringSubmatch(req.PayloadAsWrp.Destination)
+						eventType := "unknown"
+						if match != nil {
+							eventType = match[1]
+						}
+
 						outboundReq := outboundRequest{req: req,
-							event:       req.PayloadAsWrp.Destination,
+							event:       eventType,
 							transID:     req.PayloadAsWrp.TransactionUUID,
 							deviceID:    req.PayloadAsWrp.Source,
 							contentType: ct,
