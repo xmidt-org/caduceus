@@ -95,29 +95,6 @@ func (m *mockSenderWrapper) Shutdown(gentle bool) {
 	m.Called(gentle)
 }
 
-// mockServerProfiler needs to mock things that the `ServerProfiler` does
-type mockServerProfiler struct {
-	mock.Mock
-}
-
-func (m *mockServerProfiler) Send(inData interface{}) error {
-	arguments := m.Called(inData)
-	return arguments.Error(0)
-}
-
-func (m *mockServerProfiler) Report() (values []interface{}) {
-	arguments := m.Called()
-	if arguments.Get(0) == nil {
-		return nil
-	}
-
-	return arguments.Get(0).([]interface{})
-}
-
-func (m *mockServerProfiler) Close() {
-	m.Called()
-}
-
 // mockCounter provides the mock implementation of the metrics.Counter object
 type mockCounter struct {
 	mock.Mock
