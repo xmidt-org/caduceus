@@ -187,7 +187,7 @@ func caduceus(arguments []string) int {
 
 	router = configServerRouter(router, caduceusHandler, serverWrapper)
 
-	webhookFactory, err := webhook.NewFactory(v, &metricsRegistry)
+	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
 		return 1
