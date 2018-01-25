@@ -33,6 +33,7 @@ import (
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
@@ -104,7 +105,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, webhook.Metrics, aws.Metrics)
 	)
 
 	if err != nil {
@@ -186,12 +187,12 @@ func caduceus(arguments []string) int {
 
 	router = configServerRouter(router, caduceusHandler, serverWrapper)
 
-	webhookFactory, err := webhook.NewFactory(v)
+	webhookFactory, err := webhook.NewFactory(v, &metricsRegistry)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
 		return 1
 	}
-	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler()
+	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler(metricsRegistry)
 	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
 	// register webhook end points for api
@@ -203,7 +204,7 @@ func caduceus(arguments []string) int {
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
-	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, nil)
+	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, metricsRegistry, nil)
 
 	_, runnable := webPA.Prepare(logger, nil, metricsRegistry, router)
 

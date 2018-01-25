@@ -1,7 +1,7 @@
 package: .
 import:
 - package: github.com/Comcast/webpa-common
-  version: 49d31397e019541d27795f8543e634ab0846ed82
+  version: e59f876d5105d1a7ba9910ec1ac219d027dbdb7b
 - package: github.com/satori/go.uuid
   version: f58768cc1a7a7e77a3bd49e98cdd21419399b6a3
 - package: github.com/gorilla/websocket
