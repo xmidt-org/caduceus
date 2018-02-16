@@ -1,5 +1,5 @@
-hash: bc4fbd6a5fab1c89d75e1aa795ac9d92175c82e84cd610a9a6cc4678837d4c3e
-updated: 2018-01-26T11:45:27.176055515-08:00
+hash: 55558c8f83efeebe45dd2b8e1d825c6c8adc582b44e63cbfc251219422356080
+updated: 2018-02-15T17:48:12.82975255-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -25,6 +25,7 @@ imports:
   - private/protocol/query/queryutil
   - private/protocol/rest
   - private/protocol/xml/xmlutil
+  - service
   - service/sns
   - service/sns/snsiface
   - service/sts
@@ -37,7 +38,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 7ace8d3c96f2e4725e713378f744c3c090a880ce
+  version: 75d21caa5da8a1fb952c1c507f8250b0c1eb57a6
   subpackages:
   - concurrent
   - convey
@@ -62,6 +63,7 @@ imports:
   - wrp/wrpendpoint
   - wrp/wrphttp
   - xhttp
+  - xlistener
   - xmetrics
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
@@ -96,13 +98,13 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/protobuf
-  version: c65a0412e71e8b9b3bfd22925720d23c0f054237
+  version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
   subpackages:
   - proto
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
-  version: 392c28fe23e1c45ddba891b0320b3b5df220beea
+  version: 53c1911da2b537f792e7cafcb446b05ffe33b996
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
 - name: github.com/hashicorp/hcl
@@ -189,6 +191,7 @@ imports:
   version: 890a5c3458b43e6104ff5da8dfa139d013d77544
   subpackages:
   - assert
+  - linux
   - mock
   - require
 - name: github.com/ugorji/go
@@ -197,10 +200,6 @@ imports:
   - codec
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
-- name: golang.org/x/net
-  version: 5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec
-  subpackages:
-  - netutil
 - name: golang.org/x/sys
   version: af50095a40f9041b3b38960738837185c26e9419
   subpackages:
