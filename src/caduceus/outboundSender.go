@@ -487,7 +487,11 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				}
 
 				// Provide the old headers for now
-				req.Header.Set("X-Webpa-Event", work.event)
+				if nil != work.req.PayloadAsWrp {
+					req.Header.Set("X-Webpa-Event", work.req.PayloadAsWrp.Destination)
+				} else {
+					req.Header.Set("X-Webpa-Event", work.event)
+				}
 
 				// Ensure there is a transaction id even if we make one up
 				tid := work.transID
