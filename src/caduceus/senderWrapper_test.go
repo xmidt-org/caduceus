@@ -95,7 +95,7 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "201"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "202"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "204"}).Return(fakeIgnore).
-		On("With", []string{"event", "test"}).Return(fakeIgnore).
+		On("With", []string{"event", "test/extra-stuff"}).Return(fakeIgnore).
 		On("With", []string{"event", "wrp"}).Return(fakeIgnore).
 		On("With", []string{"event", "iot"}).Return(fakeIgnore)
 
@@ -148,7 +148,7 @@ func TestSwSimple(t *testing.T) {
 	test := CaduceusRequest{
 		RawPayload:  []byte("Hello, world."),
 		ContentType: "application/json",
-		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/test",
+		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/test/extra-stuff",
 	}
 	wrp := CaduceusRequest{
 		RawPayload:  buffer.Bytes(),
@@ -159,7 +159,8 @@ func TestSwSimple(t *testing.T) {
 	trans := &swTransport{}
 
 	swf := getFakeFactory()
-	swf.Client = &http.Client{Transport: trans}
+	swf.Sender = trans.RoundTrip
+
 	swf.Linger = 1 * time.Second
 	sw, err := swf.New()
 
@@ -186,7 +187,7 @@ func TestSwSimple(t *testing.T) {
 	w2 := webhook.W{
 		Duration: 4 * time.Second,
 		Until:    time.Now().Add(4 * time.Second),
-		Events:   []string{"iot", "test", "wrp"},
+		Events:   []string{"iot", "test/extra-stuff", "wrp"},
 	}
 	w2.Config.URL = "http://localhost:9999/foo"
 	w2.Config.ContentType = "application/json"

@@ -104,7 +104,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	return &OutboundSenderFactory{
 		Listener:        w,
-		Client:          &http.Client{Transport: trans},
+		Sender:          (&http.Client{Transport: trans}).Do,
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -416,7 +416,7 @@ func TestInvalidEventRegex(t *testing.T) {
 
 	obs, err := OutboundSenderFactory{
 		Listener:   w,
-		Client:     &http.Client{},
+		Sender:     (&http.Client{}).Do,
 		NumWorkers: 10,
 		QueueSize:  10,
 		Logger:     getLogger(),
@@ -440,7 +440,7 @@ func TestInvalidUrl(t *testing.T) {
 
 	obs, err := OutboundSenderFactory{
 		Listener:   w,
-		Client:     &http.Client{},
+		Sender:     (&http.Client{}).Do,
 		NumWorkers: 10,
 		QueueSize:  10,
 		Logger:     getLogger(),
@@ -456,7 +456,7 @@ func TestInvalidUrl(t *testing.T) {
 
 	obs, err = OutboundSenderFactory{
 		Listener:   w2,
-		Client:     &http.Client{},
+		Sender:     (&http.Client{}).Do,
 		NumWorkers: 10,
 		QueueSize:  10,
 		Logger:     getLogger(),
@@ -466,13 +466,13 @@ func TestInvalidUrl(t *testing.T) {
 
 }
 
-// Simple test that checks for invalid Client
-func TestInvalidClient(t *testing.T) {
+// Simple test that checks for invalid Sender
+func TestInvalidSender(t *testing.T) {
 	assert := assert.New(t)
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Client = nil
+	obsf.Sender = nil
 	obs, err := obsf.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -492,7 +492,7 @@ func TestInvalidLogger(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Client = &http.Client{}
+	obsf.Sender = (&http.Client{}).Do
 	obsf.Logger = nil
 	obs, err := obsf.New()
 
@@ -515,7 +515,7 @@ func TestFailureURL(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Client = &http.Client{}
+	obsf.Sender = (&http.Client{}).Do
 	obs, err := obsf.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -534,7 +534,7 @@ func TestInvalidEvents(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Client = &http.Client{}
+	obsf.Sender = (&http.Client{}).Do
 	obs, err := obsf.New()
 
 	assert.Nil(obs)
@@ -549,7 +549,7 @@ func TestInvalidEvents(t *testing.T) {
 
 	obsf = simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w2
-	obsf.Client = &http.Client{}
+	obsf.Sender = (&http.Client{}).Do
 	obs, err = obsf.New()
 
 	assert.Nil(obs)
@@ -571,7 +571,7 @@ func TestExtend(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Client = &http.Client{}
+	obsf.Sender = (&http.Client{}).Do
 	obs, err := obsf.New()
 	assert.Nil(err)
 
@@ -607,7 +607,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
 	obsf.Logger = logger
-	obsf.Client = &http.Client{}
+	obsf.Sender = (&http.Client{}).Do
 	obs, err := obsf.New()
 
 	assert.Nil(err)
