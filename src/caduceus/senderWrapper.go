@@ -41,6 +41,12 @@ type SenderWrapperFactory struct {
 	// The cut off time to assign to each OutboundSender created.
 	CutOffPeriod time.Duration
 
+	// Number of delivery attempts before giving up
+	DeliveryRetries int
+
+	// Time in between delivery re-attempts
+	DeliveryInterval time.Duration
+
 	// The amount of time to let expired OutboundSenders linger before
 	// shutting them down and cleaning up the resources associated with them.
 	Linger time.Duration
@@ -72,6 +78,8 @@ type CaduceusSenderWrapper struct {
 	sender              func(*http.Request) (*http.Response, error)
 	numWorkersPerSender int
 	queueSizePerSender  int
+	deliveryRetries     int
+	deliveryInterval    time.Duration
 	cutOffPeriod        time.Duration
 	linger              time.Duration
 	logger              log.Logger
@@ -128,12 +136,14 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Sender:          sw.sender,
-		CutOffPeriod:    sw.cutOffPeriod,
-		NumWorkers:      sw.numWorkersPerSender,
-		QueueSize:       sw.queueSizePerSender,
-		MetricsRegistry: sw.metricsRegistry,
-		Logger:          sw.logger,
+		Sender:           sw.sender,
+		CutOffPeriod:     sw.cutOffPeriod,
+		NumWorkers:       sw.numWorkersPerSender,
+		QueueSize:        sw.queueSizePerSender,
+		MetricsRegistry:  sw.metricsRegistry,
+		DeliveryRetries:  sw.deliveryRetries,
+		DeliveryInterval: sw.deliveryInterval,
+		Logger:           sw.logger,
 	}
 
 	ids := make([]struct {

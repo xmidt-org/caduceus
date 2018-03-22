@@ -38,6 +38,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp/wrphttp"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/satori/go.uuid"
@@ -95,6 +96,12 @@ type OutboundSenderFactory struct {
 	// Must be greater then 0 seconds
 	CutOffPeriod time.Duration
 
+	// Number of delivery attempts before giving up
+	DeliveryRetries int
+
+	// Time in between delivery re-attempts
+	DeliveryInterval time.Duration
+
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
@@ -121,10 +128,14 @@ type CaduceusOutboundSender struct {
 	matcher                  []*regexp.Regexp
 	queueSize                int
 	queue                    chan outboundRequest
+	deliveryRetries          int
+	deliveryInterval         time.Duration
 	deliveryCounter          metrics.Counter
+	deliveryRetryCounter     metrics.Counter
 	droppedQueueFullCounter  metrics.Counter
 	droppedExpiredCounter    metrics.Counter
 	droppedNetworkErrCounter metrics.Counter
+	droppedInvalidConfig     metrics.Counter
 	cutOffCounter            metrics.Counter
 	queueDepthGauge          metrics.Gauge
 	wg                       sync.WaitGroup
@@ -156,12 +167,14 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
-		listener:     osf.Listener,
-		sender:       osf.Sender,
-		queueSize:    osf.QueueSize,
-		cutOffPeriod: osf.CutOffPeriod,
-		deliverUntil: osf.Listener.Until,
-		logger:       osf.Logger,
+		listener:         osf.Listener,
+		sender:           osf.Sender,
+		queueSize:        osf.QueueSize,
+		cutOffPeriod:     osf.CutOffPeriod,
+		deliverUntil:     osf.Listener.Until,
+		logger:           osf.Logger,
+		deliveryRetries:  osf.DeliveryRetries,
+		deliveryInterval: osf.DeliveryInterval,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
 			Text:         failureText,
@@ -172,6 +185,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
+	caduceusOutboundSender.deliveryRetryCounter = osf.MetricsRegistry.NewCounter(DeliveryRetryCounter)
 
 	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
 		NewCounter(SlowConsumerCounter).With("url", osf.Listener.Config.URL)
@@ -181,6 +195,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender.droppedExpiredCounter = osf.MetricsRegistry.
 		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "expired")
+
+	caduceusOutboundSender.droppedInvalidConfig = osf.MetricsRegistry.
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "invalid_config")
 
 	caduceusOutboundSender.droppedNetworkErrCounter = osf.MetricsRegistry.
 		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "network_err")
@@ -432,13 +449,13 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 }
 
 // helper function to get the right delivery counter to increment
-func (obs *CaduceusOutboundSender) getDeliveryCounter(status int) metrics.Counter {
+func (obs *CaduceusOutboundSender) getCounter(c metrics.Counter, status int) metrics.Counter {
 	if -1 == status {
-		return obs.deliveryCounter.With("url", obs.listener.Config.URL, "code", "failure")
+		return c.With("url", obs.listener.Config.URL, "code", "failure")
 	}
 
 	s := strconv.Itoa(status)
-	return obs.deliveryCounter.With("url", obs.listener.Config.URL, "code", s)
+	return c.With("url", obs.listener.Config.URL, "code", s)
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -454,11 +471,25 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		h = hmac.New(sha1.New, obs.secret)
 	}
 
+	// Setup the retry structs once
+	simpleCounter := &SimpleCounter{}
+
+	retryOptions := xhttp.RetryOptions{
+		Logger:   obs.logger,
+		Retries:  obs.deliveryRetries,
+		Interval: obs.deliveryInterval,
+		Counter:  simpleCounter,
+	}
+
 	// Only optimize the successful answers
-	delivered200 := obs.getDeliveryCounter(200)
-	delivered201 := obs.getDeliveryCounter(201)
-	delivered202 := obs.getDeliveryCounter(202)
-	delivered204 := obs.getDeliveryCounter(204)
+	delivered200 := obs.getCounter(obs.deliveryCounter, 200)
+	delivered201 := obs.getCounter(obs.deliveryCounter, 201)
+	delivered202 := obs.getCounter(obs.deliveryCounter, 202)
+	delivered204 := obs.getCounter(obs.deliveryCounter, 204)
+	attempts200 := obs.getCounter(obs.deliveryRetryCounter, 200)
+	attempts201 := obs.getCounter(obs.deliveryRetryCounter, 201)
+	attempts202 := obs.getCounter(obs.deliveryRetryCounter, 202)
+	attempts204 := obs.getCounter(obs.deliveryRetryCounter, 204)
 
 	for work := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
@@ -474,8 +505,8 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 			req, err := http.NewRequest("POST", obs.listener.Config.URL, payloadReader)
 			if nil != err {
 				// Report drop
-				obs.droppedNetworkErrCounter.Add(1.0)
-				logging.Error(obs.logger).Log(logging.MessageKey(), "New Post request", "url", obs.listener.Config.URL,
+				obs.droppedInvalidConfig.Add(1.0)
+				logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.listener.Config.URL,
 					logging.ErrorKey(), err)
 			} else {
 
@@ -512,24 +543,33 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 					req.Header.Set("X-Webpa-Signature", sig)
 				}
 
+				// Setup the retry logic
+				simpleCounter.Count = 0.0
+
 				// Send it
-				resp, err := obs.sender(req)
+				resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
 				if nil != err {
 					// Report failure
-					obs.getDeliveryCounter(-1).With("event", work.event).Add(1.0)
+					obs.getCounter(obs.deliveryCounter, -1).With("event", work.event).Add(1.0)
+					obs.droppedNetworkErrCounter.Add(1.0)
 				} else {
 					// Report Result
 					switch resp.StatusCode {
 					case 200:
 						delivered200.With("event", work.event).Add(1.0)
+						attempts200.With("event", work.event).Add(simpleCounter.Count)
 					case 201:
 						delivered201.With("event", work.event).Add(1.0)
+						attempts201.With("event", work.event).Add(simpleCounter.Count)
 					case 202:
 						delivered202.With("event", work.event).Add(1.0)
+						attempts202.With("event", work.event).Add(simpleCounter.Count)
 					case 204:
 						delivered204.With("event", work.event).Add(1.0)
+						attempts204.With("event", work.event).Add(simpleCounter.Count)
 					default:
-						obs.getDeliveryCounter(resp.StatusCode).With("event", work.event).Add(1.0)
+						obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", work.event).Add(1.0)
+						obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", work.event).Add(simpleCounter.Count)
 					}
 
 					// read until the response is complete before closing to allow
