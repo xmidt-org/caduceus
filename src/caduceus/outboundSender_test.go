@@ -26,6 +26,7 @@ import (
 	//"github.com/stretchr/testify/mock"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -40,8 +41,7 @@ type transport struct {
 
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	i := atomic.AddInt32(&t.i, 1)
-	r, err := t.fn(req, int(i))
-	return r, err
+	return t.fn(req, int(i))
 }
 
 func getLogger() log.Logger {
@@ -57,11 +57,13 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 }
 
 func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
-	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
-		resp = &http.Response{Status: "200 OK",
-			StatusCode: 200,
+	if nil == trans.fn {
+		trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
+			resp = &http.Response{Status: "200 OK",
+				StatusCode: 200,
+			}
+			return
 		}
-		return
 	}
 
 	w := webhook.W{
@@ -78,9 +80,11 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		On("With", []string{"url", w.Config.URL, "code", "201"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "202"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "failure"}).Return(fakeDC).
 		On("With", []string{"event", "iot"}).Return(fakeDC).
 		On("With", []string{"event", "test"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
+	fakeDC.On("Add", 0.0).Return()
 
 	fakeSlow := new(mockCounter)
 	fakeSlow.On("With", []string{"url", w.Config.URL}).Return(fakeSlow)
@@ -89,6 +93,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDroppedSlow := new(mockCounter)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "invalid_config"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
 
@@ -97,6 +102,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
+	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
@@ -108,6 +114,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
+		DeliveryRetries: 1,
 		MetricsRegistry: fakeRegistry,
 		Logger:          getLogger(),
 	}
@@ -232,6 +239,31 @@ func TestSimpleWrp(t *testing.T) {
 	r3.PayloadAsWrp.TransactionUUID = "1234"
 	r3.PayloadAsWrp.Destination = "event:no-match"
 	obs.QueueWrp(r3)
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+// Simple test that covers the normal retry case
+func TestSimpleRetry(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+	trans.fn = func(req *http.Request, count int) (*http.Response, error) {
+		return nil, &net.DNSError{IsTemporary: true}
+	}
+
+	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.NotNil(obs)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+	req.PayloadAsWrp.Source = "mac:112233445566"
+	req.PayloadAsWrp.TransactionUUID = "1234"
+	req.PayloadAsWrp.Destination = "event:iot"
+	obs.QueueWrp(req)
 
 	obs.Shutdown(true)
 

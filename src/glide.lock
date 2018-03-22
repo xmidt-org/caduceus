@@ -38,7 +38,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 75d21caa5da8a1fb952c1c507f8250b0c1eb57a6
+  version: 5ab7c2016cf42b0462097de7ae0e3d9fda248e6d
   subpackages:
   - concurrent
   - convey

@@ -78,15 +78,17 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeGauge)
 
 	fakeIgnore := new(mockCounter)
-	fakeIgnore.On("Add", 1.0).Return().
+	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "queue_full"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "expired"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "network_err"}).Return(fakeIgnore).
+		On("With", []string{"url", "http://localhost:8888/foo", "reason", "invalid_config"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "queue_full"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "expired"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "network_err"}).Return(fakeIgnore).
+		On("With", []string{"url", "http://localhost:9999/foo", "reason", "invalid_config"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "code", "200"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "code", "201"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "code", "202"}).Return(fakeIgnore).
@@ -102,6 +104,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeICTC)
 	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
+	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)

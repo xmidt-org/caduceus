@@ -8,6 +8,7 @@ const (
 	ErrorRequestBodyCounter       = "error_request_body_count"
 	EmptyRequestBodyCounter       = "empty_request_body_count"
 	DeliveryCounter               = "delivery_count"
+	DeliveryRetryCounter          = "delivery_retry_count"
 	SlowConsumerDroppedMsgCounter = "slow_consumer_dropped_message_count"
 	SlowConsumerCounter           = "slow_consumer_cut_off_count"
 	IncomingQueueDepth            = "incoming_queue_depth"
@@ -43,6 +44,12 @@ func Metrics() []xmetrics.Metric {
 			Help:       "Count of the content type processed.",
 			Type:       "counter",
 			LabelNames: []string{"content_type"},
+		},
+		xmetrics.Metric{
+			Name:       DeliveryRetryCounter,
+			Help:       "Number of delivery retries made",
+			Type:       "counter",
+			LabelNames: []string{"url", "code", "event"},
 		},
 		xmetrics.Metric{
 			Name:       DeliveryCounter,

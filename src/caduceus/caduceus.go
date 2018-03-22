@@ -146,6 +146,8 @@ func caduceus(arguments []string) int {
 		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
 		CutOffPeriod:        time.Duration(caduceusConfig.SenderCutOffPeriod) * time.Second,
 		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
+		DeliveryRetries:     1,                     // TODO Make this configurable
+		DeliveryInterval:    10 * time.Millisecond, // TODO Make this configurable
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
 		Sender: (&http.Client{
