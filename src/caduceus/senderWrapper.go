@@ -41,10 +41,10 @@ type SenderWrapperFactory struct {
 	// The cut off time to assign to each OutboundSender created.
 	CutOffPeriod time.Duration
 
-	// Number of delivery attempts before giving up
+	// Number of delivery retries before giving up
 	DeliveryRetries int
 
-	// Time in between delivery re-attempts
+	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
 	// The amount of time to let expired OutboundSenders linger before

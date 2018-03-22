@@ -96,10 +96,10 @@ type OutboundSenderFactory struct {
 	// Must be greater then 0 seconds
 	CutOffPeriod time.Duration
 
-	// Number of delivery attempts before giving up
+	// Number of delivery retries before giving up
 	DeliveryRetries int
 
-	// Time in between delivery re-attempts
+	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
 	// Metrics registry.
@@ -486,10 +486,10 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	delivered201 := obs.getCounter(obs.deliveryCounter, 201)
 	delivered202 := obs.getCounter(obs.deliveryCounter, 202)
 	delivered204 := obs.getCounter(obs.deliveryCounter, 204)
-	attempts200 := obs.getCounter(obs.deliveryRetryCounter, 200)
-	attempts201 := obs.getCounter(obs.deliveryRetryCounter, 201)
-	attempts202 := obs.getCounter(obs.deliveryRetryCounter, 202)
-	attempts204 := obs.getCounter(obs.deliveryRetryCounter, 204)
+	retries200 := obs.getCounter(obs.deliveryRetryCounter, 200)
+	retries201 := obs.getCounter(obs.deliveryRetryCounter, 201)
+	retries202 := obs.getCounter(obs.deliveryRetryCounter, 202)
+	retries204 := obs.getCounter(obs.deliveryRetryCounter, 204)
 
 	for work := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
@@ -557,16 +557,16 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 					switch resp.StatusCode {
 					case 200:
 						delivered200.With("event", work.event).Add(1.0)
-						attempts200.With("event", work.event).Add(simpleCounter.Count)
+						retries200.With("event", work.event).Add(simpleCounter.Count)
 					case 201:
 						delivered201.With("event", work.event).Add(1.0)
-						attempts201.With("event", work.event).Add(simpleCounter.Count)
+						retries201.With("event", work.event).Add(simpleCounter.Count)
 					case 202:
 						delivered202.With("event", work.event).Add(1.0)
-						attempts202.With("event", work.event).Add(simpleCounter.Count)
+						retries202.With("event", work.event).Add(simpleCounter.Count)
 					case 204:
 						delivered204.With("event", work.event).Add(1.0)
-						attempts204.With("event", work.event).Add(simpleCounter.Count)
+						retries204.With("event", work.event).Add(simpleCounter.Count)
 					default:
 						obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", work.event).Add(1.0)
 						obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", work.event).Add(simpleCounter.Count)

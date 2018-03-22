@@ -47,7 +47,7 @@ func Metrics() []xmetrics.Metric {
 		},
 		xmetrics.Metric{
 			Name:       DeliveryRetryCounter,
-			Help:       "Number of delivery attempts made",
+			Help:       "Number of delivery retries made",
 			Type:       "counter",
 			LabelNames: []string{"url", "code", "event"},
 		},
