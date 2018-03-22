@@ -57,8 +57,8 @@ type SenderWrapperFactory struct {
 	// The logger implementation to share with OutboundSenders.
 	Logger log.Logger
 
-	// The http client to share with OutboundSenders.
-	Client *http.Client
+	// The http client Do() function to share with OutboundSenders.
+	Sender func(*http.Request) (*http.Response, error)
 }
 
 type SenderWrapper interface {
@@ -69,7 +69,7 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	client              *http.Client
+	sender              func(*http.Request) (*http.Response, error)
 	numWorkersPerSender int
 	queueSizePerSender  int
 	cutOffPeriod        time.Duration
@@ -93,7 +93,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 	droppedCounter := swf.MetricsRegistry.NewCounter(DropsDueToInvalidPayload)
 
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
-		client:              swf.Client,
+		sender:              swf.Sender,
 		numWorkersPerSender: swf.NumWorkersPerSender,
 		queueSizePerSender:  swf.QueueSizePerSender,
 		cutOffPeriod:        swf.CutOffPeriod,
@@ -128,7 +128,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Client:          sw.client,
+		Sender:          sw.sender,
 		CutOffPeriod:    sw.cutOffPeriod,
 		NumWorkers:      sw.numWorkersPerSender,
 		QueueSize:       sw.queueSizePerSender,

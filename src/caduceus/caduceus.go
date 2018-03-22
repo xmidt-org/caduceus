@@ -148,7 +148,10 @@ func caduceus(arguments []string) int {
 		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
-		Client:              &http.Client{Transport: tr, Timeout: timeout},
+		Sender: (&http.Client{
+			Transport: tr,
+			Timeout:   timeout,
+		}).Do,
 	}.New()
 
 	if err != nil {

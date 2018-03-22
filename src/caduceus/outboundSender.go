@@ -81,8 +81,8 @@ type OutboundSenderFactory struct {
 	// The WebHookListener to service
 	Listener webhook.W
 
-	// The http client to use for requests.
-	Client *http.Client
+	// The http client Do() function to use for outbound requests.
+	Sender func(*http.Request) (*http.Response, error)
 
 	// The number of delivery workers to create and use.
 	NumWorkers int
@@ -115,7 +115,7 @@ type CaduceusOutboundSender struct {
 	listener                 webhook.W
 	deliverUntil             time.Time
 	dropUntil                time.Time
-	client                   *http.Client
+	sender                   func(*http.Request) (*http.Response, error)
 	secret                   []byte
 	events                   []*regexp.Regexp
 	matcher                  []*regexp.Regexp
@@ -140,8 +140,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return
 	}
 
-	if nil == osf.Client {
-		err = errors.New("nil http.Client")
+	if nil == osf.Sender {
+		err = errors.New("nil Sender()")
 		return
 	}
 
@@ -157,7 +157,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
 		listener:     osf.Listener,
-		client:       osf.Client,
+		sender:       osf.Sender,
 		queueSize:    osf.QueueSize,
 		cutOffPeriod: osf.CutOffPeriod,
 		deliverUntil: osf.Listener.Until,
@@ -513,7 +513,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				}
 
 				// Send it
-				resp, err := obs.client.Do(req)
+				resp, err := obs.sender(req)
 				if nil != err {
 					// Report failure
 					obs.getDeliveryCounter(-1).With("event", work.event).Add(1.0)
@@ -581,7 +581,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 				req.Header.Set("X-Webpa-Signature", sig)
 			}
 
-			resp, err := obs.client.Do(req)
+			resp, err := obs.sender(req)
 			if nil != err {
 				// Failure
 				errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
