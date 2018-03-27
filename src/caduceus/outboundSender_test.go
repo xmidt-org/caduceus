@@ -212,6 +212,30 @@ func TestSimpleJSONWithWildcardMatchers(t *testing.T) {
 	assert.Equal(int32(4), trans.i)
 }
 
+// Simple test that covers the unsuccessful case for event wildcard matcher
+func TestSimpleJSONWithUnsuccessfulWildcardMatchers(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+
+	m := []string{".*"}
+
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleJSONRequest()
+
+	obs.QueueJSON(req, "iotfoo", "mac:112233445565", "1234")
+	obs.QueueJSON(req, "testfoo", "mac:112233445566", "1234")
+	obs.QueueJSON(req, "fooiot", "mac:112233445560", "1234")
+	obs.QueueJSON(req, "footest", "mac:112233445560", "1234")
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(0), trans.i)
+}
+
 // Simple test that covers the normal successful case with no extra matchers
 func TestSimpleWrp(t *testing.T) {
 
@@ -349,6 +373,71 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	obs.Shutdown(true)
 
 	assert.Equal(int32(4), trans.i)
+}
+
+// Simple test that covers the unsuccessful case for event wildcard matcher
+func TestSimpleWrpWithUnsuccessfulWildcardMatchers(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+
+	m := []string{".*"}
+
+	obs, err := simpleSetup(trans, time.Second, m)
+	assert.Nil(err)
+
+	req := simpleWrpRequest()
+	req.PayloadAsWrp.TransactionUUID = "1234"
+	req.PayloadAsWrp.Source = "mac:112233445566"
+	req.PayloadAsWrp.Destination = "event:iotfoo"
+	obs.QueueWrp(req)
+
+	r2 := simpleWrpRequest()
+	r2.PayloadAsWrp.TransactionUUID = "1234"
+	r2.PayloadAsWrp.Source = "mac:112233445565"
+	r2.PayloadAsWrp.Destination = "event:testfoo"
+	obs.QueueWrp(r2)
+
+	r3 := simpleWrpRequest()
+	r3.PayloadAsWrp.TransactionUUID = "1234"
+	r3.PayloadAsWrp.Source = "mac:112233445560"
+	r3.PayloadAsWrp.Destination = "event:fooiot"
+	obs.QueueWrp(r3)
+
+	r4 := simpleWrpRequest()
+	r4.PayloadAsWrp.TransactionUUID = "1234"
+	r4.PayloadAsWrp.Source = "mac:112233445560"
+	r4.PayloadAsWrp.Destination = "event:footest"
+	obs.QueueWrp(r4)
+
+	r5 := simpleWrpRequest()
+	r5.PayloadAsWrp.TransactionUUID = "1234"
+	r5.PayloadAsWrp.Source = "mac:112233445560"
+	r5.PayloadAsWrp.Destination = "eventfoo:iot"
+	obs.QueueWrp(r5)
+
+	r6 := simpleWrpRequest()
+	r6.PayloadAsWrp.TransactionUUID = "1234"
+	r6.PayloadAsWrp.Source = "mac:112233445560"
+	r6.PayloadAsWrp.Destination = "fooevent:iot"
+	obs.QueueWrp(r6)
+
+	r7 := simpleWrpRequest()
+	r7.PayloadAsWrp.TransactionUUID = "1234"
+	r7.PayloadAsWrp.Source = "mac:112233445560"
+	r7.PayloadAsWrp.Destination = "eventfoo:test"
+	obs.QueueWrp(r7)
+
+	r8 := simpleWrpRequest()
+	r8.PayloadAsWrp.TransactionUUID = "1234"
+	r8.PayloadAsWrp.Source = "mac:112233445560"
+	r8.PayloadAsWrp.Destination = "eventfoo:test"
+	obs.QueueWrp(r8)
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(0), trans.i)
 }
 
 /*

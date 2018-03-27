@@ -31,6 +31,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -225,7 +226,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// Create the event regex objects
 	for _, event := range osf.Listener.Events {
 		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); nil != err {
+		if re, err = regexp.Compile("^" + event + "$"); nil != err {
 			return
 		}
 
@@ -364,7 +365,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
 		for _, eventRegex := range obs.events {
-			if eventRegex.MatchString(req.PayloadAsWrp.Destination) {
+			if eventRegex.MatchString(strings.TrimPrefix(req.PayloadAsWrp.Destination, "event:")) {
 				matchDevice := (nil == obs.matcher)
 				if nil != obs.matcher {
 					for _, deviceRegex := range obs.matcher {
