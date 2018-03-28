@@ -226,7 +226,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// Create the event regex objects
 	for _, event := range osf.Listener.Events {
 		var re *regexp.Regexp
-		if re, err = regexp.Compile("^" + event + "$"); nil != err {
+		if re, err = regexp.Compile(event); nil != err {
 			return
 		}
 
