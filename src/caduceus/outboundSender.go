@@ -520,7 +520,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 
 				// Provide the old headers for now
 				if nil != work.req.PayloadAsWrp {
-					req.Header.Set("X-Webpa-Event", work.req.PayloadAsWrp.Destination)
+					req.Header.Set("X-Webpa-Event", strings.TrimPrefix(work.req.PayloadAsWrp.Destination, "event:"))
 				} else {
 					req.Header.Set("X-Webpa-Event", work.event)
 				}
