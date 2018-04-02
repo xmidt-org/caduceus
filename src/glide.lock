@@ -1,5 +1,5 @@
-hash: 55558c8f83efeebe45dd2b8e1d825c6c8adc582b44e63cbfc251219422356080
-updated: 2018-02-15T17:48:12.82975255-08:00
+hash: 592d207ab7b50f8af8ea42d413b5785c5d6f0c13840bec60b07241e104f5574c
+updated: 2018-04-02T16:11:49.22048-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -38,7 +38,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 5ab7c2016cf42b0462097de7ae0e3d9fda248e6d
+  version: 83585c278d8a6a20f8c7bd46e6f83f2b279ce8f4
   subpackages:
   - concurrent
   - convey
@@ -72,9 +72,9 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: github.com/go-ini/ini
-  version: 32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a
+  version: 6ecc596bd756a16c6e93e4ef9225ecdb9f54ed2c
 - name: github.com/go-kit/kit
-  version: a9ca6725cbbea455e61c6bc8a1ed28e81eb3493b
+  version: 4dc7be5d2d12881735283bcab7352178e190fc71
   subpackages:
   - endpoint
   - log
@@ -119,13 +119,13 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/influxdata/influxdb
-  version: 28f3912491a564677bfafc4602aa126023d1bfb2
+  version: c9e7c5ad2bbe7f135cd6fa1f07ae3495d818b209
   subpackages:
   - client/v2
   - models
   - pkg/escape
 - name: github.com/jmespath/go-jmespath
-  version: dd801d4f4ce7ac746e7e7b4489d2fa600b3b096b
+  version: c2b33e8439af944379acbdd9c3a5fe0bc44bd8a5
 - name: github.com/jtacoma/uritemplates
   version: 307ae868f90f4ee1b73ebe4596e0394237dacce8
 - name: github.com/justinas/alice
@@ -133,15 +133,15 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/magiconair/properties
-  version: 49d762b9817ba1c2e9d0c69183c2b4a8b8f1d934
+  version: 2c9e9502788518c97fe44e8955cd069417ee89df
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
   - pbutil
 - name: github.com/mitchellh/mapstructure
-  version: b4575eea38cca1123ec2dc90c26529b5c5acfcff
+  version: 00c29f56e2386353d58c599509e8dc3801b0d716
 - name: github.com/pelletier/go-toml
-  version: acdc4509485b587f5e675510c4f2c63e90ff68a8
+  version: 05bcc0fb0d3e60da4b8dd5bd7e0ea563eb4ca943
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
@@ -156,7 +156,7 @@ imports:
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 89604d197083d4781071d3c65855d24ecfb0a563
+  version: e4aa40a9169a88835b849a6efb71e05dc04b88f0
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
@@ -174,11 +174,11 @@ imports:
   - jws
   - jwt
 - name: github.com/spf13/afero
-  version: bb8f1927f2a9d3ab41c9340aa034f6b803f4359c
+  version: bbf41cb36dffe15dff5bf7e18c447801e7ffe163
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
+  version: 8965335b8c7107321228e3e3702cab9832751bac
 - name: github.com/spf13/jwalterweatherman
   version: 7c0cea34c8ece3fbeb2b27ab9b59511d360fb394
 - name: github.com/spf13/pflag
@@ -201,16 +201,16 @@ imports:
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
 - name: golang.org/x/sys
-  version: af50095a40f9041b3b38960738837185c26e9419
+  version: 89ac7f292d17a339edab4de8efcba5d8672ff661
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: e19ae1496984b1c655b8044a65c0300a3c878dd3
+  version: a71fd10341b064c10f4a81ceac72bcf70f26ea34
   subpackages:
   - transform
   - unicode/norm
 - name: gopkg.in/natefinch/lumberjack.v2
   version: a96e63847dc3c67d17befa69c303767e2f84e54f
 - name: gopkg.in/yaml.v2
-  version: d670f9405373e636a5a2765eea47fac0c9bc91a4
+  version: 7f97868eec74b32b0982dd158a51a446d1da7eb5
 testImports: []
