@@ -47,6 +47,21 @@ if [ -n "$NET_IPV4_TCP_MAX_SYN_BACKLOG" ]; then
 	RETVAL=$?
 	[ $RETVAL -ne 0 ] && echo "net.ipv4.tcp_max_syn_backlog=$NET_IPV4_TCP_MAX_SYN_BACKLOG failed" && exit $RETVAL
 fi
+if [ -z "$LIMIT_IO_CORE" ]; then
+	if [ -z "$IO_INTERFACE" ]; then
+		IO_INTERFACE=`ip link show|grep -oh "\d*: [^:]*:"|grep -oh "[^ :]*"|grep -v lo`
+	fi
+	np=`/usr/bin/nproc`
+	mask=0
+	if [ $np -eq 2 ]; then
+		mask=3
+	elif [ $np -gt 2 ]; then
+		mask=`echo "obase=16;2^$np-2" | bc`
+	fi
+	echo $mask > /sys/class/net/$IO_INTERFACE/queues/rx-0/rps_cpus
+	echo "Set '$IO_INTERFACE' core mask to '$mask'."
+fi
+
 #-------------------------------------------------------------------------------
 
 start() {
