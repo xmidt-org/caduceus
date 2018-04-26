@@ -48,16 +48,9 @@ const (
 
 // getValidator returns validator for JWT tokens
 func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
-	default_validators := make(secure.Validators, 0, 0)
 	var jwtVals []JWTValidator
 
 	v.UnmarshalKey("jwtValidators", &jwtVals)
-
-	// make sure there is at least one jwtValidator supplied
-	if len(jwtVals) < 1 {
-		validator = default_validators
-		return
-	}
 
 	// if a JWTKeys section was supplied, configure a JWS validator
 	// and append it to the chain of validators
