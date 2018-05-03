@@ -19,9 +19,11 @@ package main
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"net/http"
@@ -122,5 +124,35 @@ func TestMuxServerConfig(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusNotFound, resp.StatusCode)
+	})
+}
+
+func TestGetValidator(t *testing.T) {
+	assert := assert.New(t)
+
+	fakeViper := viper.New()
+
+	t.Run("TestAuthHeaderNotSet", func(t *testing.T) {
+		validator, err := getValidator(fakeViper)
+
+		assert.Nil(err)
+
+		validators := validator.(secure.Validators)
+		assert.Equal(0, len(validators))
+	})
+
+	t.Run("TestAuthHeaderSet", func(t *testing.T) {
+		expectedAuthHeader := []string{"Basic xxxxxxx"}
+		fakeViper.Set("authHeader", expectedAuthHeader)
+
+		validator, err := getValidator(fakeViper)
+
+		assert.Nil(err)
+
+		validators := validator.(secure.Validators)
+		assert.Equal(1, len(validators))
+
+		exactMatchValidator := validators[0].(secure.ExactMatchValidator)
+		assert.Equal(expectedAuthHeader[0], string(exactMatchValidator))
 	})
 }
