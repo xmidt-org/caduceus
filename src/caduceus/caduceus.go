@@ -204,8 +204,13 @@ func caduceus(arguments []string) int {
 	router.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
 	router.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
 
+	scheme := v.GetString("scheme")
+	if len(scheme) < 1 {
+		scheme = "https"
+	}
+
 	selfURL := &url.URL{
-		Scheme: "https",
+		Scheme: scheme,
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
