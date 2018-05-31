@@ -17,12 +17,14 @@
 package main
 
 import (
-	"github.com/Comcast/webpa-common/health"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/go-kit/kit/metrics"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"time"
+
+	"github.com/Comcast/webpa-common/health"
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/metrics"
+	"github.com/stretchr/testify/mock"
 )
 
 // mockHandler only needs to mock the `HandleRequest` method
@@ -30,8 +32,8 @@ type mockHandler struct {
 	mock.Mock
 }
 
-func (m *mockHandler) HandleRequest(workerID int, inRequest CaduceusRequest) {
-	m.Called(workerID, inRequest)
+func (m *mockHandler) HandleRequest(workerID int, msg *wrp.Message) {
+	m.Called(workerID, msg)
 }
 
 // mockHealthTracker needs to mock things from both the `HealthTracker`
@@ -70,12 +72,8 @@ func (m *mockOutboundSender) RetiredSince() time.Time {
 	return arguments.Get(0).(time.Time)
 }
 
-func (m *mockOutboundSender) QueueJSON(req CaduceusRequest, eventType, deviceID, transID string) {
-	m.Called(req, eventType, deviceID, transID)
-}
-
-func (m *mockOutboundSender) QueueWrp(req CaduceusRequest, metaData map[string]string, eventType, deviceID, transID string) {
-	m.Called(req, metaData, eventType, deviceID, transID)
+func (m *mockOutboundSender) Queue(msg *wrp.Message) {
+	m.Called(msg)
 }
 
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does
@@ -87,8 +85,8 @@ func (m *mockSenderWrapper) Update(list []webhook.W) {
 	m.Called(list)
 }
 
-func (m *mockSenderWrapper) Queue(req CaduceusRequest) {
-	m.Called(req)
+func (m *mockSenderWrapper) Queue(msg *wrp.Message) {
+	m.Called(msg)
 }
 
 func (m *mockSenderWrapper) Shutdown(gentle bool) {

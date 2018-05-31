@@ -64,7 +64,6 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func getFakeFactory() *SenderWrapperFactory {
 	fakeICTC := new(mockCounter)
 	fakeICTC.On("With", []string{"content_type", "msgpack"}).Return(fakeICTC).
-		On("With", []string{"content_type", "json"}).Return(fakeICTC).
 		On("With", []string{"content_type", "unknown"}).Return(fakeICTC).
 		On("Add", 1.0).Return()
 
@@ -74,11 +73,13 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeGauge := new(mockGauge)
 	fakeGauge.On("Add", 1.0).Return().
 		On("Add", -1.0).Return().
+		//On("With", []string{"url", "unknown"}).Return(fakeGauge).
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeGauge).
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeGauge)
 
 	fakeIgnore := new(mockCounter)
 	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
+		On("With", []string{"url", "unknown"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "queue_full"}).Return(fakeIgnore).
@@ -99,6 +100,7 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "204"}).Return(fakeIgnore).
 		On("With", []string{"event", "test/extra-stuff"}).Return(fakeIgnore).
 		On("With", []string{"event", "wrp"}).Return(fakeIgnore).
+		On("With", []string{"event", "unknown"}).Return(fakeIgnore).
 		On("With", []string{"event", "iot"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
@@ -143,21 +145,10 @@ func TestSwSimple(t *testing.T) {
 	err := encoder.Encode(&wrpMessage)
 	assert.Nil(err)
 
-	iot := CaduceusRequest{
-		RawPayload:  []byte("Hello, world."),
-		ContentType: "application/json",
-		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/iot",
-	}
-	test := CaduceusRequest{
-		RawPayload:  []byte("Hello, world."),
-		ContentType: "application/json",
-		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/test/extra-stuff",
-	}
-	wrp := CaduceusRequest{
-		RawPayload:  buffer.Bytes(),
-		ContentType: "application/msgpack",
-		TargetURL:   "http://foo.com/api/v2/notify/mac:112233445566/event/wrp",
-	}
+	iot := simpleRequest()
+	iot.Destination = "mac:112233445566/event/iot"
+	test := simpleRequest()
+	test.Destination = "mac:112233445566/event/test/extra-stuff"
 
 	trans := &swTransport{}
 
@@ -211,16 +202,11 @@ func TestSwSimple(t *testing.T) {
 	time.Sleep(time.Second)
 	assert.Equal(int32(3), atomic.LoadInt32(&trans.i))
 
-	// Send wrp message
-	sw.Queue(wrp)
-	time.Sleep(time.Second)
-	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
-
 	// Wait for one to expire & send it again
 	time.Sleep(2 * time.Second)
 	sw.Queue(test)
 	time.Sleep(time.Second)
-	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
+	assert.Equal(int32(3), atomic.LoadInt32(&trans.i))
 
 	w3 := webhook.W{
 		Duration: 5 * time.Second,
@@ -239,5 +225,5 @@ func TestSwSimple(t *testing.T) {
 	sw.Queue(iot)
 
 	sw.Shutdown(true)
-	assert.Equal(int32(5), atomic.LoadInt32(&trans.i))
+	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
 }

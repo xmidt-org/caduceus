@@ -17,12 +17,14 @@
 package main
 
 import (
+	"sync"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"sync"
-	"testing"
 )
 
 func TestWorkerPool(t *testing.T) {
@@ -65,7 +67,7 @@ func TestCaduceusHandler(t *testing.T) {
 	logger := logging.DefaultLogger()
 
 	fakeSenderWrapper := new(mockSenderWrapper)
-	fakeSenderWrapper.On("Queue", mock.AnythingOfType("CaduceusRequest")).Return().Once()
+	fakeSenderWrapper.On("Queue", mock.AnythingOfType("*wrp.Message")).Return().Once()
 
 	testHandler := CaduceusHandler{
 		senderWrapper: fakeSenderWrapper,
@@ -73,7 +75,7 @@ func TestCaduceusHandler(t *testing.T) {
 	}
 
 	t.Run("TestHandleRequest", func(t *testing.T) {
-		testHandler.HandleRequest(0, CaduceusRequest{})
+		testHandler.HandleRequest(0, &wrp.Message{})
 
 		fakeSenderWrapper.AssertExpectations(t)
 	})

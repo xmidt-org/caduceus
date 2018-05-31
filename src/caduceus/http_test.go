@@ -17,15 +17,52 @@
 package main
 
 import (
-	"errors"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"bytes"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
+	"testing/iotest"
+	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
+
+func exampleRequest(list ...string) *http.Request {
+	var buffer bytes.Buffer
+
+	trans := "1234"
+	ct := "application/msgpack"
+	url := "localhost:8080"
+
+	for i, _ := range list {
+		switch {
+		case 0 == i:
+			trans = list[i]
+		case 1 == i:
+			ct = list[i]
+		case 2 == i:
+			url = list[i]
+		}
+
+	}
+	wrp.NewEncoder(&buffer, wrp.Msgpack).Encode(
+		&wrp.Message{
+			Source:          "mac:112233445566/lmlite",
+			TransactionUUID: trans,
+			ContentType:     ct,
+			Destination:     "event:bob/magic/dog",
+			Payload:         []byte("Hello, world."),
+		})
+
+	r := bytes.NewReader(buffer.Bytes())
+	req := httptest.NewRequest("POST", url, r)
+	req.Header.Set("Content-Type", "application/msgpack")
+
+	return req
+}
 
 func TestServerHandler(t *testing.T) {
 	assert := assert.New(t)
@@ -33,57 +70,213 @@ func TestServerHandler(t *testing.T) {
 	logger := logging.DefaultLogger()
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
-		mock.AnythingOfType("CaduceusRequest")).Return().Once()
-
-	requestSuccessful := func(func(workerID int)) error {
-		fakeHandler.HandleRequest(0, CaduceusRequest{})
-		return nil
-	}
+		mock.AnythingOfType("*wrp.Message")).Return().Once()
 
 	fakeEmptyRequests := new(mockCounter)
-	fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
-
 	fakeErrorRequests := new(mockCounter)
-	fakeErrorRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
-
+	fakeInvalidCount := new(mockCounter)
 	fakeQueueDepth := new(mockGauge)
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
 
 	serverWrapper := &ServerHandler{
-		Logger:             logger,
-		caduceusHandler:    fakeHandler,
-		errorRequests:      fakeErrorRequests,
-		emptyRequests:      fakeEmptyRequests,
-		incomingQueueDepth: fakeQueueDepth,
-		doJob:              requestSuccessful,
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		errorRequests:            fakeErrorRequests,
+		emptyRequests:            fakeEmptyRequests,
+		invalidCount:             fakeInvalidCount,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
 	}
 
-	req := httptest.NewRequest("POST", "localhost:8080", strings.NewReader("Test payload."))
-	// todo: maybe will become useful later
-	// badReq := httptest.NewRequest("GET", "localhost:8080", strings.NewReader("Test payload."))
-
 	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
-		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
-		serverWrapper.ServeHTTP(w, req)
+
+		serverWrapper.ServeHTTP(w, exampleRequest())
 		resp := w.Result()
 
-		assert.Equal(202, resp.StatusCode)
+		assert.Equal(http.StatusAccepted, resp.StatusCode)
 		fakeHandler.AssertExpectations(t)
 	})
+}
 
-	t.Run("TestServeHTTPFullQueue", func(t *testing.T) {
-		req.Header.Set("Content-Type", "application/json")
+func TestServerHandlerFixWrp(t *testing.T) {
+	assert := assert.New(t)
 
+	logger := logging.DefaultLogger()
+	fakeHandler := new(mockHandler)
+	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
+		mock.AnythingOfType("*wrp.Message")).Return().Once()
+
+	fakeEmptyRequests := new(mockCounter)
+	fakeErrorRequests := new(mockCounter)
+	fakeInvalidCount := new(mockCounter)
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
+
+	serverWrapper := &ServerHandler{
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		errorRequests:            fakeErrorRequests,
+		emptyRequests:            fakeEmptyRequests,
+		invalidCount:             fakeInvalidCount,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
+	}
+
+	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		requestTimeout := func(func(workerID int)) error {
-			return errors.New("Intentional time out")
-		}
-		serverWrapper.doJob = requestTimeout
+
+		serverWrapper.ServeHTTP(w, exampleRequest("", ""))
+		resp := w.Result()
+
+		assert.Equal(http.StatusAccepted, resp.StatusCode)
+		fakeHandler.AssertExpectations(t)
+	})
+}
+
+func TestServerHandlerFull(t *testing.T) {
+	assert := assert.New(t)
+
+	logger := logging.DefaultLogger()
+	fakeHandler := new(mockHandler)
+	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
+		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
+
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+
+	serverWrapper := &ServerHandler{
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
+	}
+
+	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		/* Act like we have 1 in flight */
+		serverWrapper.incomingQueueDepth = 1
+
+		/* Make the call that goes over the limit */
+		serverWrapper.ServeHTTP(w, exampleRequest())
+		resp := w.Result()
+
+		assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+	})
+}
+
+func TestServerEmptyPayload(t *testing.T) {
+	assert := assert.New(t)
+
+	var buffer bytes.Buffer
+	r := bytes.NewReader(buffer.Bytes())
+	req := httptest.NewRequest("POST", "localhost:8080", r)
+	req.Header.Set("Content-Type", "application/msgpack")
+
+	logger := logging.DefaultLogger()
+	fakeHandler := new(mockHandler)
+	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
+		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
+
+	fakeEmptyRequests := new(mockCounter)
+	fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Once()
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+
+	serverWrapper := &ServerHandler{
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		emptyRequests:            fakeEmptyRequests,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
+	}
+
+	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		/* Make the call that goes over the limit */
 		serverWrapper.ServeHTTP(w, req)
 		resp := w.Result()
 
-		assert.Equal(http.StatusRequestTimeout, resp.StatusCode)
+		assert.Equal(http.StatusBadRequest, resp.StatusCode)
+	})
+}
+
+func TestServerUnableToReadBody(t *testing.T) {
+	assert := assert.New(t)
+
+	var buffer bytes.Buffer
+	r := iotest.TimeoutReader(bytes.NewReader(buffer.Bytes()))
+
+	_, _ = r.Read(nil)
+	req := httptest.NewRequest("POST", "localhost:8080", r)
+	req.Header.Set("Content-Type", "application/msgpack")
+
+	logger := logging.DefaultLogger()
+	fakeHandler := new(mockHandler)
+	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
+		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
+
+	fakeErrorRequests := new(mockCounter)
+	fakeErrorRequests.On("Add", mock.AnythingOfType("float64")).Return().Once()
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+
+	serverWrapper := &ServerHandler{
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		errorRequests:            fakeErrorRequests,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
+	}
+
+	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		/* Make the call that goes over the limit */
+		serverWrapper.ServeHTTP(w, req)
+		resp := w.Result()
+
+		assert.Equal(http.StatusBadRequest, resp.StatusCode)
+	})
+}
+
+func TestServerInvalidBody(t *testing.T) {
+	assert := assert.New(t)
+
+	r := bytes.NewReader([]byte("Invalid payload."))
+
+	_, _ = r.Read(nil)
+	req := httptest.NewRequest("POST", "localhost:8080", r)
+	req.Header.Set("Content-Type", "application/msgpack")
+
+	logger := logging.DefaultLogger()
+	fakeHandler := new(mockHandler)
+	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
+		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
+
+	fakeQueueDepth := new(mockGauge)
+	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+
+	fakeInvalidCount := new(mockCounter)
+	fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
+
+	serverWrapper := &ServerHandler{
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		invalidCount:             fakeInvalidCount,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
+	}
+
+	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		/* Make the call that goes over the limit */
+		serverWrapper.ServeHTTP(w, req)
+		resp := w.Result()
+
+		assert.Equal(http.StatusBadRequest, resp.StatusCode)
 	})
 }
