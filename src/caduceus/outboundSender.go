@@ -111,7 +111,7 @@ type OutboundSenderFactory struct {
 }
 
 type OutboundSender interface {
-	Extend(time.Time)
+	Update(webhook.W) error
 	Shutdown(bool)
 	RetiredSince() time.Time
 	QueueJSON(CaduceusRequest, string, string, string)
@@ -185,6 +185,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		},
 	}
 
+	// Don't share the secret with others when there is an error.
+	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
+
 	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
 	caduceusOutboundSender.deliveryRetryCounter = osf.MetricsRegistry.NewCounter(DeliveryRetryCounter)
 
@@ -206,52 +209,11 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
 		NewGauge(OutgoingQueueDepth).With("url", osf.Listener.Config.URL)
 
-	// Don't share the secret with others when there is an error.
-	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
-
-	if "" != osf.Listener.Config.Secret {
-		caduceusOutboundSender.secret = []byte(osf.Listener.Config.Secret)
-	}
-
-	if "" != osf.Listener.FailureURL {
-		if _, err = url.ParseRequestURI(osf.Listener.FailureURL); nil != err {
-			return
-		}
-	}
-
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
 	caduceusOutboundSender.queue = make(chan outboundRequest, osf.QueueSize)
 
-	// Create the event regex objects
-	for _, event := range osf.Listener.Events {
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); nil != err {
-			return
-		}
-
-		caduceusOutboundSender.events = append(caduceusOutboundSender.events, re)
-	}
-	if nil == caduceusOutboundSender.events {
-		err = errors.New("Events must not be empty.")
-		return
-	}
-
-	// Create the matcher regex objects
-	for _, item := range osf.Listener.Matcher.DeviceId {
-		if ".*" == item {
-			// Match everything - skip the filtering
-			caduceusOutboundSender.matcher = nil
-			break
-		}
-
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("Invalid matcher item: '%s'", item)
-			return
-		}
-		caduceusOutboundSender.matcher = append(caduceusOutboundSender.matcher, re)
-	}
+	caduceusOutboundSender.Update(osf.Listener)
 
 	caduceusOutboundSender.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
@@ -262,16 +224,60 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	return
 }
 
-// Extend extends the time the CaduceusOutboundSender will deliver messages to the
-// specified time.  The new delivery cutoff time must be after the previously
-// set delivery cutoff time.
-func (obs *CaduceusOutboundSender) Extend(until time.Time) {
-
+// Update applies user configurable values for the outbound sender when a 
+// webhook is registered
+func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
 	obs.mutex.Lock()
-	if until.After(obs.deliverUntil) {
-		obs.deliverUntil = until
+	
+	obs.listener = wh
+	obs.failureMsg.Original = wh
+	
+	// Don't share the secret with others when there is an error.
+	obs.failureMsg.Original.Config.Secret = "XxxxxX"
+
+	obs.secret = []byte(obs.listener.Config.Secret)
+	
+	if "" != obs.listener.FailureURL {
+		if _, err = url.ParseRequestURI(obs.listener.FailureURL); nil != err {
+			return
+		}
 	}
+	
+	obs.deliverUntil = obs.listener.Until
+
+	// Create the event regex objects
+	for _, event := range obs.listener.Events {
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); nil != err {
+			return
+		}
+
+		obs.events = append(obs.events, re)
+	}
+	if nil == obs.events {
+		err = errors.New("Events must not be empty.")
+		return
+	}
+
+	// Create the matcher regex objects
+	for _, item := range obs.listener.Matcher.DeviceId {
+		if ".*" == item {
+			// Match everything - skip the filtering
+			obs.matcher = nil
+			break
+		}
+
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("Invalid matcher item: '%s'", item)
+			return
+		}
+		obs.matcher = append(obs.matcher, re)
+	}
+
 	obs.mutex.Unlock()
+	
+	return
 }
 
 // Shutdown causes the CaduceusOutboundSender to stop it's activities either gently or
@@ -310,16 +316,18 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
+	events := obs.events
+	matcher := obs.matcher
 	obs.mutex.RUnlock()
 
 	now := time.Now()
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range obs.events {
+		for _, eventRegex := range events {
 			if eventRegex.MatchString(eventType) {
-				matchDevice := (nil == obs.matcher)
-				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher {
+				matchDevice := (nil == matcher)
+				if nil != matcher {
+					for _, deviceRegex := range matcher {
 						if deviceRegex.MatchString(deviceID) {
 							matchDevice = true
 							break
@@ -357,6 +365,8 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
+	events := obs.events
+	matcher := obs.matcher
 	obs.mutex.RUnlock()
 
 	now := time.Now()
@@ -364,11 +374,11 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	var debugLog = logging.Debug(obs.logger)
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range obs.events {
+		for _, eventRegex := range events {
 			if eventRegex.MatchString(strings.TrimPrefix(req.PayloadAsWrp.Destination, "event:")) {
-				matchDevice := (nil == obs.matcher)
-				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher {
+				matchDevice := (nil == matcher)
+				if nil != matcher {
+					for _, deviceRegex := range matcher {
 						if deviceRegex.MatchString(req.PayloadAsWrp.Source) {
 							matchDevice = true
 							break
@@ -380,7 +390,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 					// and make sure that the obs metadata matches the metadata provided
 					if matchDevice {
 						for key, val := range metaData {
-							if matchers, ok := obs.matcher[key]; ok {
+							if matchers, ok := matcher[key]; ok {
 								for _, deviceRegex := range matchers {
 									matchDevice = false
 									if deviceRegex.MatchString(val) {
