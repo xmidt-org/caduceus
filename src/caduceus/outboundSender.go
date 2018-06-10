@@ -213,7 +213,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// completely full point.
 	caduceusOutboundSender.queue = make(chan outboundRequest, osf.QueueSize)
 
-	caduceusOutboundSender.Update(osf.Listener)
+	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
+		return
+	}
 
 	caduceusOutboundSender.wg.Add(osf.NumWorkers)
 	for i := 0; i < osf.NumWorkers; i++ {
