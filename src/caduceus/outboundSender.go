@@ -229,45 +229,46 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 // Update applies user configurable values for the outbound sender when a 
 // webhook is registered
 func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
-	obs.mutex.Lock()
+	// make a copy
+	obsCopy := *obs
 	
-	obs.listener = wh
-	obs.failureMsg.Original = wh
+	obsCopy.listener = wh
+	obsCopy.failureMsg.Original = wh
 	
 	// Don't share the secret with others when there is an error.
-	obs.failureMsg.Original.Config.Secret = "XxxxxX"
+	obsCopy.failureMsg.Original.Config.Secret = "XxxxxX"
 
-	if "" != obs.listener.Config.Secret {
-		obs.secret = []byte(obs.listener.Config.Secret)
+	if "" != obsCopy.listener.Config.Secret {
+		obsCopy.secret = []byte(obsCopy.listener.Config.Secret)
 	}
 	
-	if "" != obs.listener.FailureURL {
-		if _, err = url.ParseRequestURI(obs.listener.FailureURL); nil != err {
+	if "" != obsCopy.listener.FailureURL {
+		if _, err = url.ParseRequestURI(obsCopy.listener.FailureURL); nil != err {
 			return
 		}
 	}
 	
-	obs.deliverUntil = obs.listener.Until
+	obsCopy.deliverUntil = obsCopy.listener.Until
 
 	// Create the event regex objects
-	for _, event := range obs.listener.Events {
+	for _, event := range obsCopy.listener.Events {
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(event); nil != err {
 			return
 		}
 
-		obs.events = append(obs.events, re)
+		obsCopy.events = append(obsCopy.events, re)
 	}
-	if nil == obs.events {
+	if nil == obsCopy.events {
 		err = errors.New("Events must not be empty.")
 		return
 	}
 
 	// Create the matcher regex objects
-	for _, item := range obs.listener.Matcher.DeviceId {
+	for _, item := range obsCopy.listener.Matcher.DeviceId {
 		if ".*" == item {
 			// Match everything - skip the filtering
-			obs.matcher = nil
+			obsCopy.matcher = nil
 			break
 		}
 
@@ -276,8 +277,20 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
 			err = fmt.Errorf("Invalid matcher item: '%s'", item)
 			return
 		}
-		obs.matcher = append(obs.matcher, re)
+		obsCopy.matcher = append(obsCopy.matcher, re)
 	}
+
+	// write/update obs
+	obs.mutex.Lock()
+
+	obs.listener = obsCopy.listener
+	obs.failureMsg.Original = obsCopy.failureMsg.Original
+	obs.failureMsg.Original.Config.Secret = obsCopy.failureMsg.Original.Config.Secret
+	obs.secret = obsCopy.secret
+	obs.listener.FailureURL = obsCopy.listener.FailureURL
+	obs.deliverUntil = obsCopy.deliverUntil
+	obs.events = obsCopy.events
+	obs.matcher = obsCopy.matcher
 
 	obs.mutex.Unlock()
 	
