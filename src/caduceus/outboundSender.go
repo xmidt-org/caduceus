@@ -237,7 +237,9 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
 	// Don't share the secret with others when there is an error.
 	obs.failureMsg.Original.Config.Secret = "XxxxxX"
 
-	obs.secret = []byte(obs.listener.Config.Secret)
+	if "" != obs.listener.Config.Secret {
+		obs.secret = []byte(obs.listener.Config.Secret)
+	}
 	
 	if "" != obs.listener.FailureURL {
 		if _, err = url.ParseRequestURI(obs.listener.FailureURL); nil != err {
