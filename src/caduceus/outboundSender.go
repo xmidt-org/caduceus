@@ -510,6 +510,8 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	}
 
 	// Only optimize the successful answers
+	obs.mutex.RLock()
+	
 	delivered200 := obs.getCounter(obs.deliveryCounter, 200)
 	delivered201 := obs.getCounter(obs.deliveryCounter, 201)
 	delivered202 := obs.getCounter(obs.deliveryCounter, 202)
@@ -518,6 +520,8 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	retries201 := obs.getCounter(obs.deliveryRetryCounter, 201)
 	retries202 := obs.getCounter(obs.deliveryRetryCounter, 202)
 	retries204 := obs.getCounter(obs.deliveryRetryCounter, 204)
+
+	obs.mutex.RUnlock()
 
 	for work := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
