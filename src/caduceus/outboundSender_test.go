@@ -408,6 +408,7 @@ func TestInvalidWrpMetadata(t *testing.T) {
 	assert.Equal(int32(0), trans.i)
 }
 */
+
 // Simple test that checks for invalid match regex
 func TestInvalidMatchRegex(t *testing.T) {
 
@@ -588,21 +589,30 @@ func TestInvalidEvents(t *testing.T) {
 	assert.NotNil(err)
 }
 
-// Simple test that ensures that Extend() only does that
-func TestExtend(t *testing.T) {
+// TODO: improve test
+// Simple test that ensures that Update() works
+func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
-	w := webhook.W{
+	w1 := webhook.W{
 		Until:  now,
 		Events: []string{"iot", "test"},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = "application/json"
+	w1.Config.URL = "http://localhost:9999/foo"
+	w1.Config.ContentType = "application/msgpack"
+
+	later := time.Now().Add(30 * time.Second)
+	w2 := webhook.W{
+		Until:  later,
+		Events: []string{"more", "messages"},
+	}
+	w2.Config.URL = "http://localhost:9999/foo"
+	w2.Config.ContentType = "application/msgpack"
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	obsf.Listener = w1
 	obsf.Sender = (&http.Client{}).Do
 	obs, err := obsf.New()
 	assert.Nil(err)
@@ -611,15 +621,13 @@ func TestExtend(t *testing.T) {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
 	}
 
-	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match previous value.")
-	obs.Extend(time.Time{})
-	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match previous value.")
-	extended := now.Add(10 * time.Second)
-	obs.Extend(extended)
-	assert.Equal(extended, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
+	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match original value.")	
+	obs.Update(w2)
+	assert.Equal(later, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }
+
 
 // No FailureURL
 func TestOverflowNoFailureURL(t *testing.T) {
