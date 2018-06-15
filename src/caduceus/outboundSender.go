@@ -111,7 +111,7 @@ type OutboundSenderFactory struct {
 }
 
 type OutboundSender interface {
-	Extend(time.Time)
+	Update(webhook.W) error
 	Shutdown(bool)
 	RetiredSince() time.Time
 	QueueJSON(CaduceusRequest, string, string, string)
@@ -120,6 +120,7 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
+	id                       string
 	listener                 webhook.W
 	deliverUntil             time.Time
 	dropUntil                time.Time
@@ -168,6 +169,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
+		id:               osf.Listener.Config.URL,
 		listener:         osf.Listener,
 		sender:           osf.Sender,
 		queueSize:        osf.QueueSize,
@@ -185,72 +187,36 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		},
 	}
 
+	// Don't share the secret with others when there is an error.
+	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
+
 	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
 	caduceusOutboundSender.deliveryRetryCounter = osf.MetricsRegistry.NewCounter(DeliveryRetryCounter)
 
 	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerCounter).With("url", osf.Listener.Config.URL)
+		NewCounter(SlowConsumerCounter).With("url", caduceusOutboundSender.id)
 
 	caduceusOutboundSender.droppedQueueFullCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "queue_full")
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "queue_full")
 
 	caduceusOutboundSender.droppedExpiredCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "expired")
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "expired")
 
 	caduceusOutboundSender.droppedInvalidConfig = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "invalid_config")
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "invalid_config")
 
 	caduceusOutboundSender.droppedNetworkErrCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", osf.Listener.Config.URL, "reason", "network_err")
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "network_err")
 
 	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
-		NewGauge(OutgoingQueueDepth).With("url", osf.Listener.Config.URL)
-
-	// Don't share the secret with others when there is an error.
-	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
-
-	if "" != osf.Listener.Config.Secret {
-		caduceusOutboundSender.secret = []byte(osf.Listener.Config.Secret)
-	}
-
-	if "" != osf.Listener.FailureURL {
-		if _, err = url.ParseRequestURI(osf.Listener.FailureURL); nil != err {
-			return
-		}
-	}
+		NewGauge(OutgoingQueueDepth).With("url", caduceusOutboundSender.id)
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
 	caduceusOutboundSender.queue = make(chan outboundRequest, osf.QueueSize)
 
-	// Create the event regex objects
-	for _, event := range osf.Listener.Events {
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); nil != err {
-			return
-		}
-
-		caduceusOutboundSender.events = append(caduceusOutboundSender.events, re)
-	}
-	if nil == caduceusOutboundSender.events {
-		err = errors.New("Events must not be empty.")
+	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
-	}
-
-	// Create the matcher regex objects
-	for _, item := range osf.Listener.Matcher.DeviceId {
-		if ".*" == item {
-			// Match everything - skip the filtering
-			caduceusOutboundSender.matcher = nil
-			break
-		}
-
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("Invalid matcher item: '%s'", item)
-			return
-		}
-		caduceusOutboundSender.matcher = append(caduceusOutboundSender.matcher, re)
 	}
 
 	caduceusOutboundSender.wg.Add(osf.NumWorkers)
@@ -262,16 +228,75 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	return
 }
 
-// Extend extends the time the CaduceusOutboundSender will deliver messages to the
-// specified time.  The new delivery cutoff time must be after the previously
-// set delivery cutoff time.
-func (obs *CaduceusOutboundSender) Extend(until time.Time) {
+// Update applies user configurable values for the outbound sender when a 
+// webhook is registered
+func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
+	// make a copy
+	obsCopy := *obs
+	
+	obsCopy.listener = wh
+	obsCopy.failureMsg.Original = wh
+	
+	// Don't share the secret with others when there is an error.
+	obsCopy.failureMsg.Original.Config.Secret = "XxxxxX"
 
-	obs.mutex.Lock()
-	if until.After(obs.deliverUntil) {
-		obs.deliverUntil = until
+	if "" != obsCopy.listener.Config.Secret {
+		obsCopy.secret = []byte(obsCopy.listener.Config.Secret)
 	}
+	
+	if "" != obsCopy.listener.FailureURL {
+		if _, err = url.ParseRequestURI(obsCopy.listener.FailureURL); nil != err {
+			return
+		}
+	}
+	
+	obsCopy.deliverUntil = obsCopy.listener.Until
+
+	// Create the event regex objects
+	for _, event := range obsCopy.listener.Events {
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); nil != err {
+			return
+		}
+
+		obsCopy.events = append(obsCopy.events, re)
+	}
+	if nil == obsCopy.events {
+		err = errors.New("Events must not be empty.")
+		return
+	}
+
+	// Create the matcher regex objects
+	for _, item := range obsCopy.listener.Matcher.DeviceId {
+		if ".*" == item {
+			// Match everything - skip the filtering
+			obsCopy.matcher = nil
+			break
+		}
+
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("Invalid matcher item: '%s'", item)
+			return
+		}
+		obsCopy.matcher = append(obsCopy.matcher, re)
+	}
+
+	// write/update obs
+	obs.mutex.Lock()
+
+	obs.listener = obsCopy.listener
+	obs.failureMsg.Original = obsCopy.failureMsg.Original
+	obs.failureMsg.Original.Config.Secret = obsCopy.failureMsg.Original.Config.Secret
+	obs.secret = obsCopy.secret
+	obs.listener.FailureURL = obsCopy.listener.FailureURL
+	obs.deliverUntil = obsCopy.deliverUntil
+	obs.events = obsCopy.events
+	obs.matcher = obsCopy.matcher
+
 	obs.mutex.Unlock()
+	
+	return
 }
 
 // Shutdown causes the CaduceusOutboundSender to stop it's activities either gently or
@@ -310,16 +335,18 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
+	events := obs.events
+	matcher := obs.matcher
 	obs.mutex.RUnlock()
 
 	now := time.Now()
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range obs.events {
+		for _, eventRegex := range events {
 			if eventRegex.MatchString(eventType) {
-				matchDevice := (nil == obs.matcher)
-				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher {
+				matchDevice := (nil == matcher)
+				if nil != matcher {
+					for _, deviceRegex := range matcher {
 						if deviceRegex.MatchString(deviceID) {
 							matchDevice = true
 							break
@@ -337,7 +364,7 @@ func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
 							contentType: "application/json",
 						}
 						logging.Debug(obs.logger).Log(logging.MessageKey(), "JSON Sent to obs queue", "url",
-							obs.listener.Config.URL)
+							obs.id)
 						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- outboundReq
 					} else {
@@ -357,6 +384,8 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
+	events := obs.events
+	matcher := obs.matcher
 	obs.mutex.RUnlock()
 
 	now := time.Now()
@@ -364,11 +393,11 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 	var debugLog = logging.Debug(obs.logger)
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range obs.events {
+		for _, eventRegex := range events {
 			if eventRegex.MatchString(strings.TrimPrefix(req.PayloadAsWrp.Destination, "event:")) {
-				matchDevice := (nil == obs.matcher)
-				if nil != obs.matcher {
-					for _, deviceRegex := range obs.matcher {
+				matchDevice := (nil == matcher)
+				if nil != matcher {
+					for _, deviceRegex := range matcher {
 						if deviceRegex.MatchString(req.PayloadAsWrp.Source) {
 							matchDevice = true
 							break
@@ -380,7 +409,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 					// and make sure that the obs metadata matches the metadata provided
 					if matchDevice {
 						for key, val := range metaData {
-							if matchers, ok := obs.matcher[key]; ok {
+							if matchers, ok := matcher[key]; ok {
 								for _, deviceRegex := range matchers {
 									matchDevice = false
 									if deviceRegex.MatchString(val) {
@@ -430,7 +459,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 						}
 						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- outboundReq
-						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.listener.Config.URL)
+						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 					} else {
 						obs.queueOverflow()
 						obs.droppedQueueFullCounter.Add(1.0)
@@ -452,11 +481,11 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 // helper function to get the right delivery counter to increment
 func (obs *CaduceusOutboundSender) getCounter(c metrics.Counter, status int) metrics.Counter {
 	if -1 == status {
-		return c.With("url", obs.listener.Config.URL, "code", "failure")
+		return c.With("url", obs.id, "code", "failure")
 	}
 
 	s := strconv.Itoa(status)
-	return c.With("url", obs.listener.Config.URL, "code", s)
+	return c.With("url", obs.id, "code", s)
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -464,12 +493,16 @@ func (obs *CaduceusOutboundSender) getCounter(c metrics.Counter, status int) met
 func (obs *CaduceusOutboundSender) worker(id int) {
 	defer obs.wg.Done()
 
+	obs.mutex.RLock()
+	secret := obs.secret
+	obs.mutex.RUnlock()
+
 	// Make a local copy of the hmac
 	var h hash.Hash
 
 	// Create the base sha1 hash object for each thread
-	if nil != obs.secret {
-		h = hmac.New(sha1.New, obs.secret)
+	if nil != secret {
+		h = hmac.New(sha1.New, secret)
 	}
 
 	// Setup the retry structs once
@@ -503,11 +536,11 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		if now.Before(deliverUntil) && now.After(dropUntil) {
 			payload := work.req.OutgoingPayload
 			payloadReader := bytes.NewReader(payload)
-			req, err := http.NewRequest("POST", obs.listener.Config.URL, payloadReader)
+			req, err := http.NewRequest("POST", obs.id, payloadReader)
 			if nil != err {
 				// Report drop
 				obs.droppedInvalidConfig.Add(1.0)
-				logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.listener.Config.URL,
+				logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
 					logging.ErrorKey(), err)
 			} else {
 
@@ -591,6 +624,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
+	failureURL := obs.listener.FailureURL
 	obs.mutex.Unlock()
 
 	var (
@@ -599,20 +633,20 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	)
 
 	obs.cutOffCounter.Add(1.0)
-	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.listener.Config.URL)
+	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
 	msg, err := json.Marshal(obs.failureMsg)
 	if nil != err {
 		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
-			"for", obs.listener.Config.URL, logging.ErrorKey(), err)
+			"for", obs.id, logging.ErrorKey(), err)
 	} else {
-		errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.listener.Config.URL)
+		errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.id)
 
 		// Send a "you've been cut off" warning message
-		if "" != obs.listener.FailureURL {
+		if "" != failureURL {
 
 			payload := bytes.NewReader(msg)
-			req, err := http.NewRequest("POST", obs.listener.FailureURL, payload)
+			req, err := http.NewRequest("POST", failureURL, payload)
 			req.Header.Set("Content-Type", "application/json")
 
 			if nil != obs.secret {
@@ -626,20 +660,20 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			if nil != err {
 				// Failure
 				errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-					obs.listener.FailureURL, "for", obs.listener.Config.URL, logging.ErrorKey(), err)
+					failureURL, "for", obs.id, logging.ErrorKey(), err)
 			} else {
 				if nil == resp {
 					// Failure
 					errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
-						"notification", obs.listener.FailureURL)
+						"notification", failureURL)
 				} else {
 					// Success
-					logging.Info(obs.logger).Log("Able to send cut-off notification", "url", obs.listener.FailureURL,
+					logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
 						"status", resp.Status)
 				}
 			}
 		} else {
-			errorLog.Log(logging.MessageKey(), "No cut-off notification URL specified", "for", obs.listener.Config.URL)
+			errorLog.Log(logging.MessageKey(), "No cut-off notification URL specified", "for", obs.id)
 		}
 	}
 }
