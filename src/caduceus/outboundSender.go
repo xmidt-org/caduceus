@@ -38,11 +38,11 @@ import (
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrphttp"
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/satori/go.uuid"
 )
 
 // failureText is human readable text for the failure message
@@ -61,7 +61,7 @@ var (
 // outboundRequest stores the outgoing request and assorted data that has been
 // collected so far (to save on processing the information again).
 type outboundRequest struct {
-	req         CaduceusRequest
+	msg         *wrp.Message
 	event       string
 	transID     string
 	deviceID    string
@@ -114,8 +114,7 @@ type OutboundSender interface {
 	Update(webhook.W) error
 	Shutdown(bool)
 	RetiredSince() time.Time
-	QueueJSON(CaduceusRequest, string, string, string)
-	QueueWrp(CaduceusRequest)
+	Queue(*wrp.Message)
 }
 
 // CaduceusOutboundSender is the outbound sender object.
@@ -129,7 +128,7 @@ type CaduceusOutboundSender struct {
 	events                   []*regexp.Regexp
 	matcher                  []*regexp.Regexp
 	queueSize                int
-	queue                    chan outboundRequest
+	queue                    chan *wrp.Message
 	deliveryRetries          int
 	deliveryInterval         time.Duration
 	deliveryCounter          metrics.Counter
@@ -213,7 +212,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
-	caduceusOutboundSender.queue = make(chan outboundRequest, osf.QueueSize)
+	caduceusOutboundSender.queue = make(chan *wrp.Message, osf.QueueSize)
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
@@ -228,28 +227,28 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	return
 }
 
-// Update applies user configurable values for the outbound sender when a 
+// Update applies user configurable values for the outbound sender when a
 // webhook is registered
-func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
+func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	// make a copy
 	obsCopy := *obs
-	
+
 	obsCopy.listener = wh
 	obsCopy.failureMsg.Original = wh
-	
+
 	// Don't share the secret with others when there is an error.
 	obsCopy.failureMsg.Original.Config.Secret = "XxxxxX"
 
 	if "" != obsCopy.listener.Config.Secret {
 		obsCopy.secret = []byte(obsCopy.listener.Config.Secret)
 	}
-	
+
 	if "" != obsCopy.listener.FailureURL {
 		if _, err = url.ParseRequestURI(obsCopy.listener.FailureURL); nil != err {
 			return
 		}
 	}
-	
+
 	obsCopy.deliverUntil = obsCopy.listener.Until
 
 	// Create the event regex objects
@@ -295,7 +294,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error){
 	obs.matcher = obsCopy.matcher
 
 	obs.mutex.Unlock()
-	
+
 	return
 }
 
@@ -326,61 +325,10 @@ func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 	return deliverUntil
 }
 
-// QueueJSON is given a request to evaluate and optionally enqueue in the list
+// Queue is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-func (obs *CaduceusOutboundSender) QueueJSON(req CaduceusRequest,
-	eventType, deviceID, transID string) {
-
-	obs.mutex.RLock()
-	deliverUntil := obs.deliverUntil
-	dropUntil := obs.dropUntil
-	events := obs.events
-	matcher := obs.matcher
-	obs.mutex.RUnlock()
-
-	now := time.Now()
-
-	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range events {
-			if eventRegex.MatchString(eventType) {
-				matchDevice := (nil == matcher)
-				if nil != matcher {
-					for _, deviceRegex := range matcher {
-						if deviceRegex.MatchString(deviceID) {
-							matchDevice = true
-							break
-						}
-					}
-				}
-				if matchDevice {
-					if len(obs.queue) < obs.queueSize {
-						req.OutgoingPayload = req.RawPayload
-						outboundReq := outboundRequest{
-							req:         req,
-							event:       eventType,
-							transID:     transID,
-							deviceID:    deviceID,
-							contentType: "application/json",
-						}
-						logging.Debug(obs.logger).Log(logging.MessageKey(), "JSON Sent to obs queue", "url",
-							obs.id)
-						obs.queueDepthGauge.Add(1.0)
-						obs.queue <- outboundReq
-					} else {
-						obs.droppedQueueFullCounter.Add(1.0)
-						obs.queueOverflow()
-					}
-				}
-			}
-		}
-	}
-}
-
-// QueueWrp is given a request to evaluate and optionally enqueue in the list
-// of messages to deliver.  The request is checked to see if it matches the
-// criteria before being accepted or silently dropped.
-func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
+func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
@@ -394,11 +342,11 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 
 	if now.Before(deliverUntil) && now.After(dropUntil) {
 		for _, eventRegex := range events {
-			if eventRegex.MatchString(strings.TrimPrefix(req.PayloadAsWrp.Destination, "event:")) {
+			if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
 				matchDevice := (nil == matcher)
 				if nil != matcher {
 					for _, deviceRegex := range matcher {
-						if deviceRegex.MatchString(req.PayloadAsWrp.Source) {
+						if deviceRegex.MatchString(msg.Source) {
 							matchDevice = true
 							break
 						}
@@ -429,36 +377,8 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 				*/
 				if matchDevice {
 					if len(obs.queue) < obs.queueSize {
-						// TODO we should break this code out into a function set a object
-						// creation time & choose if we should send the raw WRP message
-						// or if we should send just the payload + headers in the "HTTP"
-						// form.
-
-						// TODO we should really transcode from WRP into an HTTP format if
-						// asked for, otherwise we should deliver the WRP in that form.
-						req.OutgoingPayload = req.PayloadAsWrp.Payload
-
-						// Default to "application/json" if there is no content type, otherwise
-						// use the one the source specified.
-						ct := req.PayloadAsWrp.ContentType
-						if "" == ct {
-							ct = "application/json"
-						}
-
-						match := eventPattern.FindStringSubmatch(req.PayloadAsWrp.Destination)
-						eventType := "unknown"
-						if match != nil {
-							eventType = match[1]
-						}
-
-						outboundReq := outboundRequest{req: req,
-							event:       eventType,
-							transID:     req.PayloadAsWrp.TransactionUUID,
-							deviceID:    req.PayloadAsWrp.Source,
-							contentType: ct,
-						}
 						obs.queueDepthGauge.Add(1.0)
-						obs.queue <- outboundReq
+						obs.queue <- msg
 						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 					} else {
 						obs.queueOverflow()
@@ -468,7 +388,7 @@ func (obs *CaduceusOutboundSender) QueueWrp(req CaduceusRequest) {
 			} else {
 				debugLog.Log(logging.MessageKey(),
 					fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
-						req.PayloadAsWrp.Destination, eventRegex.String()))
+						msg.Destination, eventRegex.String()))
 			}
 		}
 	} else {
@@ -525,7 +445,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	retries202 := obs.getCounter(obs.deliveryRetryCounter, 202)
 	retries204 := obs.getCounter(obs.deliveryRetryCounter, 204)
 
-	for work := range obs.queue {
+	for msg := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
 		obs.mutex.RLock()
 		deliverUntil := obs.deliverUntil
@@ -534,7 +454,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 
 		now := time.Now()
 		if now.Before(deliverUntil) && now.After(dropUntil) {
-			payload := work.req.OutgoingPayload
+			payload := msg.Payload
 			payloadReader := bytes.NewReader(payload)
 			req, err := http.NewRequest("POST", obs.id, payloadReader)
 			if nil != err {
@@ -543,30 +463,17 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
 					logging.ErrorKey(), err)
 			} else {
+				req.Header.Set("Content-Type", msg.ContentType)
 
-				req.Header.Set("Content-Type", work.contentType)
-
-				// Add x-Midt-* headers if possible
-				if nil != work.req.PayloadAsWrp {
-					wrphttp.AddMessageHeaders(req.Header, work.req.PayloadAsWrp)
-				}
+				// Add x-Midt-* headers
+				wrphttp.AddMessageHeaders(req.Header, msg)
 
 				// Provide the old headers for now
-				if nil != work.req.PayloadAsWrp {
-					req.Header.Set("X-Webpa-Event", strings.TrimPrefix(work.req.PayloadAsWrp.Destination, "event:"))
-				} else {
-					req.Header.Set("X-Webpa-Event", work.event)
-				}
-
-				// Ensure there is a transaction id even if we make one up
-				tid := work.transID
-				if "" == tid {
-					tid = uuid.NewV4().String()
-				}
-				req.Header.Set("X-Webpa-Transaction-Id", tid)
+				req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
+				req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
 
 				// Add the device id without the trailing service
-				id, _ := device.ParseID(work.deviceID)
+				id, _ := device.ParseID(msg.Source)
 				req.Header.Set("X-Webpa-Device-Id", string(id))
 				req.Header.Set("X-Webpa-Device-Name", string(id))
 
@@ -580,30 +487,37 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				// Setup the retry logic
 				simpleCounter.Count = 0.0
 
+				// find the event "short name"
+				match := eventPattern.FindStringSubmatch(msg.Destination)
+				event := "unknown"
+				if match != nil {
+					event = match[1]
+				}
+
 				// Send it
 				resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
 				if nil != err {
 					// Report failure
-					obs.getCounter(obs.deliveryCounter, -1).With("event", work.event).Add(1.0)
+					obs.getCounter(obs.deliveryCounter, -1).With("event", event).Add(1.0)
 					obs.droppedNetworkErrCounter.Add(1.0)
 				} else {
 					// Report Result
 					switch resp.StatusCode {
 					case 200:
-						delivered200.With("event", work.event).Add(1.0)
-						retries200.With("event", work.event).Add(simpleCounter.Count)
+						delivered200.With("event", event).Add(1.0)
+						retries200.With("event", event).Add(simpleCounter.Count)
 					case 201:
-						delivered201.With("event", work.event).Add(1.0)
-						retries201.With("event", work.event).Add(simpleCounter.Count)
+						delivered201.With("event", event).Add(1.0)
+						retries201.With("event", event).Add(simpleCounter.Count)
 					case 202:
-						delivered202.With("event", work.event).Add(1.0)
-						retries202.With("event", work.event).Add(simpleCounter.Count)
+						delivered202.With("event", event).Add(1.0)
+						retries202.With("event", event).Add(simpleCounter.Count)
 					case 204:
-						delivered204.With("event", work.event).Add(1.0)
-						retries204.With("event", work.event).Add(simpleCounter.Count)
+						delivered204.With("event", event).Add(1.0)
+						retries204.With("event", event).Add(simpleCounter.Count)
 					default:
-						obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", work.event).Add(1.0)
-						obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", work.event).Add(simpleCounter.Count)
+						obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", event).Add(1.0)
+						obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", event).Add(simpleCounter.Count)
 					}
 
 					// read until the response is complete before closing to allow

@@ -82,6 +82,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "failure"}).Return(fakeDC).
 		On("With", []string{"event", "iot"}).Return(fakeDC).
+		On("With", []string{"event", "unknown"}).Return(fakeDC).
 		On("With", []string{"event", "test"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
@@ -120,96 +121,14 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	}
 }
 
-func simpleJSONRequest() CaduceusRequest {
-	req := CaduceusRequest{
-		RawPayload:  []byte("Hello, world."),
-		ContentType: "application/json",
-		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
+func simpleRequest() *wrp.Message {
+	return &wrp.Message{
+		Source:          "mac:112233445566/lmlite",
+		TransactionUUID: "1234",
+		ContentType:     "application/msgpack",
+		Destination:     "event:bob/magic/dog",
+		Payload:         []byte("Hello, world."),
 	}
-
-	return req
-}
-
-func simpleWrpRequest() CaduceusRequest {
-	req := CaduceusRequest{
-		RawPayload: []byte("Hello, world."),
-		PayloadAsWrp: &wrp.Message{
-			Source:      "mac:112233445566/lmlite",
-			Destination: "event:bob/magic/dog",
-		},
-		ContentType: "application/msgpack",
-		TargetURL:   "http://foo.com/api/v2/notification/device/mac:112233445566/event/iot",
-	}
-
-	return req
-}
-
-// Simple test that covers the normal successful case with no extra matchers
-func TestSimpleJSON(t *testing.T) {
-
-	assert := assert.New(t)
-
-	trans := &transport{}
-	obs, err := simpleSetup(trans, time.Second, nil)
-	assert.NotNil(obs)
-	assert.Nil(err)
-
-	req := simpleJSONRequest()
-
-	obs.QueueJSON(req, "iot", "mac:112233445566", "1234")
-	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
-	obs.QueueJSON(req, "no-match", "mac:112233445566", "1234")
-
-	obs.Shutdown(true)
-
-	assert.Equal(int32(2), trans.i)
-}
-
-// Simple test that covers the normal successful case with extra matchers
-func TestSimpleJSONWithMatchers(t *testing.T) {
-
-	assert := assert.New(t)
-
-	m := []string{"mac:112233445566", "mac:112233445565"}
-
-	trans := &transport{}
-	obs, err := simpleSetup(trans, time.Second, m)
-	assert.Nil(err)
-
-	req := simpleJSONRequest()
-
-	obs.QueueJSON(req, "iot", "mac:112233445565", "1234")
-	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
-	obs.QueueJSON(req, "iot", "mac:112233445560", "1234")
-	obs.QueueJSON(req, "test", "mac:112233445560", "1234")
-
-	obs.Shutdown(true)
-
-	assert.Equal(int32(2), trans.i)
-}
-
-// Simple test that covers the normal successful case with extra wildcard matcher
-func TestSimpleJSONWithWildcardMatchers(t *testing.T) {
-
-	assert := assert.New(t)
-
-	trans := &transport{}
-
-	m := []string{"mac:112233445566", ".*"}
-
-	obs, err := simpleSetup(trans, time.Second, m)
-	assert.Nil(err)
-
-	req := simpleJSONRequest()
-
-	obs.QueueJSON(req, "iot", "mac:112233445565", "1234")
-	obs.QueueJSON(req, "test", "mac:112233445566", "1234")
-	obs.QueueJSON(req, "iot", "mac:112233445560", "1234")
-	obs.QueueJSON(req, "test", "mac:112233445560", "1234")
-
-	obs.Shutdown(true)
-
-	assert.Equal(int32(4), trans.i)
 }
 
 // Simple test that covers the normal successful case with no extra matchers
@@ -222,23 +141,17 @@ func TestSimpleWrp(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleWrpRequest()
-	req.PayloadAsWrp.Source = "mac:112233445566"
-	req.PayloadAsWrp.TransactionUUID = "1234"
-	req.PayloadAsWrp.Destination = "event:iot"
-	obs.QueueWrp(req)
+	req := simpleRequest()
+	req.Destination = "event:iot"
+	obs.Queue(req)
 
-	r2 := simpleWrpRequest()
-	r2.PayloadAsWrp.Source = "mac:112233445566"
-	r2.PayloadAsWrp.TransactionUUID = "1234"
-	r2.PayloadAsWrp.Destination = "event:test"
-	obs.QueueWrp(r2)
+	r2 := simpleRequest()
+	r2.Destination = "event:test"
+	obs.Queue(r2)
 
-	r3 := simpleWrpRequest()
-	r3.PayloadAsWrp.Source = "mac:112233445566"
-	r3.PayloadAsWrp.TransactionUUID = "1234"
-	r3.PayloadAsWrp.Destination = "event:no-match"
-	obs.QueueWrp(r3)
+	r3 := simpleRequest()
+	r3.Destination = "event:no-match"
+	obs.Queue(r3)
 
 	obs.Shutdown(true)
 
@@ -259,11 +172,11 @@ func TestSimpleRetry(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleWrpRequest()
-	req.PayloadAsWrp.Source = "mac:112233445566"
-	req.PayloadAsWrp.TransactionUUID = "1234"
-	req.PayloadAsWrp.Destination = "event:iot"
-	obs.QueueWrp(req)
+	req := simpleRequest()
+	req.Source = "mac:112233445566"
+	req.TransactionUUID = "1234"
+	req.Destination = "event:iot"
+	obs.Queue(req)
 
 	obs.Shutdown(true)
 
@@ -281,29 +194,29 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleWrpRequest()
-	req.PayloadAsWrp.TransactionUUID = "1234"
-	req.PayloadAsWrp.Source = "mac:112233445566"
-	req.PayloadAsWrp.Destination = "event:iot"
-	obs.QueueWrp(req)
+	req := simpleRequest()
+	req.TransactionUUID = "1234"
+	req.Source = "mac:112233445566"
+	req.Destination = "event:iot"
+	obs.Queue(req)
 
-	r2 := simpleWrpRequest()
-	r2.PayloadAsWrp.TransactionUUID = "1234"
-	r2.PayloadAsWrp.Source = "mac:112233445565"
-	r2.PayloadAsWrp.Destination = "event:test"
-	obs.QueueWrp(r2)
+	r2 := simpleRequest()
+	r2.TransactionUUID = "1234"
+	r2.Source = "mac:112233445565"
+	r2.Destination = "event:test"
+	obs.Queue(r2)
 
-	r3 := simpleWrpRequest()
-	r3.PayloadAsWrp.TransactionUUID = "1234"
-	r3.PayloadAsWrp.Source = "mac:112233445560"
-	r3.PayloadAsWrp.Destination = "event:iot"
-	obs.QueueWrp(r3)
+	r3 := simpleRequest()
+	r3.TransactionUUID = "1234"
+	r3.Source = "mac:112233445560"
+	r3.Destination = "event:iot"
+	obs.Queue(r3)
 
-	r4 := simpleWrpRequest()
-	r4.PayloadAsWrp.TransactionUUID = "1234"
-	r4.PayloadAsWrp.Source = "mac:112233445560"
-	r4.PayloadAsWrp.Destination = "event:test"
-	obs.QueueWrp(r4)
+	r4 := simpleRequest()
+	r4.TransactionUUID = "1234"
+	r4.Source = "mac:112233445560"
+	r4.Destination = "event:test"
+	obs.Queue(r4)
 
 	obs.Shutdown(true)
 
@@ -322,29 +235,29 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleWrpRequest()
-	req.PayloadAsWrp.TransactionUUID = "1234"
-	req.PayloadAsWrp.Source = "mac:112233445566"
-	req.PayloadAsWrp.Destination = "event:iot"
-	obs.QueueWrp(req)
+	req := simpleRequest()
+	req.TransactionUUID = "1234"
+	req.Source = "mac:112233445566"
+	req.Destination = "event:iot"
+	obs.Queue(req)
 
-	r2 := simpleWrpRequest()
-	r2.PayloadAsWrp.TransactionUUID = "1234"
-	r2.PayloadAsWrp.Source = "mac:112233445565"
-	r2.PayloadAsWrp.Destination = "event:test"
-	obs.QueueWrp(r2)
+	r2 := simpleRequest()
+	r2.TransactionUUID = "1234"
+	r2.Source = "mac:112233445565"
+	r2.Destination = "event:test"
+	obs.Queue(r2)
 
-	r3 := simpleWrpRequest()
-	r3.PayloadAsWrp.TransactionUUID = "1234"
-	r3.PayloadAsWrp.Source = "mac:112233445560"
-	r3.PayloadAsWrp.Destination = "event:iot"
-	obs.QueueWrp(r3)
+	r3 := simpleRequest()
+	r3.TransactionUUID = "1234"
+	r3.Source = "mac:112233445560"
+	r3.Destination = "event:iot"
+	obs.Queue(r3)
 
-	r4 := simpleWrpRequest()
-	r4.PayloadAsWrp.TransactionUUID = "1234"
-	r4.PayloadAsWrp.Source = "mac:112233445560"
-	r4.PayloadAsWrp.Destination = "event:test"
-	obs.QueueWrp(r4)
+	r4 := simpleRequest()
+	r4.TransactionUUID = "1234"
+	r4.Source = "mac:112233445560"
+	r4.Destination = "event:test"
+	obs.Queue(r4)
 
 	obs.Shutdown(true)
 
@@ -365,15 +278,15 @@ func TestSimpleWrpWithMetadata(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleWrpRequest()
+	req := simpleRequest()
 
 	wrpMeta := make(map[string]string)
 	wrpMeta["metadata"] = "crackers"
 
-	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445565", "1234")
-	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445566", "1234")
-	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445560", "1234")
-	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445560", "1234")
+	obs.Queue(req, wrpMeta, "iot", "mac:112233445565", "1234")
+	obs.Queue(req, wrpMeta, "test", "mac:112233445566", "1234")
+	obs.Queue(req, wrpMeta, "iot", "mac:112233445560", "1234")
+	obs.Queue(req, wrpMeta, "test", "mac:112233445560", "1234")
 
 	obs.Shutdown(true)
 
@@ -393,15 +306,15 @@ func TestInvalidWrpMetadata(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleWrpRequest()
+	req := simpleRequest()
 
 	wrpMeta := make(map[string]string)
 	wrpMeta["metadata"] = "notpresent"
 
-	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445565", "1234")
-	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445566", "1234")
-	obs.QueueWrp(req, wrpMeta, "iot", "mac:112233445560", "1234")
-	obs.QueueWrp(req, wrpMeta, "test", "mac:112233445560", "1234")
+	obs.Queue(req, wrpMeta, "iot", "mac:112233445565", "1234")
+	obs.Queue(req, wrpMeta, "test", "mac:112233445566", "1234")
+	obs.Queue(req, wrpMeta, "iot", "mac:112233445560", "1234")
+	obs.Queue(req, wrpMeta, "test", "mac:112233445560", "1234")
 
 	obs.Shutdown(true)
 
@@ -826,17 +739,22 @@ func TestOverflow(t *testing.T) {
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	req := simpleJSONRequest()
+	req := simpleRequest()
 
-	obs.QueueJSON(req, "iot", "mac:112233445565", "01234")
-	obs.QueueJSON(req, "iot", "mac:112233445565", "01235")
+	req.TransactionUUID = "01234"
+	obs.Queue(req)
+	req.TransactionUUID = "01235"
+	obs.Queue(req)
 
 	// give the worker a chance to pick up one from the queue
 	time.Sleep(1 * time.Second)
 
-	obs.QueueJSON(req, "iot", "mac:112233445565", "01236")
-	obs.QueueJSON(req, "iot", "mac:112233445565", "01237")
-	obs.QueueJSON(req, "iot", "mac:112233445565", "01238")
+	req.TransactionUUID = "01236"
+	obs.Queue(req)
+	req.TransactionUUID = "01237"
+	obs.Queue(req)
+	req.TransactionUUID = "01238"
+	obs.Queue(req)
 	atomic.AddInt32(&block, 1)
 	obs.Shutdown(false)
 

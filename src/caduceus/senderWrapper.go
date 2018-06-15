@@ -19,8 +19,6 @@ package main
 import (
 	"errors"
 	"net/http"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +67,7 @@ type SenderWrapperFactory struct {
 
 type SenderWrapper interface {
 	Update([]webhook.W)
-	Queue(CaduceusRequest)
+	Queue(*wrp.Message)
 	Shutdown(bool)
 }
 
@@ -86,10 +84,6 @@ type CaduceusSenderWrapper struct {
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
 	metricsRegistry     CaduceusMetricsRegistry
-	msgpackCount        metrics.Counter
-	jsonCount           metrics.Counter
-	unknownCount        metrics.Counter
-	invalidCount        metrics.Counter
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 }
@@ -97,9 +91,6 @@ type CaduceusSenderWrapper struct {
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
 // based on the factory configuration.
 func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
-	contentTypeCounter := swf.MetricsRegistry.NewCounter(IncomingContentTypeCounter)
-	droppedCounter := swf.MetricsRegistry.NewCounter(DropsDueToInvalidPayload)
-
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
 		sender:              swf.Sender,
 		numWorkersPerSender: swf.NumWorkersPerSender,
@@ -108,10 +99,6 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		linger:              swf.Linger,
 		logger:              swf.Logger,
 		metricsRegistry:     swf.MetricsRegistry,
-		msgpackCount:        contentTypeCounter.With("content_type", "msgpack"),
-		jsonCount:           contentTypeCounter.With("content_type", "json"),
-		unknownCount:        contentTypeCounter.With("content_type", "unknown"),
-		invalidCount:        droppedCounter,
 	}
 
 	if swf.Linger <= 0 {
@@ -174,55 +161,12 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
-func (sw *CaduceusSenderWrapper) Queue(req CaduceusRequest) {
-	switch req.ContentType {
-
-	case "application/json":
-		if url, err := url.Parse(req.TargetURL); nil == err {
-			elements := strings.Split(url.Path, "/")
-			if 5 < len(elements) &&
-				"" == elements[0] &&
-				"api" == elements[1] &&
-				"v2" == elements[2] &&
-				"notify" == elements[3] &&
-				// Skip the device id
-				"event" == elements[5] {
-
-				eventType := strings.SplitN(url.Path, "/event/", 2)[1]
-				deviceID := elements[4]
-				// TODO: this looks like it's wrong, we should fill this out
-				transID := "12345"
-				sw.mutex.RLock()
-				for _, v := range sw.senders {
-					v.QueueJSON(req, eventType, deviceID, transID)
-				}
-				sw.mutex.RUnlock()
-				sw.jsonCount.Add(1.0)
-			} else {
-				sw.invalidCount.Add(1.0)
-			}
-		} else {
-			sw.invalidCount.Add(1.0)
-		}
-
-	case "application/msgpack":
-		decoder := wrp.NewDecoderBytes(req.RawPayload, wrp.Msgpack)
-		message := new(wrp.Message)
-		if err := decoder.Decode(message); nil == err {
-			req.PayloadAsWrp = message
-			sw.mutex.RLock()
-			for _, v := range sw.senders {
-				v.QueueWrp(req)
-			}
-			sw.mutex.RUnlock()
-			sw.msgpackCount.Add(1.0)
-		} else {
-			sw.invalidCount.Add(1.0)
-		}
-
-	default:
-		sw.unknownCount.Add(1.0)
+func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
+	sw.mutex.RLock()
+	for _, v := range sw.senders {
+		v.Queue(msg)
 	}
+	sw.mutex.RUnlock()
 }
 
 // Shutdown closes down the delivery mechanisms and cleans up the underlying

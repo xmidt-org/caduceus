@@ -17,7 +17,6 @@
 package main
 
 import (
-	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
@@ -46,84 +45,38 @@ func TestMuxServerConfig(t *testing.T) {
 	logger := logging.DefaultLogger()
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
-		mock.AnythingOfType("CaduceusRequest")).Return().Once()
-
-	forceTimeOut := func(func(workerID int)) error {
-		return errors.New("time out!")
-	}
+		mock.AnythingOfType("*wrp.Message")).Return().Once()
 
 	fakeEmptyRequests := new(mockCounter)
-	fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
-
 	fakeErrorRequests := new(mockCounter)
-	fakeErrorRequests.On("Add", mock.AnythingOfType("float64")).Return().Times(0)
+	fakeInvalidCount := new(mockCounter)
 
 	fakeQueueDepth := new(mockGauge)
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
 
 	serverWrapper := &ServerHandler{
-		Logger:             logger,
-		caduceusHandler:    fakeHandler,
-		errorRequests:      fakeErrorRequests,
-		emptyRequests:      fakeEmptyRequests,
-		incomingQueueDepth: fakeQueueDepth,
-		doJob:              forceTimeOut,
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		errorRequests:            fakeErrorRequests,
+		emptyRequests:            fakeEmptyRequests,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		invalidCount:             fakeInvalidCount,
 	}
 
 	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper)
 
-	req := httptest.NewRequest("POST", "/api/v3/notify", nil)
-	req.Header.Set("Content-Type", "application/json")
-
-	t.Run("TestMuxResponseCorrectJSON", func(t *testing.T) {
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-		resp := w.Result()
-
-		assert.Equal(http.StatusRequestTimeout, resp.StatusCode)
-	})
-
 	t.Run("TestMuxResponseCorrectMSP", func(t *testing.T) {
+		req := exampleRequest("1234", "application/msgpack", "/api/v3/notify")
+
 		req.Header.Set("Content-Type", "application/msgpack")
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
 		resp := w.Result()
 
-		assert.Equal(http.StatusRequestTimeout, resp.StatusCode)
-	})
-
-	t.Run("TestMuxResponseManyHeaders", func(t *testing.T) {
-		req.Header.Add("Content-Type", "too/many/headers")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		resp := w.Result()
-
-		assert.Equal(http.StatusNotFound, resp.StatusCode)
-	})
-
-	t.Run("TestServeHTTPNoContentType", func(t *testing.T) {
-		req.Header.Del("Content-Type")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		resp := w.Result()
-
-		assert.Equal(http.StatusNotFound, resp.StatusCode)
-	})
-
-	t.Run("TestServeHTTPBadContentType", func(t *testing.T) {
-		req.Header.Set("Content-Type", "something/unsupported")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		resp := w.Result()
-
-		assert.Equal(http.StatusNotFound, resp.StatusCode)
+		assert.Equal(http.StatusAccepted, resp.StatusCode)
 	})
 }
 

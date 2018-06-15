@@ -121,11 +121,6 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	workerPool := WorkerPoolFactory{
-		NumWorkers: caduceusConfig.NumWorkerThreads,
-		QueueSize:  caduceusConfig.JobQueueSize,
-	}.New()
-
 	tr := &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 		MaxIdleConnsPerHost:   caduceusConfig.SenderNumWorkersPerSender,
@@ -160,10 +155,11 @@ func caduceus(arguments []string) int {
 			senderWrapper: caduceusSenderWrapper,
 			Logger:        logger,
 		},
-		errorRequests:      metricsRegistry.NewCounter(ErrorRequestBodyCounter),
-		emptyRequests:      metricsRegistry.NewCounter(EmptyRequestBodyCounter),
-		incomingQueueDepth: metricsRegistry.NewGauge(IncomingQueueDepth),
-		doJob:              workerPool.Send,
+		errorRequests:            metricsRegistry.NewCounter(ErrorRequestBodyCounter),
+		emptyRequests:            metricsRegistry.NewCounter(EmptyRequestBodyCounter),
+		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
+		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
+		maxOutstanding:           0,
 	}
 
 	validator, err := getValidator(v)
@@ -260,12 +256,7 @@ func configServerRouter(router *mux.Router, caduceusHandler alice.Chain, serverW
 	}
 
 	router.Handle("/api/v3/notify", caduceusHandler.Then(serverWrapper)).Methods("POST").
-		HeadersRegexp("Content-Type", "application/(json|msgpack)").MatcherFunc(singleContentType)
-
-	// Support the old endpoint too.
-	router.Handle("/api/v2/notify/{deviceid}/event/{eventtype:.*}", caduceusHandler.Then(serverWrapper)).
-		Methods("POST").HeadersRegexp("Content-Type", "application/(json|msgpack)").
-		MatcherFunc(singleContentType)
+		HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
 
 	return router
 }
