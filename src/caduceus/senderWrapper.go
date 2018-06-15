@@ -147,7 +147,7 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
 		if true == ok {
-			sender.Extend(inValue.Listener.Until)
+			sender.Update(inValue.Listener)
 		} else {
 			osf.Listener = inValue.Listener
 			obs, err := osf.New()

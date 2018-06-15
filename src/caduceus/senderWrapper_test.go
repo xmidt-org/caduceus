@@ -225,5 +225,5 @@ func TestSwSimple(t *testing.T) {
 	sw.Queue(iot)
 
 	sw.Shutdown(true)
-	assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
+	assert.Equal(int32(5), atomic.LoadInt32(&trans.i))
 }
