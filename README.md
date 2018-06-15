@@ -6,6 +6,7 @@
 [![Issue Count](https://codeclimate.com/github/Comcast/caduceus/badges/issue_count.svg)](https://codeclimate.com/github/Comcast/caduceus)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Comcast/caduceus)](https://goreportcard.com/report/github.com/Comcast/caduceus)
 [![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/Comcast/caduceus/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/Comcast/caduceus.svg)](CHANGELOG.md)
 
 The Xmidt server for delivering events written in Go.
 
