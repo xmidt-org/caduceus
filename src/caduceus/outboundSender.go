@@ -33,6 +33,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Comcast/webpa-common/device"
@@ -125,6 +126,7 @@ type CaduceusOutboundSender struct {
 	dropUntil                time.Time
 	sender                   func(*http.Request) (*http.Response, error)
 	secret                   []byte
+	secretChan               chan []byte
 	events                   []*regexp.Regexp
 	matcher                  []*regexp.Regexp
 	queueSize                int
@@ -171,6 +173,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		id:               osf.Listener.Config.URL,
 		listener:         osf.Listener,
 		sender:           osf.Sender,
+		secretChan:       make(chan []byte, 10),
 		queueSize:        osf.QueueSize,
 		cutOffPeriod:     osf.CutOffPeriod,
 		deliverUntil:     osf.Listener.Until,
@@ -294,6 +297,8 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	obs.matcher = obsCopy.matcher
 
 	obs.mutex.Unlock()
+	
+	obs.secretChan <- obsCopy.secret
 
 	return
 }
@@ -303,6 +308,8 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	close(obs.queue)
+	close(obs.secretChan)
+	
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
@@ -408,22 +415,45 @@ func (obs *CaduceusOutboundSender) getCounter(c metrics.Counter, status int) met
 	return c.With("url", obs.id, "code", s)
 }
 
+type secretHash struct {
+	value atomic.Value
+}
+
+func (sh *secretHash) set(h *hash.Hash) {
+	sh.value.Store(h)
+}
+
+func (sh *secretHash) get() *hash.Hash {
+	if h, ok := sh.value.Load().(*hash.Hash); ok {
+		return h
+	}
+
+	return nil
+}
+
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
 func (obs *CaduceusOutboundSender) worker(id int) {
 	defer obs.wg.Done()
 
-	obs.mutex.RLock()
-	secret := obs.secret
-	obs.mutex.RUnlock()
-
 	// Make a local copy of the hmac
-	var h hash.Hash
+	var h secretHash
+	h.set(new(hash.Hash))
 
-	// Create the base sha1 hash object for each thread
-	if nil != secret {
-		h = hmac.New(sha1.New, secret)
-	}
+	// routine that will listen for secret changes
+	// if a change comes in, both the local secret copy and the hash are updated
+	go func(sc chan []byte) {
+		for {
+			secret := <- sc
+			// Create the base sha1 hash object for each thread
+			if nil != secret {
+				t := hmac.New(sha1.New, secret)
+				h.set(&t)
+			} else {
+				h.set(new(hash.Hash))
+			}
+		}
+	}(obs.secretChan)
 
 	// Setup the retry structs once
 	simpleCounter := &SimpleCounter{}
@@ -477,10 +507,13 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 				req.Header.Set("X-Webpa-Device-Id", string(id))
 				req.Header.Set("X-Webpa-Device-Name", string(id))
 
-				if nil != h {
-					h.Reset()
-					h.Write(payload)
-					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
+				// get the latest secret hash
+				sh := *h.get()
+
+				if nil != sh {
+					sh.Reset()
+					sh.Write(payload)
+					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(sh.Sum(nil)))
 					req.Header.Set("X-Webpa-Signature", sig)
 				}
 
@@ -538,6 +571,8 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
+	secret := obs.secret
+	failureMsg := obs.failureMsg
 	failureURL := obs.listener.FailureURL
 	obs.mutex.Unlock()
 
@@ -549,7 +584,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
-	msg, err := json.Marshal(obs.failureMsg)
+	msg, err := json.Marshal(failureMsg)
 	if nil != err {
 		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
 			"for", obs.id, logging.ErrorKey(), err)
@@ -564,7 +599,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			req.Header.Set("Content-Type", "application/json")
 
 			if nil != obs.secret {
-				h := hmac.New(sha1.New, obs.secret)
+				h := hmac.New(sha1.New, secret)
 				h.Write(msg)
 				sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
 				req.Header.Set("X-Webpa-Signature", sig)
