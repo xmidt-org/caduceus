@@ -131,6 +131,12 @@ func TestInvalidLinger(t *testing.T) {
 	assert.NotNil(err)
 }
 
+// Commenting this test out is accumulating technical debt.
+// The reason this code doesn't work now is because the timeout in webpa-common
+// is hard coded to 5min at this point.  The ways to address this are:
+// 1. Remove the limitation of 5min as the only timeout
+// -or-
+// 2. Add a mock for the webhook implementation
 func TestSwSimple(t *testing.T) {
 	assert := assert.New(t)
 
