@@ -1,0 +1,11 @@
+---
+  primary: 
+    address: ":6000"
+  health: 
+    address: ":6001"
+  pprof: 
+    address: ":6002"
+  log: 
+    file: "stdout"
+    level: "DEBUG"
+    json: true
