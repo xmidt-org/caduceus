@@ -37,7 +37,7 @@ func exampleRequest(list ...string) *http.Request {
 	ct := "application/msgpack"
 	url := "localhost:8080"
 
-	for i, _ := range list {
+	for i := range list {
 		switch {
 		case 0 == i:
 			trans = list[i]

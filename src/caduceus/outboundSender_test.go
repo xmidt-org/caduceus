@@ -534,13 +534,12 @@ func TestUpdate(t *testing.T) {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
 	}
 
-	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match original value.")	
+	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match original value.")
 	obs.Update(w2)
 	assert.Equal(later, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }
-
 
 // No FailureURL
 func TestOverflowNoFailureURL(t *testing.T) {

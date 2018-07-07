@@ -297,7 +297,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	obs.matcher = obsCopy.matcher
 
 	obs.mutex.Unlock()
-	
+
 	obs.secretChan <- obsCopy.secret
 
 	return
@@ -309,7 +309,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	close(obs.queue)
 	close(obs.secretChan)
-	
+
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
@@ -444,7 +444,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	// if a change comes in, both the local secret copy and the hash are updated
 	go func(sc chan []byte) {
 		for {
-			secret := <- sc
+			secret := <-sc
 			// Create the base sha1 hash object for each thread
 			if nil != secret {
 				t := hmac.New(sha1.New, secret)
