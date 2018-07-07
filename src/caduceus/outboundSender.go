@@ -596,29 +596,35 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 			payload := bytes.NewReader(msg)
 			req, err := http.NewRequest("POST", failureURL, payload)
-			req.Header.Set("Content-Type", "application/json")
-
-			if nil != obs.secret {
-				h := hmac.New(sha1.New, secret)
-				h.Write(msg)
-				sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
-				req.Header.Set("X-Webpa-Signature", sig)
-			}
-
-			resp, err := obs.sender(req)
 			if nil != err {
 				// Failure
 				errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
 					failureURL, "for", obs.id, logging.ErrorKey(), err)
 			} else {
-				if nil == resp {
+				req.Header.Set("Content-Type", "application/json")
+
+				if nil != obs.secret {
+					h := hmac.New(sha1.New, secret)
+					h.Write(msg)
+					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
+					req.Header.Set("X-Webpa-Signature", sig)
+				}
+
+				resp, err := obs.sender(req)
+				if nil != err {
 					// Failure
-					errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
-						"notification", failureURL)
+					errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
+						failureURL, "for", obs.id, logging.ErrorKey(), err)
 				} else {
-					// Success
-					logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
-						"status", resp.Status)
+					if nil == resp {
+						// Failure
+						errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
+							"notification", failureURL)
+					} else {
+						// Success
+						logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
+							"status", resp.Status)
+					}
 				}
 			}
 		} else {
