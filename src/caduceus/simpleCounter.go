@@ -18,7 +18,7 @@ package main
 
 import "github.com/go-kit/kit/metrics"
 
-// This is a non-concurent safe counter that lets a single goroutine agregate
+// This is a non-concurrent safe counter that lets a single goroutine aggregate
 // a metric before adding them to a larger correlated metric.
 type SimpleCounter struct {
 	// The active count
