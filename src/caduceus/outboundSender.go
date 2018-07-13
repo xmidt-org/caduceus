@@ -463,6 +463,8 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
 		Counter:  simpleCounter,
+		// Always retry on failures up to the max count.
+		ShouldRetry: func(error) bool { return true },
 	}
 
 	// Only optimize the successful answers
