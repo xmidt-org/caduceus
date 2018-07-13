@@ -215,10 +215,16 @@ func caduceus(arguments []string) int {
 
 	var messageKey = logging.MessageKey()
 
-	debugLog.Log(messageKey, "Calling webhookFactory.PrepareAndStart")
-	beginPrepStart := time.Now()
-	webhookFactory.PrepareAndStart()
-	debugLog.Log(messageKey, "WebhookFactory.PrepareAndStart done.", "elapsedTime", time.Since(beginPrepStart))
+	if webhookFactory != nil {
+		// wait for DNS to propagate before subscribing to SNS
+		if err = webhookFactory.DnsReady(); err == nil {
+			debugLog.Log(messageKey, "Calling webhookFactory.PrepareAndStart. Server is ready to take on subscription confirmations")
+			webhookFactory.PrepareAndStart()
+		} else {
+			errorLog.Log(messageKey, "Server was not ready within a time constraint. SNS confirmation could not happen",
+				logging.ErrorKey(), err)
+		}
+	}
 
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
 	debugLog.Log(messageKey, "Attempting to obtain current listener list from source", "source",
