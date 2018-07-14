@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Fix for webhook update for all fields
+- Fix for retry logic so all failures are retried the specified number of times
 
 ## [0.1.1] - 2018-04-06
 ### Added
