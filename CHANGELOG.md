@@ -22,6 +22,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/wrp-c/compare/0.1.1...HEAD
-[0.1.1]: https://github.com/olivierlacan/keep-a-changelog/compare/0.0.1...0.1.1
-[0.0.1]: https://github.com/olivierlacan/keep-a-changelog/compare/0.0.0...0.0.1
+[Unreleased]: https://github.com/Comcast/caduceus/compare/0.1.1...HEAD
+[0.1.1]: https://github.com/Comcast/caduceus/compare/0.0.1...0.1.1
+[0.0.1]: https://github.com/Comcast/caduceus/compare/0.0.0...0.0.1
