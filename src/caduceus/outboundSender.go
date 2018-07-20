@@ -146,6 +146,7 @@ type CaduceusOutboundSender struct {
 	failureMsg               FailureMessage
 	logger                   log.Logger
 	mutex                    sync.RWMutex
+	shutdownChan             chan bool
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -187,6 +188,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
+		shutdownChan:      make(chan bool, 10),
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -307,8 +309,11 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
+	obs.shutdownChan <- true
+	
 	close(obs.queue)
 	close(obs.secretChan)
+	close(obs.shutdownChan)
 
 	obs.mutex.Lock()
 	if false == gentle {
@@ -442,18 +447,22 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 
 	// routine that will listen for secret changes
 	// if a change comes in, both the local secret copy and the hash are updated
-	go func(sc chan []byte) {
+	go func(sc chan []byte, shutdown chan bool) {
 		for {
-			secret := <-sc
-			// Create the base sha1 hash object for each thread
-			if nil != secret {
-				t := hmac.New(sha1.New, secret)
-				h.set(&t)
-			} else {
-				h.set(new(hash.Hash))
+			select {
+			case secret := <-sc:
+				// Create the base sha1 hash object for each thread
+				if nil != secret {
+					t := hmac.New(sha1.New, secret)
+					h.set(&t)
+				} else {
+					h.set(new(hash.Hash))
+				}
+			case <-shutdown:
+				return
 			}
 		}
-	}(obs.secretChan)
+	}(obs.secretChan, obs.shutdownChan)
 
 	// Setup the retry structs once
 	simpleCounter := &SimpleCounter{}
