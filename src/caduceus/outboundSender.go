@@ -238,10 +238,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	// make a copy
 	obsCopy := *obs
 
-	// set events & matchers to empty
-	obsCopy.events = []*regexp.Regexp{}
-	obsCopy.matcher = []*regexp.Regexp{}
-
 	obsCopy.listener = wh
 	obsCopy.failureMsg.Original = wh
 
