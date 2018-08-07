@@ -219,14 +219,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// completely full point.
 	caduceusOutboundSender.queue = make(chan *wrp.Message, osf.QueueSize)
 
-	// Since we are still in New this will fix the Update to still reference the same hook events/matchers
-	for _, re := range caduceusOutboundSender.events {
-		osf.Listener.Events = append(osf.Listener.Events, re.String())
-	}
-	for _, re := range caduceusOutboundSender.matcher {
-		osf.Listener.Matcher.DeviceId = append(osf.Listener.Matcher.DeviceId, re.String())
-	}
-
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
 	}
