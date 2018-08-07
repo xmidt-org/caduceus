@@ -188,7 +188,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
-		shutdownChan:      make(chan bool, 10),
+		shutdownChan: make(chan bool, 10),
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -310,7 +310,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	obs.shutdownChan <- true
-	
+
 	close(obs.queue)
 	close(obs.secretChan)
 	close(obs.shutdownChan)
@@ -392,6 +392,8 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 						obs.queueDepthGauge.Add(1.0)
 						obs.queue <- msg
 						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
+						// a regex was matched, no need to check further matches
+						break
 					} else {
 						obs.queueOverflow()
 						obs.droppedQueueFullCounter.Add(1.0)
