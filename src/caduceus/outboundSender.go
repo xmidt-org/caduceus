@@ -219,6 +219,14 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// completely full point.
 	caduceusOutboundSender.queue = make(chan *wrp.Message, osf.QueueSize)
 
+	// Since we are still in New this will fix the Update to still reference the same hook events/matchers
+	for _, re := range caduceusOutboundSender.events {
+		osf.Listener.Events = append(osf.Listener.Events, re.String())
+	}
+	for _, re := range caduceusOutboundSender.matcher {
+		osf.Listener.Matcher.DeviceId = append(osf.Listener.Matcher.DeviceId, re.String())
+	}
+
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
 	}
@@ -237,6 +245,10 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	// make a copy
 	obsCopy := *obs
+
+	// set events & matchers to empty
+	obsCopy.events = []*regexp.Regexp{}
+	obsCopy.matcher = []*regexp.Regexp{}
 
 	obsCopy.listener = wh
 	obsCopy.failureMsg.Original = wh
@@ -257,7 +269,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	obsCopy.deliverUntil = obsCopy.listener.Until
 
 	// Create the event regex objects
-	for _, event := range obsCopy.listener.Events {
+	for _, event := range wh.Events {
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(event); nil != err {
 			return
@@ -265,13 +277,13 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 		obsCopy.events = append(obsCopy.events, re)
 	}
-	if nil == obsCopy.events {
+	if nil == obsCopy.events || len(obsCopy.events) == 0{
 		err = errors.New("Events must not be empty.")
 		return
 	}
 
 	// Create the matcher regex objects
-	for _, item := range obsCopy.listener.Matcher.DeviceId {
+	for _, item := range wh.Matcher.DeviceId {
 		if ".*" == item {
 			// Match everything - skip the filtering
 			obsCopy.matcher = nil
@@ -284,6 +296,10 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 			return
 		}
 		obsCopy.matcher = append(obsCopy.matcher, re)
+	}
+	// if matcher list is empty set it nil for Queue() logic
+	if len(obsCopy.matcher) == 0 {
+		obsCopy.matcher = nil
 	}
 
 	// write/update obs
