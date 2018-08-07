@@ -238,6 +238,10 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	// make a copy
 	obsCopy := *obs
 
+	// set events & matchers to empty
+	obsCopy.events = []*regexp.Regexp{}
+	obsCopy.matcher = []*regexp.Regexp{}
+
 	obsCopy.listener = wh
 	obsCopy.failureMsg.Original = wh
 
@@ -257,7 +261,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	obsCopy.deliverUntil = obsCopy.listener.Until
 
 	// Create the event regex objects
-	for _, event := range obsCopy.listener.Events {
+	for _, event := range wh.Events {
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(event); nil != err {
 			return
@@ -265,13 +269,13 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 		obsCopy.events = append(obsCopy.events, re)
 	}
-	if nil == obsCopy.events {
+	if nil == obsCopy.events || len(obsCopy.events) == 0{
 		err = errors.New("Events must not be empty.")
 		return
 	}
 
 	// Create the matcher regex objects
-	for _, item := range obsCopy.listener.Matcher.DeviceId {
+	for _, item := range wh.Matcher.DeviceId {
 		if ".*" == item {
 			// Match everything - skip the filtering
 			obsCopy.matcher = nil
@@ -284,6 +288,10 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 			return
 		}
 		obsCopy.matcher = append(obsCopy.matcher, re)
+	}
+	// if matcher list is empty set it nil for Queue() logic
+	if len(obsCopy.matcher) == 0 {
+		obsCopy.matcher = nil
 	}
 
 	// write/update obs
