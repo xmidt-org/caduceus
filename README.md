@@ -27,8 +27,9 @@ yum install https://github.com/Comcast/caduceus/releases/download/0.0.1-65/caduc
 ```
 
 ## Dockerized Caduceus
-Docker containers make life super easy. The steps below are to mainly help with
-testings.
+Docker containers make life super easy.
+
+You will need SNS(or mock SNS) in order for Caduceus to work correctly.
 
 ### Installation
 - [Docker](https://www.docker.com/) (duh)
