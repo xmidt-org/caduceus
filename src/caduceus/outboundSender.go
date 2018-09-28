@@ -136,6 +136,7 @@ type CaduceusOutboundSender struct {
 	deliveryCounter          metrics.Counter
 	deliveryRetryCounter     metrics.Counter
 	droppedQueueFullCounter  metrics.Counter
+	droppedCutoffCounter     metrics.Counter
 	droppedExpiredCounter    metrics.Counter
 	droppedNetworkErrCounter metrics.Counter
 	droppedInvalidConfig     metrics.Counter
@@ -206,6 +207,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	caduceusOutboundSender.droppedExpiredCounter = osf.MetricsRegistry.
 		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "expired")
 
+	caduceusOutboundSender.droppedCutoffCounter = osf.MetricsRegistry.
+		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "cut_off")
+
 	caduceusOutboundSender.droppedInvalidConfig = osf.MetricsRegistry.
 		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "invalid_config")
 
@@ -269,7 +273,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 		obsCopy.events = append(obsCopy.events, re)
 	}
-	if nil == obsCopy.events || len(obsCopy.events) == 0{
+	if nil == obsCopy.events || len(obsCopy.events) == 0 {
 		err = errors.New("Events must not be empty.")
 		return
 	}
@@ -360,63 +364,69 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 
 	var debugLog = logging.Debug(obs.logger)
 
-	if now.Before(deliverUntil) && now.After(dropUntil) {
-		for _, eventRegex := range events {
-			if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-				matchDevice := (nil == matcher)
-				if nil != matcher {
-					for _, deviceRegex := range matcher {
-						if deviceRegex.MatchString(msg.Source) {
-							matchDevice = true
-							break
-						}
-					}
-				}
-				/*
-					// if the device id matches then we want to look through all the metadata
-					// and make sure that the obs metadata matches the metadata provided
-					if matchDevice {
-						for key, val := range metaData {
-							if matchers, ok := matcher[key]; ok {
-								for _, deviceRegex := range matchers {
-									matchDevice = false
-									if deviceRegex.MatchString(val) {
-										matchDevice = true
-										break
-									}
-								}
-
-								// metadata was provided but did not match our expectations,
-								// so it is time to drop the message
-								if !matchDevice {
-									break
-								}
+	if now.After(dropUntil) {
+		if now.Before(deliverUntil) {
+			for _, eventRegex := range events {
+				if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+					matchDevice := (nil == matcher)
+					if nil != matcher {
+						for _, deviceRegex := range matcher {
+							if deviceRegex.MatchString(msg.Source) {
+								matchDevice = true
+								break
 							}
 						}
 					}
-				*/
-				if matchDevice {
-					if len(obs.queue) < obs.queueSize {
-						obs.queueDepthGauge.Add(1.0)
-						obs.queue <- msg
-						debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
-						// a regex was matched, no need to check further matches
-						break
-					} else {
-						obs.queueOverflow()
-						obs.droppedQueueFullCounter.Add(1.0)
+					/*
+						// if the device id matches then we want to look through all the metadata
+						// and make sure that the obs metadata matches the metadata provided
+						if matchDevice {
+							for key, val := range metaData {
+								if matchers, ok := matcher[key]; ok {
+									for _, deviceRegex := range matchers {
+										matchDevice = false
+										if deviceRegex.MatchString(val) {
+											matchDevice = true
+											break
+										}
+									}
+
+									// metadata was provided but did not match our expectations,
+									// so it is time to drop the message
+									if !matchDevice {
+										break
+									}
+								}
+							}
+						}
+					*/
+					if matchDevice {
+						if len(obs.queue) < obs.queueSize {
+							obs.queueDepthGauge.Add(1.0)
+							obs.queue <- msg
+							debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
+							// a regex was matched, no need to check further matches
+							break
+						} else {
+							obs.queueOverflow()
+							obs.droppedQueueFullCounter.Add(1.0)
+						}
 					}
+				} else {
+					debugLog.Log(logging.MessageKey(),
+						fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
+							msg.Destination, eventRegex.String()))
 				}
-			} else {
-				debugLog.Log(logging.MessageKey(),
-					fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
-						msg.Destination, eventRegex.String()))
 			}
+		} else {
+			debugLog.Log(logging.MessageKey(), "Outside delivery window",
+				"now", now, "before", deliverUntil, "after", dropUntil)
+			obs.droppedExpiredCounter.Add(1.0)
 		}
 	} else {
-		debugLog.Log(logging.MessageKey(), "Outside delivery window")
-		debugLog.Log("now", now, "before", deliverUntil, "after", dropUntil)
-		obs.droppedExpiredCounter.Add(1.0)
+		debugLog.Log(logging.MessageKey(), "Client has been cut off",
+			"now", now, "before", deliverUntil, "after", dropUntil)
+		obs.droppedCutoffCounter.Add(1.0)
 	}
 }
 
@@ -504,86 +514,90 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		obs.mutex.RUnlock()
 
 		now := time.Now()
-		if now.Before(deliverUntil) && now.After(dropUntil) {
-			payload := msg.Payload
-			payloadReader := bytes.NewReader(payload)
-			req, err := http.NewRequest("POST", obs.id, payloadReader)
-			if nil != err {
-				// Report drop
-				obs.droppedInvalidConfig.Add(1.0)
-				logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
-					logging.ErrorKey(), err)
-			} else {
-				req.Header.Set("Content-Type", msg.ContentType)
-
-				// Add x-Midt-* headers
-				wrphttp.AddMessageHeaders(req.Header, msg)
-
-				// Provide the old headers for now
-				req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
-				req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
-
-				// Add the device id without the trailing service
-				id, _ := device.ParseID(msg.Source)
-				req.Header.Set("X-Webpa-Device-Id", string(id))
-				req.Header.Set("X-Webpa-Device-Name", string(id))
-
-				// get the latest secret hash
-				sh := *h.get()
-
-				if nil != sh {
-					sh.Reset()
-					sh.Write(payload)
-					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(sh.Sum(nil)))
-					req.Header.Set("X-Webpa-Signature", sig)
-				}
-
-				// Setup the retry logic
-				simpleCounter.Count = 0.0
-
-				// find the event "short name"
-				match := eventPattern.FindStringSubmatch(msg.Destination)
-				event := "unknown"
-				if match != nil {
-					event = match[1]
-				}
-
-				// Send it
-				resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+		if now.After(dropUntil) {
+			if now.Before(deliverUntil) {
+				payload := msg.Payload
+				payloadReader := bytes.NewReader(payload)
+				req, err := http.NewRequest("POST", obs.id, payloadReader)
 				if nil != err {
-					// Report failure
-					obs.getCounter(obs.deliveryCounter, -1).With("event", event).Add(1.0)
-					obs.droppedNetworkErrCounter.Add(1.0)
+					// Report drop
+					obs.droppedInvalidConfig.Add(1.0)
+					logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
+						logging.ErrorKey(), err)
 				} else {
-					// Report Result
-					switch resp.StatusCode {
-					case 200:
-						delivered200.With("event", event).Add(1.0)
-						retries200.With("event", event).Add(simpleCounter.Count)
-					case 201:
-						delivered201.With("event", event).Add(1.0)
-						retries201.With("event", event).Add(simpleCounter.Count)
-					case 202:
-						delivered202.With("event", event).Add(1.0)
-						retries202.With("event", event).Add(simpleCounter.Count)
-					case 204:
-						delivered204.With("event", event).Add(1.0)
-						retries204.With("event", event).Add(simpleCounter.Count)
-					default:
-						obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", event).Add(1.0)
-						obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", event).Add(simpleCounter.Count)
+					req.Header.Set("Content-Type", msg.ContentType)
+
+					// Add x-Midt-* headers
+					wrphttp.AddMessageHeaders(req.Header, msg)
+
+					// Provide the old headers for now
+					req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
+					req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
+
+					// Add the device id without the trailing service
+					id, _ := device.ParseID(msg.Source)
+					req.Header.Set("X-Webpa-Device-Id", string(id))
+					req.Header.Set("X-Webpa-Device-Name", string(id))
+
+					// get the latest secret hash
+					sh := *h.get()
+
+					if nil != sh {
+						sh.Reset()
+						sh.Write(payload)
+						sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(sh.Sum(nil)))
+						req.Header.Set("X-Webpa-Signature", sig)
 					}
 
-					// read until the response is complete before closing to allow
-					// connection reuse
-					if nil != resp.Body {
-						io.Copy(ioutil.Discard, resp.Body)
-						resp.Body.Close()
+					// Setup the retry logic
+					simpleCounter.Count = 0.0
+
+					// find the event "short name"
+					match := eventPattern.FindStringSubmatch(msg.Destination)
+					event := "unknown"
+					if match != nil {
+						event = match[1]
+					}
+
+					// Send it
+					resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+					if nil != err {
+						// Report failure
+						obs.getCounter(obs.deliveryCounter, -1).With("event", event).Add(1.0)
+						obs.droppedNetworkErrCounter.Add(1.0)
+					} else {
+						// Report Result
+						switch resp.StatusCode {
+						case 200:
+							delivered200.With("event", event).Add(1.0)
+							retries200.With("event", event).Add(simpleCounter.Count)
+						case 201:
+							delivered201.With("event", event).Add(1.0)
+							retries201.With("event", event).Add(simpleCounter.Count)
+						case 202:
+							delivered202.With("event", event).Add(1.0)
+							retries202.With("event", event).Add(simpleCounter.Count)
+						case 204:
+							delivered204.With("event", event).Add(1.0)
+							retries204.With("event", event).Add(simpleCounter.Count)
+						default:
+							obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", event).Add(1.0)
+							obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", event).Add(simpleCounter.Count)
+						}
+
+						// read until the response is complete before closing to allow
+						// connection reuse
+						if nil != resp.Body {
+							io.Copy(ioutil.Discard, resp.Body)
+							resp.Body.Close()
+						}
 					}
 				}
+			} else {
+				obs.droppedExpiredCounter.Add(1.0)
 			}
 		} else {
-			obs.droppedExpiredCounter.Add(1.0)
+			obs.droppedCutoffCounter.Add(1.0)
 		}
 	}
 }
