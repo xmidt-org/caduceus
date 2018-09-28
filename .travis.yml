@@ -32,6 +32,8 @@ after_success:
     - docker cp build:/versionno.txt .
     - BINARY_NAME=`ls x86_64/`
     - TRAVIS_TAG=`cat versionno.txt`
+    - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then docker build -t caduceus:local .; fi'
+
 
 deploy:
   provider: releases
