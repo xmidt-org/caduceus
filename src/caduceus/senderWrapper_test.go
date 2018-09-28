@@ -82,10 +82,12 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "unknown"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeIgnore).
+		On("With", []string{"url", "http://localhost:8888/foo", "reason", "cut_off"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "queue_full"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "expired"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "network_err"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "invalid_config"}).Return(fakeIgnore).
+		On("With", []string{"url", "http://localhost:9999/foo", "reason", "cut_off"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "queue_full"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "expired"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "network_err"}).Return(fakeIgnore).

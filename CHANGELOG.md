@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fix for cpu spike after about 10 mintues due to worker go routines not finishing.
 - Fix logic for updating webhooks
 - Fix for sending the same event multiple times to the same webhook.
+- Fix for [issue 99](https://github.com/Comcast/caduceus/issues/99)
 
 ## [0.1.1] - 2018-04-06
 ### Added
