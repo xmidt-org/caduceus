@@ -12,6 +12,8 @@ log:
 env: test
 fqdn: 127.0.0.1
 scheme: http
+soa:
+  provider: "localhost:5079"
 
 numWorkerThreads: 10
 jobQueueSize: 10

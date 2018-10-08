@@ -203,7 +203,7 @@ func caduceus(arguments []string) int {
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
-	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, metricsRegistry, nil)
+	webhookFactory.Initialize(router, selfURL, v.GetString("soa.provider"), webhookHandler, logger, metricsRegistry, nil)
 
 	_, runnable := webPA.Prepare(logger, nil, metricsRegistry, router)
 
