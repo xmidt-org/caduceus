@@ -35,6 +35,7 @@ import (
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/SermoDigital/jose/jwt"
+	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
@@ -203,9 +204,9 @@ func caduceus(arguments []string) int {
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
-	webhookFactory.Initialize(router, selfURL, webhookHandler, logger, metricsRegistry, nil)
+	webhookFactory.Initialize(router, selfURL, v.GetString("soa.provider"), webhookHandler, logger, metricsRegistry, nil)
 
-	_, runnable := webPA.Prepare(logger, nil, metricsRegistry, router)
+	_, runnable, done := webPA.Prepare(logger, nil, metricsRegistry, router)
 
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
@@ -246,6 +247,20 @@ func caduceus(arguments []string) int {
 
 	signals := make(chan os.Signal, 10)
 	signal.Notify(signals)
+	for exit := false; !exit; {
+		select {
+		case s := <-signals:
+			if s != os.Kill && s != os.Interrupt {
+				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring signal", "signal", s)
+			} else {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "exiting due to signal", "signal", s)
+				exit = true
+			}
+		case <-done:
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "one or more servers exited")
+			exit = true
+		}
+	}
 	s := server.SignalWait(infoLog, signals, os.Interrupt, os.Kill)
 	errorLog.Log(logging.MessageKey(), "exiting due to signal", "signal", s)
 	close(shutdown)
