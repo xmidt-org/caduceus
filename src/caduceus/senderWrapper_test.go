@@ -18,15 +18,16 @@ package main
 
 import (
 	"bytes"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/stretchr/testify/assert"
 )
 
 type result struct {
@@ -77,6 +78,8 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeGauge).
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeGauge)
 
+	fakeHistogram := new(mockHistogram)
+
 	fakeIgnore := new(mockCounter)
 	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
 		On("With", []string{"url", "unknown"}).Return(fakeIgnore).
@@ -113,6 +116,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
+	fakeRegistry.On("NewHistogram", OutboundRequestDuration).Return(fakeHistogram)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,

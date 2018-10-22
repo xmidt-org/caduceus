@@ -1,7 +1,13 @@
 package main
 
 import (
+	"net/http"
+	"time"
+
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -15,6 +21,7 @@ const (
 	IncomingContentTypeCounter    = "incoming_content_type_count"
 	DropsDueToInvalidPayload      = "drops_due_to_invalid_payload"
 	OutgoingQueueDepth            = "outgoing_queue_depths"
+	OutboundRequestDuration       = "outbound_request_duration"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -75,5 +82,55 @@ func Metrics() []xmetrics.Metric {
 			Type:       "gauge",
 			LabelNames: []string{"url"},
 		},
+		{
+			Name:    OutboundRequestDuration,
+			Help:    "The time for outbound request to get a response",
+			Type:    "histogram",
+			Buckets: []float64{0.010, 0.020, 0.050, 0.100, 0.200, 0.500, 1.00, 2.00, 5.00},
+		},
 	}
+}
+
+// OutboundMeasures holds different prometheus outbound measurements.
+//
+// Future prometheus measurements should be added here.
+type OutboundMeasures struct {
+	RequestDuration prometheus.Observer
+}
+
+// NewOutboundMeasuresFunc is used to create a OutboundMeasuresFunc type at the start of Sender Wrapper Factory
+func NewOutboundMeasuresFunc(r CaduceusMetricsRegistry) OutboundMeasuresFunc {
+	return func(r CaduceusMetricsRegistry) OutboundMeasures {
+		return OutboundMeasures{RequestDuration: r.NewHistogramVec(OutboundRequestDuration).WithLabelValues()}
+	}
+}
+
+// OutboundMeasuresFunc is the function signature for NewOutboundMeasures. It is a attribute of SenderWrapperFactory and
+// is used to create new OutboundMeasure structs when the SenderWrapperFactory occurs.
+type OutboundMeasuresFunc func(r CaduceusMetricsRegistry) OutboundMeasures
+
+// NewOutboundMeasures creates a OutboundMeasures struct
+func NewOutboundMeasures(r CaduceusMetricsRegistry) OutboundMeasures {
+	return OutboundMeasures{
+		RequestDuration: r.NewHistogramVec(OutboundRequestDuration).WithLabelValues(),
+	}
+}
+
+// InstrumentOutboundDuration is used in NewOutboundRoundTripper to record the duration of
+// a request's round trip.
+func InstrumentOutboundDuration(obs prometheus.Observer, next func(request *http.Request) (*http.Response, error)) promhttp.RoundTripperFunc {
+	return promhttp.RoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		start := time.Now()
+		response, err := next(request)
+		if err == nil {
+			obs.Observe(time.Since(start).Seconds())
+		}
+
+		return response, err
+	})
+}
+
+// OutboundTripperDecorator decorates a transport to record outboundrequest durations.
+func NewOutboundRoundTripper(r xhttp.RetryOptions, obs *CaduceusOutboundSender) func(request *http.Request) (*http.Response, error) {
+	return promhttp.RoundTripperFunc(xhttp.RetryTransactor(r, InstrumentOutboundDuration(obs.outboundMeasures.RequestDuration, obs.sender)))
 }

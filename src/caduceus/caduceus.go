@@ -130,24 +130,21 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusSenderWrapper, err := SenderWrapperFactory{
-		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
-		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
-		CutOffPeriod:        caduceusConfig.Sender.CutOffPeriod,
-		Linger:              caduceusConfig.Sender.Linger,
-		DeliveryRetries:     caduceusConfig.Sender.DeliveryRetries,
-		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
-		MetricsRegistry:     metricsRegistry,
-		Logger:              logger,
+		NumWorkersPerSender:  caduceusConfig.Sender.NumWorkersPerSender,
+		QueueSizePerSender:   caduceusConfig.Sender.QueueSizePerSender,
+		CutOffPeriod:         caduceusConfig.Sender.CutOffPeriod,
+		Linger:               caduceusConfig.Sender.Linger,
+		DeliveryRetries:      caduceusConfig.Sender.DeliveryRetries,
+		DeliveryInterval:     caduceusConfig.Sender.DeliveryInterval,
+		MetricsRegistry:      metricsRegistry,
+		OutboundMeasuresFunc: NewOutboundMeasuresFunc(metricsRegistry),
+		Logger:               logger,
+		Transport:            tr,
 		Sender: (&http.Client{
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do,
 	}.New()
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to initialize new caduceus sender wrapper: %s\n", err)
-		return 1
-	}
 
 	serverWrapper := &ServerHandler{
 		Logger: logger,

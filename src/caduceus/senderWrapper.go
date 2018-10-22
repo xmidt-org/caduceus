@@ -30,6 +30,7 @@ import (
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
 type SenderWrapperFactory struct {
+	Sender func(*http.Request) (*http.Response, error)
 	// The number of workers to assign to each OutboundSender created.
 	NumWorkersPerSender int
 
@@ -49,7 +50,7 @@ type SenderWrapperFactory struct {
 	// shutting them down and cleaning up the resources associated with them.
 	Linger time.Duration
 
-	// Metrics registry.
+	// Metrics registry
 	MetricsRegistry CaduceusMetricsRegistry
 
 	// The metrics counter for content-type
@@ -58,11 +59,13 @@ type SenderWrapperFactory struct {
 	// The metrics counter for dropped messages due to invalid payloads
 	DroppedMsgCounter metrics.Counter
 
+	// Function for creating genatering a outboundMeasuresFunc
+	OutboundMeasuresFunc OutboundMeasuresFunc
+
 	// The logger implementation to share with OutboundSenders.
 	Logger log.Logger
 
-	// The http client Do() function to share with OutboundSenders.
-	Sender func(*http.Request) (*http.Response, error)
+	Transport *http.Transport
 }
 
 type SenderWrapper interface {
@@ -73,32 +76,35 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              func(*http.Request) (*http.Response, error)
-	numWorkersPerSender int
-	queueSizePerSender  int
-	deliveryRetries     int
-	deliveryInterval    time.Duration
-	cutOffPeriod        time.Duration
-	linger              time.Duration
-	logger              log.Logger
-	mutex               sync.RWMutex
-	senders             map[string]OutboundSender
-	metricsRegistry     CaduceusMetricsRegistry
-	wg                  sync.WaitGroup
-	shutdown            chan struct{}
+	sender               func(*http.Request) (*http.Response, error)
+	numWorkersPerSender  int
+	queueSizePerSender   int
+	deliveryRetries      int
+	deliveryInterval     time.Duration
+	cutOffPeriod         time.Duration
+	linger               time.Duration
+	logger               log.Logger
+	mutex                sync.RWMutex
+	senders              map[string]OutboundSender
+	metricsRegistry      CaduceusMetricsRegistry
+	outboundMeasuresFunc OutboundMeasuresFunc
+	wg                   sync.WaitGroup
+	shutdown             chan struct{}
+	transport            *http.Transport
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
 // based on the factory configuration.
 func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
-		sender:              swf.Sender,
-		numWorkersPerSender: swf.NumWorkersPerSender,
-		queueSizePerSender:  swf.QueueSizePerSender,
-		cutOffPeriod:        swf.CutOffPeriod,
-		linger:              swf.Linger,
-		logger:              swf.Logger,
-		metricsRegistry:     swf.MetricsRegistry,
+		//	sender:              swf.sender,
+		numWorkersPerSender:  swf.NumWorkersPerSender,
+		queueSizePerSender:   swf.QueueSizePerSender,
+		cutOffPeriod:         swf.CutOffPeriod,
+		linger:               swf.Linger,
+		logger:               swf.Logger,
+		metricsRegistry:      swf.MetricsRegistry,
+		outboundMeasuresFunc: swf.OutboundMeasuresFunc,
 	}
 
 	if swf.Linger <= 0 {
@@ -131,6 +137,7 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 		DeliveryRetries:  sw.deliveryRetries,
 		DeliveryInterval: sw.deliveryInterval,
 		Logger:           sw.logger,
+		Transport:        sw.transport,
 	}
 
 	ids := make([]struct {

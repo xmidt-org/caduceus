@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
@@ -103,22 +104,28 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeQdepth.On("With", []string{"url", w.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
+	fakeDuration := new(mockHistogram)
+	fakeDuration.On("With", []string{"url", w.Config.URL}).Return(fakeDuration)
+	fakeDuration.On("Observe", 0.001).Return().On("Observe", -1.0).Return()
+
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
+	fakeRegistry.On("NewHistogram", OutboundRequestDuration).Return(fakeDuration)
 
 	return &OutboundSenderFactory{
-		Listener:        w,
-		Sender:          (&http.Client{Transport: trans}).Do,
-		CutOffPeriod:    cutOffPeriod,
-		NumWorkers:      10,
-		QueueSize:       10,
-		DeliveryRetries: 1,
-		MetricsRegistry: fakeRegistry,
-		Logger:          getLogger(),
+		Listener:         w,
+		Sender:           (&http.Client{Transport: trans}).Do,
+		CutOffPeriod:     cutOffPeriod,
+		NumWorkers:       10,
+		QueueSize:        10,
+		DeliveryRetries:  1,
+		MetricsRegistry:  fakeRegistry,
+		Logger:           getLogger(),
+		OutboundMeasures: NewTestOutboundMeasures(nil),
 	}
 }
 

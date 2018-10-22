@@ -18,13 +18,16 @@ package main
 
 import (
 	"errors"
+
+	"time"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"time"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
@@ -61,6 +64,8 @@ type JWTValidator struct {
 type CaduceusMetricsRegistry interface {
 	NewCounter(name string) metrics.Counter
 	NewGauge(name string) metrics.Gauge
+	NewHistogramVec(name string) *prometheus.HistogramVec
+	NewHistogramVecEx(namespace, subsystem, name string) *prometheus.HistogramVec
 }
 
 type RequestHandler interface {

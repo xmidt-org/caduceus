@@ -17,6 +17,11 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
@@ -25,10 +30,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {

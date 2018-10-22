@@ -23,7 +23,9 @@ import (
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -125,6 +127,20 @@ func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
 	return args.Get(0).(metrics.Gauge)
 }
 
+// mockHistogram provides the mock implementation of the metrics.Histogram object
+type mockHistogram struct {
+	mock.Mock
+}
+
+func (m *mockHistogram) Observe(value float64) {
+	m.Called(value)
+}
+
+func (m *mockHistogram) With(labelValues string) metrics.Histogram {
+	args := m.Called(labelValues)
+	return args.Get(0).(metrics.Histogram)
+}
+
 // mockCaduceusMetricsRegistry provides the mock implementation of the
 // CaduceusMetricsRegistry  object
 type mockCaduceusMetricsRegistry struct {
@@ -136,7 +152,31 @@ func (m *mockCaduceusMetricsRegistry) NewCounter(name string) metrics.Counter {
 	return args.Get(0).(metrics.Counter)
 }
 
+func (m *mockCaduceusMetricsRegistry) NewCounterVec(name string) *prometheus.CounterVec {
+	args := m.Called(name)
+	return args.Get(0).(*prometheus.CounterVec)
+}
+
 func (m *mockCaduceusMetricsRegistry) NewGauge(name string) metrics.Gauge {
 	args := m.Called(name)
 	return args.Get(0).(metrics.Gauge)
+}
+
+func (m *mockCaduceusMetricsRegistry) NewHistogram(name string) *prometheus.Histogram {
+	args := m.Called(name)
+	return args.Get(0).(*prometheus.Histogram)
+}
+
+func (m *mockCaduceusMetricsRegistry) NewHistogramVec(name string) *prometheus.HistogramVec {
+	args := m.Called(name)
+	return args.Get(0).(*prometheus.HistogramVec)
+}
+func (m *mockCaduceusMetricsRegistry) NewHistogramVecEx(namespace, subsystem, name string) *prometheus.HistogramVec {
+	args := m.Called(name)
+	return args.Get(0).(*prometheus.HistogramVec)
+}
+
+// NewTestOutboundMeasures creates an OutboundMeasures appropriate for a testing environment
+func NewTestOutboundMeasures(CaduceusMetricsRegistry) OutboundMeasures {
+	return NewOutboundMeasures(xmetrics.MustNewRegistry(nil, Metrics))
 }
