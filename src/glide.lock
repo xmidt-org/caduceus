@@ -1,6 +1,8 @@
-hash: 5c9aa43d5410004080968bf0948bf1f1ee619d6269cb56ed1e499e57cd3a4fe7
-updated: 2018-10-11T15:02:53.818112-07:00
+hash: ad5359baf66d509bce2cafb65da42025fb2859fd65273770b63db5436be42b53
+updated: 2018-10-23T16:20:13.126192-07:00
 imports:
+- name: github.com/armon/go-metrics
+  version: 783273d703149aaeb9897cf58613d5af48861c25
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
   subpackages:
@@ -33,13 +35,17 @@ imports:
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
   subpackages:
   - quantile
+- name: github.com/billhathaway/consistentHash
+  version: addea16d2229dba874111898b45be7f4a78af631
 - name: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 6ca7d6c5e78ebba17483f5d0e61c7c119b43619a
+  version: 799f8543361e13dda05e4872a0a2d077dda52486
   subpackages:
+  - capacitor
+  - clock
   - concurrent
   - convey
   - convey/conveyhttp
@@ -51,6 +57,11 @@ imports:
   - secure/handler
   - secure/key
   - server
+  - service
+  - service/consul
+  - service/monitor
+  - service/servicecfg
+  - service/zk
   - types
   - webhook
   - webhook/aws
@@ -59,8 +70,9 @@ imports:
   - xhttp
   - xlistener
   - xmetrics
+  - xviper
 - name: github.com/davecgh/go-spew
-  version: 346938d642f2ec3594ed81d874461961cd0faa76
+  version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
@@ -85,6 +97,10 @@ imports:
   - metrics/prometheus
   - metrics/provider
   - metrics/statsd
+  - sd
+  - sd/consul
+  - sd/internal/instance
+  - sd/zk
   - transport/http
   - util/conn
 - name: github.com/go-logfmt/logfmt
@@ -92,7 +108,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/protobuf
-  version: b4deda0973fb4c70b50d226b1af49f3da59f5265
+  version: 9eb2c01ac278a5d89ce4b2be68fe4500955d8179
   subpackages:
   - proto
 - name: github.com/gorilla/context
@@ -101,6 +117,20 @@ imports:
   version: 53c1911da2b537f792e7cafcb446b05ffe33b996
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
+- name: github.com/hashicorp/consul
+  version: 9a494b5fb9c86180a5702e29c485df1507a47198
+  subpackages:
+  - api
+- name: github.com/hashicorp/go-cleanhttp
+  version: d5fe4b57a186c716b0e00b8c301cbd9b4182694d
+- name: github.com/hashicorp/go-immutable-radix
+  version: 7f3cd4390caab3250a57f30efdb2a65dd7649ecf
+- name: github.com/hashicorp/go-rootcerts
+  version: 6bb64b370b90e7ef1fa532be9e591a81c3493e00
+- name: github.com/hashicorp/golang-lru
+  version: 0fb14efe8c47ae851c0034ed7a448854d3d34cf3
+  subpackages:
+  - simplelru
 - name: github.com/hashicorp/hcl
   version: ef8a98b0bbce4a65b5aa4c368430a80ddc533168
   subpackages:
@@ -112,8 +142,12 @@ imports:
   - json/parser
   - json/scanner
   - json/token
+- name: github.com/hashicorp/serf
+  version: 80ab48778deee28e4ea2dc4ef1ebb2c5f4063996
+  subpackages:
+  - coordinate
 - name: github.com/influxdata/influxdb
-  version: d977c0ac2494a59d72f41dc277771a3d297b8e98
+  version: 48797873ee24fc1dcb5a63f23474d3210f6d68c5
   subpackages:
   - client/v2
   - models
@@ -134,12 +168,14 @@ imports:
   - pbutil
 - name: github.com/miekg/dns
   version: ba6747e8a94115e9dc7738afb87850687611df1b
+- name: github.com/mitchellh/go-homedir
+  version: b8bc1bf767474819792c23f32d8286a45736f1c6
 - name: github.com/mitchellh/mapstructure
-  version: f15292f7a699fcc1a38a80977f80a046874ba8ac
+  version: bb74f1db0675b241733089d5a1faa5dd8b0ef57b
 - name: github.com/pelletier/go-toml
-  version: 603baefff989777996bf283da430d693e78eba3a
+  version: c01d1270ff3e442a8a57cddc1c92dc1138598194
 - name: github.com/pmezard/go-difflib
-  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
   subpackages:
   - difflib
 - name: github.com/prometheus/client_golang
@@ -148,7 +184,7 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  version: 99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c
   subpackages:
   - go
 - name: github.com/prometheus/common
@@ -163,6 +199,10 @@ imports:
   - internal/util
   - nfs
   - xfs
+- name: github.com/samuel/go-zookeeper
+  version: c4fab1ac1bec58281ad0667dc3f0907a9476ac47
+  subpackages:
+  - zk
 - name: github.com/satori/go.uuid
   version: f58768cc1a7a7e77a3bd49e98cdd21419399b6a3
 - name: github.com/SermoDigital/jose
@@ -171,6 +211,8 @@ imports:
   - crypto
   - jws
   - jwt
+- name: github.com/spaolacci/murmur3
+  version: 0d12bf811670bf6a1a63828dfbd003eded177fce
 - name: github.com/spf13/afero
   version: 787d034dfe70e44075ccc060d346146ef53270ad
   subpackages:
@@ -184,7 +226,7 @@ imports:
 - name: github.com/spf13/viper
   version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - name: github.com/stretchr/objx
-  version: cbeaeb16a013161a98496fad62933b1d21786672
+  version: 9e1dfc121bca96d392da5d00591953bdb54ab306
 - name: github.com/stretchr/testify
   version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:
@@ -212,11 +254,11 @@ imports:
   - ipv4
   - ipv6
 - name: golang.org/x/sys
-  version: ac767d655b305d4e9612f5f6e33120b9176c4ad4
+  version: 7138fd3d9dc8335c567ca206f4333fb75eb05d56
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
+  version: 5cec4b58c438bd98288aeb248bab2c1840713d21
   subpackages:
   - transform
   - unicode/norm

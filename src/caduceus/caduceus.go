@@ -19,6 +19,9 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/Comcast/webpa-common/service/monitor"
+	"github.com/Comcast/webpa-common/service/servicecfg"
+	"github.com/go-kit/kit/log/level"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
@@ -35,7 +38,6 @@ import (
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/SermoDigital/jose/jwt"
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
@@ -225,6 +227,40 @@ func caduceus(arguments []string) int {
 			errorLog.Log(messageKey, "Server was not ready within a time constraint. SNS confirmation could not happen",
 				logging.ErrorKey(), err)
 		}
+	}
+
+	//
+	// Now, initialize the service discovery infrastructure
+	//
+	e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
+	if err != nil {
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
+		return 4
+	}
+
+	if e != nil {
+		defer e.Close()
+		logger.Log(level.Key(), level.InfoValue(), "configurationFile", v.ConfigFileUsed())
+		e.Register()
+
+		_, err = monitor.New(
+			monitor.WithLogger(logger),
+			monitor.WithFilter(monitor.NewNormalizeFilter(e.DefaultScheme())),
+			monitor.WithEnvironment(e),
+			monitor.WithListeners(
+				monitor.NewMetricsListener(metricsRegistry),
+				monitor.NewRegistrarListener(logger, e, true),
+			),
+		)
+
+		if err != nil {
+			if err.Error() != "No instances to monitor" {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to start service discovery monitor", logging.ErrorKey(), err)
+				return 5
+			}
+		}
+	} else {
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "no service discovery configured")
 	}
 
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
