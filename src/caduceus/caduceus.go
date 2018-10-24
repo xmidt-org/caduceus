@@ -261,8 +261,7 @@ func caduceus(arguments []string) int {
 			exit = true
 		}
 	}
-	s := server.SignalWait(infoLog, signals, os.Interrupt, os.Kill)
-	errorLog.Log(logging.MessageKey(), "exiting due to signal", "signal", s)
+
 	close(shutdown)
 	waitGroup.Wait()
 
