@@ -17,11 +17,15 @@ soa:
 
 numWorkerThreads: 10
 jobQueueSize: 10
-senderNumWorkersPerSender: 10
-senderQueueSizePerSender: 50
-senderCutOffPeriod: 30
-senderLinger: 180
-senderClientTimeout: 60
+sender:
+  numWorkersPerSender: 10
+  queueSizePerSender: 50
+  cutOffPeriod: 30s
+  linger: 180s
+  clientTimeout: 60s
+  deliveryRetries: 1
+  deliveryInterval: 10ms
+  responseHeaderTimeout: 10s
 profilerFrequency: 15
 profilerDuration: 15
 profilerQueueSize: 100
