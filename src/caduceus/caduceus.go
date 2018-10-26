@@ -124,24 +124,23 @@ func caduceus(arguments []string) int {
 
 	tr := &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost:   caduceusConfig.SenderNumWorkersPerSender,
-		ResponseHeaderTimeout: 10 * time.Second, // TODO Make this configurable
+		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
+		ResponseHeaderTimeout: caduceusConfig.Sender.ResponseHeaderTimeout,
+		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
 	}
 
-	timeout := time.Duration(caduceusConfig.SenderClientTimeout) * time.Second
-
 	caduceusSenderWrapper, err := SenderWrapperFactory{
-		NumWorkersPerSender: caduceusConfig.SenderNumWorkersPerSender,
-		QueueSizePerSender:  caduceusConfig.SenderQueueSizePerSender,
-		CutOffPeriod:        time.Duration(caduceusConfig.SenderCutOffPeriod) * time.Second,
-		Linger:              time.Duration(caduceusConfig.SenderLinger) * time.Second,
-		DeliveryRetries:     1,                     // TODO Make this configurable
-		DeliveryInterval:    10 * time.Millisecond, // TODO Make this configurable
+		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
+		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
+		CutOffPeriod:        caduceusConfig.Sender.CutOffPeriod,
+		Linger:              caduceusConfig.Sender.Linger,
+		DeliveryRetries:     caduceusConfig.Sender.DeliveryRetries,
+		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
 		Sender: (&http.Client{
 			Transport: tr,
-			Timeout:   timeout,
+			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do,
 	}.New()
 
