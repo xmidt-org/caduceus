@@ -87,8 +87,13 @@ type OutboundSenderFactory struct {
 	// The http client Do() function to use for outbound requests.
 	Sender func(*http.Request) (*http.Response, error)
 
-	// The number of delivery workers to create and use.
-	NumWorkers int
+	// The number of workers to assign initially to each OutboundSender created,
+	// and the minimum and maximum number for following fluctuations
+	NumWorkers NumWorkersPerSender
+
+	// The time that a worker isn't working before it quits, as long as
+	// the number of workers is above the minimum
+	WorkerIdleTimeout time.Duration
 
 	// The queue depth to buffer events before we declare overflow, shut
 	// off the message delivery, and basically put the endpoint in "timeout."
@@ -144,6 +149,8 @@ type CaduceusOutboundSender struct {
 	queueDepthGauge          metrics.Gauge
 	wg                       sync.WaitGroup
 	cutOffPeriod             time.Duration
+	numWorkers               NumWorkersPerSender
+	workerIdleTimeout        time.Duration
 	failureMsg               FailureMessage
 	logger                   log.Logger
 	mutex                    sync.RWMutex
@@ -172,22 +179,24 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
-		id:               osf.Listener.Config.URL,
-		listener:         osf.Listener,
-		sender:           osf.Sender,
-		secretChan:       make(chan []byte, 10),
-		queueSize:        osf.QueueSize,
-		cutOffPeriod:     osf.CutOffPeriod,
-		deliverUntil:     osf.Listener.Until,
-		logger:           osf.Logger,
-		deliveryRetries:  osf.DeliveryRetries,
-		deliveryInterval: osf.DeliveryInterval,
+		id:                osf.Listener.Config.URL,
+		listener:          osf.Listener,
+		sender:            osf.Sender,
+		secretChan:        make(chan []byte, 10),
+		queueSize:         osf.QueueSize,
+		cutOffPeriod:      osf.CutOffPeriod,
+		deliverUntil:      osf.Listener.Until,
+		logger:            osf.Logger,
+		deliveryRetries:   osf.DeliveryRetries,
+		deliveryInterval:  osf.DeliveryInterval,
+		numWorkers:        osf.NumWorkers,
+		workerIdleTimeout: osf.WorkerIdleTimeout,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
 			Text:         failureText,
 			CutOffPeriod: osf.CutOffPeriod.String(),
 			QueueSize:    osf.QueueSize,
-			Workers:      osf.NumWorkers,
+			Workers:      osf.NumWorkers.Initial,
 		},
 		shutdownChan: make(chan bool, 10),
 	}
@@ -227,8 +236,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return
 	}
 
-	caduceusOutboundSender.wg.Add(osf.NumWorkers)
-	for i := 0; i < osf.NumWorkers; i++ {
+	caduceusOutboundSender.wg.Add(osf.NumWorkers.Initial)
+	for i := 0; i < osf.NumWorkers.Initial; i++ {
 		go caduceusOutboundSender.worker(i)
 	}
 
@@ -506,98 +515,135 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 	retries202 := obs.getCounter(obs.deliveryRetryCounter, 202)
 	retries204 := obs.getCounter(obs.deliveryRetryCounter, 204)
 
-	for msg := range obs.queue {
-		obs.queueDepthGauge.Add(-1.0)
-		obs.mutex.RLock()
-		deliverUntil := obs.deliverUntil
-		dropUntil := obs.dropUntil
-		obs.mutex.RUnlock()
+	for {
+		select {
+		case msg := <-obs.queue:
+			obs.queueDepthGauge.Add(-1.0)
+			obs.mutex.RLock()
+			deliverUntil := obs.deliverUntil
+			dropUntil := obs.dropUntil
+			obs.mutex.RUnlock()
 
-		now := time.Now()
-		if now.After(dropUntil) {
-			if now.Before(deliverUntil) {
-				payload := msg.Payload
-				payloadReader := bytes.NewReader(payload)
-				req, err := http.NewRequest("POST", obs.id, payloadReader)
-				if nil != err {
-					// Report drop
-					obs.droppedInvalidConfig.Add(1.0)
-					logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
-						logging.ErrorKey(), err)
-				} else {
-					req.Header.Set("Content-Type", msg.ContentType)
-
-					// Add x-Midt-* headers
-					wrphttp.AddMessageHeaders(req.Header, msg)
-
-					// Provide the old headers for now
-					req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
-					req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
-
-					// Add the device id without the trailing service
-					id, _ := device.ParseID(msg.Source)
-					req.Header.Set("X-Webpa-Device-Id", string(id))
-					req.Header.Set("X-Webpa-Device-Name", string(id))
-
-					// get the latest secret hash
-					sh := *h.get()
-
-					if nil != sh {
-						sh.Reset()
-						sh.Write(payload)
-						sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(sh.Sum(nil)))
-						req.Header.Set("X-Webpa-Signature", sig)
-					}
-
-					// Setup the retry logic
-					simpleCounter.Count = 0.0
-
-					// find the event "short name"
-					match := eventPattern.FindStringSubmatch(msg.Destination)
-					event := "unknown"
-					if match != nil {
-						event = match[1]
-					}
-
-					// Send it
-					resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+			now := time.Now()
+			if now.After(dropUntil) {
+				if now.Before(deliverUntil) {
+					payload := msg.Payload
+					payloadReader := bytes.NewReader(payload)
+					req, err := http.NewRequest("POST", obs.id, payloadReader)
 					if nil != err {
-						// Report failure
-						obs.getCounter(obs.deliveryCounter, -1).With("event", event).Add(1.0)
-						obs.droppedNetworkErrCounter.Add(1.0)
+						// Report drop
+						obs.droppedInvalidConfig.Add(1.0)
+						logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
+							logging.ErrorKey(), err)
 					} else {
-						// Report Result
-						switch resp.StatusCode {
-						case 200:
-							delivered200.With("event", event).Add(1.0)
-							retries200.With("event", event).Add(simpleCounter.Count)
-						case 201:
-							delivered201.With("event", event).Add(1.0)
-							retries201.With("event", event).Add(simpleCounter.Count)
-						case 202:
-							delivered202.With("event", event).Add(1.0)
-							retries202.With("event", event).Add(simpleCounter.Count)
-						case 204:
-							delivered204.With("event", event).Add(1.0)
-							retries204.With("event", event).Add(simpleCounter.Count)
-						default:
-							obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", event).Add(1.0)
-							obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", event).Add(simpleCounter.Count)
+						req.Header.Set("Content-Type", msg.ContentType)
+
+						// Add x-Midt-* headers
+						wrphttp.AddMessageHeaders(req.Header, msg)
+
+						// Provide the old headers for now
+						req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
+						req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
+
+						// Add the device id without the trailing service
+						id, _ := device.ParseID(msg.Source)
+						req.Header.Set("X-Webpa-Device-Id", string(id))
+						req.Header.Set("X-Webpa-Device-Name", string(id))
+
+						// get the latest secret hash
+						sh := *h.get()
+
+						if nil != sh {
+							sh.Reset()
+							sh.Write(payload)
+							sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(sh.Sum(nil)))
+							req.Header.Set("X-Webpa-Signature", sig)
 						}
 
-						// read until the response is complete before closing to allow
-						// connection reuse
-						if nil != resp.Body {
-							io.Copy(ioutil.Discard, resp.Body)
-							resp.Body.Close()
+						// Setup the retry logic
+						simpleCounter.Count = 0.0
+
+						// find the event "short name"
+						match := eventPattern.FindStringSubmatch(msg.Destination)
+						event := "unknown"
+						if match != nil {
+							event = match[1]
+						}
+
+						// Send it
+						resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+						if nil != err {
+							// Report failure
+							obs.getCounter(obs.deliveryCounter, -1).With("event", event).Add(1.0)
+							obs.droppedNetworkErrCounter.Add(1.0)
+
+							//on failure, decrease the number of threads as needed
+							obs.mutex.Lock()
+							if obs.failureMsg.Workers > obs.numWorkers.Min {
+								logging.Debug(obs.logger).Log(logging.MessageKey(), "Endpoint failed, stopping worker", "worker number", obs.failureMsg.Workers)
+								obs.failureMsg.Workers -= 1
+								obs.mutex.Unlock()
+								return
+							}
+							obs.mutex.Unlock()
+
+						} else {
+							// Report Result
+							switch resp.StatusCode {
+							case 200:
+								delivered200.With("event", event).Add(1.0)
+								retries200.With("event", event).Add(simpleCounter.Count)
+							case 201:
+								delivered201.With("event", event).Add(1.0)
+								retries201.With("event", event).Add(simpleCounter.Count)
+							case 202:
+								delivered202.With("event", event).Add(1.0)
+								retries202.With("event", event).Add(simpleCounter.Count)
+							case 204:
+								delivered204.With("event", event).Add(1.0)
+								retries204.With("event", event).Add(simpleCounter.Count)
+							default:
+								obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", event).Add(1.0)
+								obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", event).Add(simpleCounter.Count)
+							}
+
+							// read until the response is complete before closing to allow
+							// connection reuse
+							if nil != resp.Body {
+								io.Copy(ioutil.Discard, resp.Body)
+								resp.Body.Close()
+							}
+
+							//on success, create another thread if we have space
+							obs.mutex.Lock()
+							if obs.failureMsg.Workers < obs.numWorkers.Max {
+								logging.Debug(obs.logger).Log(logging.MessageKey(), "Endpoint succeeded, starting new worker", "worker number", obs.failureMsg.Workers)
+								obs.wg.Add(1)
+								go obs.worker(obs.failureMsg.Workers)
+								obs.failureMsg.Workers += 1
+							}
+							obs.mutex.Unlock()
+
 						}
 					}
+				} else {
+					obs.droppedExpiredCounter.Add(1.0)
 				}
 			} else {
-				obs.droppedExpiredCounter.Add(1.0)
+				obs.droppedCutoffCounter.Add(1.0)
 			}
-		} else {
-			obs.droppedCutoffCounter.Add(1.0)
+		case <-time.After(obs.workerIdleTimeout):
+			//if we're not using this worker, see if we can get rid of it
+			obs.mutex.Lock()
+			if obs.failureMsg.Workers > obs.numWorkers.Min {
+				logging.Debug(obs.logger).Log(logging.MessageKey(), "worker not being used, stopping worker", "worker number", obs.failureMsg.Workers)
+				obs.failureMsg.Workers -= 1
+				obs.mutex.Unlock()
+				return
+			} else {
+				logging.Debug(obs.logger).Log(logging.MessageKey(), "worker cannot be stopped, at the minimum", "worker number", obs.failureMsg.Workers)
+			}
+			obs.mutex.Unlock()
 		}
 	}
 }

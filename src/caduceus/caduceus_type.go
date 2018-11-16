@@ -38,7 +38,8 @@ type CaduceusConfig struct {
 }
 
 type SenderConfig struct {
-	NumWorkersPerSender   int
+	WorkersPerSender      NumWorkersPerSender
+	WorkerIdleTimeout     time.Duration
 	QueueSizePerSender    int
 	CutOffPeriod          time.Duration
 	Linger                time.Duration
@@ -47,6 +48,12 @@ type SenderConfig struct {
 	IdleConnTimeout       time.Duration
 	DeliveryRetries       int
 	DeliveryInterval      time.Duration
+}
+
+type NumWorkersPerSender struct {
+	Initial int
+	Min     int
+	Max     int
 }
 
 type JWTValidator struct {

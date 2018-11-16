@@ -124,13 +124,14 @@ func caduceus(arguments []string) int {
 
 	tr := &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
+		MaxIdleConnsPerHost:   caduceusConfig.Sender.WorkersPerSender.Max,
 		ResponseHeaderTimeout: caduceusConfig.Sender.ResponseHeaderTimeout,
 		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
 	}
 
 	caduceusSenderWrapper, err := SenderWrapperFactory{
-		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
+		NumWorkersPerSender: caduceusConfig.Sender.WorkersPerSender,
+		WorkerIdleTimeout: caduceusConfig.Sender.WorkerIdleTimeout,
 		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
 		CutOffPeriod:        caduceusConfig.Sender.CutOffPeriod,
 		Linger:              caduceusConfig.Sender.Linger,

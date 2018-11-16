@@ -30,8 +30,13 @@ import (
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
 type SenderWrapperFactory struct {
-	// The number of workers to assign to each OutboundSender created.
-	NumWorkersPerSender int
+	// The number of workers to assign initially to each OutboundSender created,
+	// and the minimum and maximum number for following fluctuations
+	NumWorkersPerSender NumWorkersPerSender
+
+	// The time that a worker isn't working before it quits, as long as
+	// the number of workers is above the minimum
+	WorkerIdleTimeout time.Duration
 
 	// The queue size to assign to each OutboundSender created.
 	QueueSizePerSender int
@@ -74,7 +79,8 @@ type SenderWrapper interface {
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
 	sender              func(*http.Request) (*http.Response, error)
-	numWorkersPerSender int
+	numWorkersPerSender NumWorkersPerSender
+	workerIdleTimeout   time.Duration
 	queueSizePerSender  int
 	deliveryRetries     int
 	deliveryInterval    time.Duration
@@ -94,6 +100,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
 		sender:              swf.Sender,
 		numWorkersPerSender: swf.NumWorkersPerSender,
+		workerIdleTimeout:   swf.WorkerIdleTimeout,
 		queueSizePerSender:  swf.QueueSizePerSender,
 		cutOffPeriod:        swf.CutOffPeriod,
 		linger:              swf.Linger,
@@ -123,14 +130,15 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Sender:           sw.sender,
-		CutOffPeriod:     sw.cutOffPeriod,
-		NumWorkers:       sw.numWorkersPerSender,
-		QueueSize:        sw.queueSizePerSender,
-		MetricsRegistry:  sw.metricsRegistry,
-		DeliveryRetries:  sw.deliveryRetries,
-		DeliveryInterval: sw.deliveryInterval,
-		Logger:           sw.logger,
+		Sender:            sw.sender,
+		CutOffPeriod:      sw.cutOffPeriod,
+		NumWorkers:        sw.numWorkersPerSender,
+		WorkerIdleTimeout: sw.workerIdleTimeout,
+		QueueSize:         sw.queueSizePerSender,
+		MetricsRegistry:   sw.metricsRegistry,
+		DeliveryRetries:   sw.deliveryRetries,
+		DeliveryInterval:  sw.deliveryInterval,
+		Logger:            sw.logger,
 	}
 
 	ids := make([]struct {
