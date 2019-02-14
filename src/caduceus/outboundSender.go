@@ -270,11 +270,10 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 	// Create the matcher regex objects
 	matcher := []*regexp.Regexp{}
-	matchEverything := false
 	for _, item := range wh.Matcher.DeviceId {
 		if ".*" == item {
 			// Match everything - skip the filtering
-			matchEverything = true
+			matcher = []*regexp.Regexp{}
 			break
 		}
 
@@ -284,10 +283,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 			return
 		}
 		matcher = append(matcher, re)
-	}
-	// if matcher list is empty set it nil for Queue() logic
-	if len(matcher) == 0 {
-		matchEverything = true
 	}
 
 	// write/update obs
@@ -303,8 +298,10 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	obs.listener.FailureURL = wh.FailureURL
 	obs.deliverUntil = wh.Until
 	obs.events = events
+
+	// if matcher list is empty set it nil for Queue() logic
 	obs.matcher = nil
-	if false == matchEverything {
+	if 0 < len(matcher) {
 		obs.matcher = matcher
 	}
 
