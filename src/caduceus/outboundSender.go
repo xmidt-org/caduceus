@@ -517,7 +517,22 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 		if now.After(dropUntil) {
 			if now.Before(deliverUntil) {
 				payload := msg.Payload
-				payloadReader := bytes.NewReader(payload)
+				var payloadReader *bytes.Reader
+				if obs.listener.Config.ContentType == "wrp" {
+					buffer := bytes.NewBuffer([]byte{})
+					var f wrp.Format
+					switch msg.ContentType {
+					case "json":
+						f = wrp.JSON
+					default:
+						f = wrp.Msgpack
+					}
+					encoder := wrp.NewEncoder(buffer, f)
+					encoder.Encode(msg)
+					payloadReader = bytes.NewReader(buffer.Bytes())
+				} else {
+					payloadReader = bytes.NewReader(payload)
+				}
 				req, err := http.NewRequest("POST", obs.id, payloadReader)
 				if nil != err {
 					// Report drop
