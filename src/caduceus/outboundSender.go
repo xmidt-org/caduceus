@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -33,11 +32,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/semaphore"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrphttp"
@@ -125,8 +124,6 @@ type CaduceusOutboundSender struct {
 	deliverUntil             time.Time
 	dropUntil                time.Time
 	sender                   func(*http.Request) (*http.Response, error)
-	secret                   []byte
-	secretChan               chan []byte
 	events                   []*regexp.Regexp
 	matcher                  []*regexp.Regexp
 	queueSize                int
@@ -144,10 +141,11 @@ type CaduceusOutboundSender struct {
 	queueDepthGauge          metrics.Gauge
 	wg                       sync.WaitGroup
 	cutOffPeriod             time.Duration
+	workers                  semaphore.Interface
+	maxWorkers               int
 	failureMsg               FailureMessage
 	logger                   log.Logger
 	mutex                    sync.RWMutex
-	shutdownChan             chan bool
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -175,13 +173,13 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		id:               osf.Listener.Config.URL,
 		listener:         osf.Listener,
 		sender:           osf.Sender,
-		secretChan:       make(chan []byte, 10),
 		queueSize:        osf.QueueSize,
 		cutOffPeriod:     osf.CutOffPeriod,
 		deliverUntil:     osf.Listener.Until,
 		logger:           osf.Logger,
 		deliveryRetries:  osf.DeliveryRetries,
 		deliveryInterval: osf.DeliveryInterval,
+		maxWorkers:       osf.NumWorkers,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
 			Text:         failureText,
@@ -189,7 +187,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
-		shutdownChan: make(chan bool, 10),
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -227,12 +224,12 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return
 	}
 
-	caduceusOutboundSender.wg.Add(osf.NumWorkers)
-	for i := 0; i < osf.NumWorkers; i++ {
-		go caduceusOutboundSender.worker(i)
-	}
+	caduceusOutboundSender.workers = semaphore.New(caduceusOutboundSender.maxWorkers)
+	caduceusOutboundSender.wg.Add(1)
+	go caduceusOutboundSender.dispatcher()
 
 	obs = caduceusOutboundSender
+
 	return
 }
 
@@ -262,12 +259,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		return
 	}
 
-	// Make the secret bytes if available
-	var secret []byte
-	if "" != wh.Config.Secret {
-		secret = []byte(wh.Config.Secret)
-	}
-
 	// Create the matcher regex objects
 	matcher := []*regexp.Regexp{}
 	for _, item := range wh.Matcher.DeviceId {
@@ -294,7 +285,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	// Don't share the secret with others when there is an error.
 	obs.failureMsg.Original.Config.Secret = "XxxxxX"
 
-	obs.secret = secret
 	obs.listener.FailureURL = wh.FailureURL
 	obs.deliverUntil = wh.Until
 	obs.events = events
@@ -307,8 +297,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 	obs.mutex.Unlock()
 
-	obs.secretChan <- secret
-
 	return
 }
 
@@ -316,11 +304,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	obs.shutdownChan <- true
-
 	close(obs.queue)
-	close(obs.secretChan)
-	close(obs.shutdownChan)
 
 	obs.mutex.Lock()
 	if false == gentle {
@@ -425,189 +409,124 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	}
 }
 
-// helper function to get the right delivery counter to increment
-func (obs *CaduceusOutboundSender) getCounter(c metrics.Counter, status int) metrics.Counter {
-	if -1 == status {
-		return c.With("url", obs.id, "code", "failure")
-	}
-
-	s := strconv.Itoa(status)
-	return c.With("url", obs.id, "code", s)
-}
-
-type secretHash struct {
-	value atomic.Value
-}
-
-func (sh *secretHash) set(h *hash.Hash) {
-	sh.value.Store(h)
-}
-
-func (sh *secretHash) get() *hash.Hash {
-	if h, ok := sh.value.Load().(*hash.Hash); ok {
-		return h
-	}
-
-	return nil
-}
-
-// worker is the routine that actually takes the queued messages and delivers
-// them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) worker(id int) {
+func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
-
-	// Make a local copy of the hmac
-	var h secretHash
-	h.set(new(hash.Hash))
-
-	// routine that will listen for secret changes
-	// if a change comes in, both the local secret copy and the hash are updated
-	go func(sc chan []byte, shutdown chan bool) {
-		for {
-			select {
-			case secret := <-sc:
-				// Create the base sha1 hash object for each thread
-				if nil != secret {
-					t := hmac.New(sha1.New, secret)
-					h.set(&t)
-				} else {
-					h.set(new(hash.Hash))
-				}
-			case <-shutdown:
-				return
-			}
-		}
-	}(obs.secretChan, obs.shutdownChan)
-
-	// Setup the retry structs once
-	simpleCounter := &SimpleCounter{}
-
-	retryOptions := xhttp.RetryOptions{
-		Logger:   obs.logger,
-		Retries:  obs.deliveryRetries,
-		Interval: obs.deliveryInterval,
-		Counter:  simpleCounter,
-		// Always retry on failures up to the max count.
-		ShouldRetry: func(error) bool { return true },
-	}
-
-	// Only optimize the successful answers
-	delivered200 := obs.getCounter(obs.deliveryCounter, 200)
-	delivered201 := obs.getCounter(obs.deliveryCounter, 201)
-	delivered202 := obs.getCounter(obs.deliveryCounter, 202)
-	delivered204 := obs.getCounter(obs.deliveryCounter, 204)
-	retries200 := obs.getCounter(obs.deliveryRetryCounter, 200)
-	retries201 := obs.getCounter(obs.deliveryRetryCounter, 201)
-	retries202 := obs.getCounter(obs.deliveryRetryCounter, 202)
-	retries204 := obs.getCounter(obs.deliveryRetryCounter, 204)
 
 	for msg := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
+
 		obs.mutex.RLock()
 		deliverUntil := obs.deliverUntil
 		dropUntil := obs.dropUntil
+		secret := obs.listener.Config.Secret
 		obs.mutex.RUnlock()
 
 		now := time.Now()
+
 		if now.After(dropUntil) {
 			if now.Before(deliverUntil) {
-				payload := msg.Payload
-				var payloadReader *bytes.Reader
-				if obs.listener.Config.ContentType == "wrp" {
-					buffer := bytes.NewBuffer([]byte{})
-					var f wrp.Format
-					switch msg.ContentType {
-					case "json":
-						f = wrp.JSON
-					default:
-						f = wrp.Msgpack
-					}
-					encoder := wrp.NewEncoder(buffer, f)
-					encoder.Encode(msg)
-					payloadReader = bytes.NewReader(buffer.Bytes())
-				} else {
-					payloadReader = bytes.NewReader(payload)
-				}
-				req, err := http.NewRequest("POST", obs.id, payloadReader)
-				if nil != err {
-					// Report drop
-					obs.droppedInvalidConfig.Add(1.0)
-					logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
-						logging.ErrorKey(), err)
-				} else {
-					req.Header.Set("Content-Type", msg.ContentType)
-
-					// Add x-Midt-* headers
-					wrphttp.AddMessageHeaders(req.Header, msg)
-
-					// Provide the old headers for now
-					req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
-					req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
-
-					// Add the device id without the trailing service
-					id, _ := device.ParseID(msg.Source)
-					req.Header.Set("X-Webpa-Device-Id", string(id))
-					req.Header.Set("X-Webpa-Device-Name", string(id))
-
-					// get the latest secret hash
-					sh := *h.get()
-
-					if nil != sh {
-						sh.Reset()
-						sh.Write(payload)
-						sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(sh.Sum(nil)))
-						req.Header.Set("X-Webpa-Signature", sig)
-					}
-
-					// Setup the retry logic
-					simpleCounter.Count = 0.0
-
-					// find the event "short name"
-					match := eventPattern.FindStringSubmatch(msg.Destination)
-					event := "unknown"
-					if match != nil {
-						event = match[1]
-					}
-
-					// Send it
-					resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
-					if nil != err {
-						// Report failure
-						obs.getCounter(obs.deliveryCounter, -1).With("event", event).Add(1.0)
-						obs.droppedNetworkErrCounter.Add(1.0)
-					} else {
-						// Report Result
-						switch resp.StatusCode {
-						case 200:
-							delivered200.With("event", event).Add(1.0)
-							retries200.With("event", event).Add(simpleCounter.Count)
-						case 201:
-							delivered201.With("event", event).Add(1.0)
-							retries201.With("event", event).Add(simpleCounter.Count)
-						case 202:
-							delivered202.With("event", event).Add(1.0)
-							retries202.With("event", event).Add(simpleCounter.Count)
-						case 204:
-							delivered204.With("event", event).Add(1.0)
-							retries204.With("event", event).Add(simpleCounter.Count)
-						default:
-							obs.getCounter(obs.deliveryCounter, resp.StatusCode).With("event", event).Add(1.0)
-							obs.getCounter(obs.deliveryRetryCounter, resp.StatusCode).With("event", event).Add(simpleCounter.Count)
-						}
-
-						// read until the response is complete before closing to allow
-						// connection reuse
-						if nil != resp.Body {
-							io.Copy(ioutil.Discard, resp.Body)
-							resp.Body.Close()
-						}
-					}
-				}
+				obs.workers.Acquire()
+				go obs.send(secret, msg)
 			} else {
 				obs.droppedExpiredCounter.Add(1.0)
 			}
 		} else {
 			obs.droppedCutoffCounter.Add(1.0)
+		}
+	}
+
+	// Grab all the workers to make sure they are done.
+	for i := 0; i < obs.maxWorkers; i++ {
+		obs.workers.Acquire()
+	}
+}
+
+// worker is the routine that actually takes the queued messages and delivers
+// them to the listeners outside webpa
+func (obs *CaduceusOutboundSender) send(secret string, msg *wrp.Message) {
+	defer obs.workers.Release()
+
+	payload := msg.Payload
+	var payloadReader *bytes.Reader
+	if obs.listener.Config.ContentType == "wrp" {
+		// WTS - I'm not sure if this is correct.
+		buffer := bytes.NewBuffer([]byte{})
+		var f wrp.Format
+		switch msg.ContentType {
+		case "json":
+			f = wrp.JSON
+		default:
+			f = wrp.Msgpack
+		}
+		encoder := wrp.NewEncoder(buffer, f)
+		encoder.Encode(msg)
+		payloadReader = bytes.NewReader(buffer.Bytes())
+	} else {
+		payloadReader = bytes.NewReader(payload)
+	}
+
+	req, err := http.NewRequest("POST", obs.id, payloadReader)
+	if nil != err {
+		// Report drop
+		obs.droppedInvalidConfig.Add(1.0)
+		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
+			logging.ErrorKey(), err)
+	} else {
+		req.Header.Set("Content-Type", msg.ContentType)
+
+		// Add x-Midt-* headers
+		wrphttp.AddMessageHeaders(req.Header, msg)
+
+		// Provide the old headers for now
+		req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
+		req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
+
+		// Add the device id without the trailing service
+		id, _ := device.ParseID(msg.Source)
+		req.Header.Set("X-Webpa-Device-Id", string(id))
+		req.Header.Set("X-Webpa-Device-Name", string(id))
+
+		// Apply the secret
+
+		if "" != secret {
+			s := hmac.New(sha1.New, []byte(secret))
+			s.Write(payload)
+			sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
+			req.Header.Set("X-Webpa-Signature", sig)
+		}
+
+		// find the event "short name"
+		match := eventPattern.FindStringSubmatch(msg.Destination)
+		event := "unknown"
+		if match != nil {
+			event = match[1]
+		}
+
+		retryOptions := xhttp.RetryOptions{
+			Logger:   obs.logger,
+			Retries:  obs.deliveryRetries,
+			Interval: obs.deliveryInterval,
+			Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
+			// Always retry on failures up to the max count.
+			ShouldRetry: func(error) bool { return true },
+		}
+
+		// Send it
+		resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+		if nil != err {
+			// Report failure
+			obs.deliveryCounter.With("url", obs.id, "code", "failure", "event", event).Add(1.0)
+			obs.droppedNetworkErrCounter.Add(1.0)
+		} else {
+			// Report Result
+			obs.deliveryCounter.With("url", obs.id, "code", strconv.Itoa(resp.StatusCode), "event", event).Add(1.0)
+
+			// read until the response is complete before closing to allow
+			// connection reuse
+			if nil != resp.Body {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
 		}
 	}
 }
@@ -616,7 +535,7 @@ func (obs *CaduceusOutboundSender) worker(id int) {
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
-	secret := obs.secret
+	secret := obs.listener.Config.Secret
 	failureMsg := obs.failureMsg
 	failureURL := obs.listener.FailureURL
 	obs.mutex.Unlock()
@@ -648,8 +567,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			} else {
 				req.Header.Set("Content-Type", "application/json")
 
-				if nil != obs.secret {
-					h := hmac.New(sha1.New, secret)
+				if "" != secret {
+					h := hmac.New(sha1.New, []byte(secret))
 					h.Write(msg)
 					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
 					req.Header.Set("X-Webpa-Signature", sig)
