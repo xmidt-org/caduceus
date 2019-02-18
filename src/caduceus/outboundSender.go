@@ -419,6 +419,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		deliverUntil := obs.deliverUntil
 		dropUntil := obs.dropUntil
 		secret := obs.listener.Config.Secret
+		accept := obs.listener.Config.ContentType
 		obs.mutex.RUnlock()
 
 		now := time.Now()
@@ -426,7 +427,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		if now.After(dropUntil) {
 			if now.Before(deliverUntil) {
 				obs.workers.Acquire()
-				go obs.send(secret, msg)
+				go obs.send(secret, accept, msg)
 			} else {
 				obs.droppedExpiredCounter.Add(1.0)
 			}
@@ -443,22 +444,17 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) send(secret string, msg *wrp.Message) {
+func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Message) {
 	defer obs.workers.Release()
 
 	payload := msg.Payload
 	var payloadReader *bytes.Reader
-	if obs.listener.Config.ContentType == "wrp" {
-		// WTS - I'm not sure if this is correct.
+
+	if acceptType == "wrp" {
+		// WTS - We should pass the original, raw WRP event instead of
+		// re-encoding it.
 		buffer := bytes.NewBuffer([]byte{})
-		var f wrp.Format
-		switch msg.ContentType {
-		case "json":
-			f = wrp.JSON
-		default:
-			f = wrp.Msgpack
-		}
-		encoder := wrp.NewEncoder(buffer, f)
+		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
 		encoder.Encode(msg)
 		payloadReader = bytes.NewReader(buffer.Bytes())
 	} else {
