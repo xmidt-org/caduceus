@@ -343,70 +343,83 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 
 	var debugLog = logging.Debug(obs.logger)
 
-	if now.After(dropUntil) {
-		if now.Before(deliverUntil) {
-			for _, eventRegex := range events {
-				if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-					matchDevice := (nil == matcher)
-					if nil != matcher {
-						for _, deviceRegex := range matcher {
-							if deviceRegex.MatchString(msg.Source) {
+	if false == obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
+		return
+	}
+
+	for _, eventRegex := range events {
+		if false == eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+			debugLog.Log(logging.MessageKey(),
+				fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
+					msg.Destination, eventRegex.String()))
+			continue
+		}
+
+		matchDevice := (nil == matcher)
+		if nil != matcher {
+			for _, deviceRegex := range matcher {
+				if deviceRegex.MatchString(msg.Source) {
+					matchDevice = true
+					break
+				}
+			}
+		}
+		/*
+			// if the device id matches then we want to look through all the metadata
+			// and make sure that the obs metadata matches the metadata provided
+			if matchDevice {
+				for key, val := range metaData {
+					if matchers, ok := matcher[key]; ok {
+						for _, deviceRegex := range matchers {
+							matchDevice = false
+							if deviceRegex.MatchString(val) {
 								matchDevice = true
 								break
 							}
 						}
-					}
-					/*
-						// if the device id matches then we want to look through all the metadata
-						// and make sure that the obs metadata matches the metadata provided
-						if matchDevice {
-							for key, val := range metaData {
-								if matchers, ok := matcher[key]; ok {
-									for _, deviceRegex := range matchers {
-										matchDevice = false
-										if deviceRegex.MatchString(val) {
-											matchDevice = true
-											break
-										}
-									}
 
-									// metadata was provided but did not match our expectations,
-									// so it is time to drop the message
-									if !matchDevice {
-										break
-									}
-								}
-							}
-						}
-					*/
-					if matchDevice {
-						if len(obs.queue) < obs.queueSize {
-							obs.queueDepthGauge.Add(1.0)
-							obs.queue <- msg
-							debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
-							// a regex was matched, no need to check further matches
+						// metadata was provided but did not match our expectations,
+						// so it is time to drop the message
+						if !matchDevice {
 							break
-						} else {
-							obs.queueOverflow()
-							obs.droppedQueueFullCounter.Add(1.0)
 						}
 					}
-				} else {
-					debugLog.Log(logging.MessageKey(),
-						fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
-							msg.Destination, eventRegex.String()))
 				}
 			}
-		} else {
-			debugLog.Log(logging.MessageKey(), "Outside delivery window",
-				"now", now, "before", deliverUntil, "after", dropUntil)
-			obs.droppedExpiredCounter.Add(1.0)
+		*/
+		if matchDevice {
+			if len(obs.queue) < obs.queueSize {
+				obs.queueDepthGauge.Add(1.0)
+				obs.queue <- msg
+				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
+				// a regex was matched, no need to check further matches
+				break
+			} else {
+				obs.queueOverflow()
+				obs.droppedQueueFullCounter.Add(1.0)
+			}
 		}
-	} else {
+	}
+}
+
+func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
+	var debugLog = logging.Debug(obs.logger)
+
+	if false == now.After(dropUntil) {
 		debugLog.Log(logging.MessageKey(), "Client has been cut off",
 			"now", now, "before", deliverUntil, "after", dropUntil)
 		obs.droppedCutoffCounter.Add(1.0)
+		return false
 	}
+
+	if false == now.Before(deliverUntil) {
+		debugLog.Log(logging.MessageKey(), "Outside delivery window",
+			"now", now, "before", deliverUntil, "after", dropUntil)
+		obs.droppedExpiredCounter.Add(1.0)
+		return false
+	}
+
+	return true
 }
 
 func (obs *CaduceusOutboundSender) dispatcher() {
@@ -467,64 +480,66 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		obs.droppedInvalidConfig.Add(1.0)
 		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
 			logging.ErrorKey(), err)
+		return
+	}
+
+	req.Header.Set("Content-Type", msg.ContentType)
+
+	// Add x-Midt-* headers
+	wrphttp.AddMessageHeaders(req.Header, msg)
+
+	// Provide the old headers for now
+	req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
+	req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
+
+	// Add the device id without the trailing service
+	id, _ := device.ParseID(msg.Source)
+	req.Header.Set("X-Webpa-Device-Id", string(id))
+	req.Header.Set("X-Webpa-Device-Name", string(id))
+
+	// Apply the secret
+
+	if "" != secret {
+		s := hmac.New(sha1.New, []byte(secret))
+		s.Write(payload)
+		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
+		req.Header.Set("X-Webpa-Signature", sig)
+	}
+
+	// find the event "short name"
+	match := eventPattern.FindStringSubmatch(msg.Destination)
+	event := "unknown"
+	if match != nil {
+		event = match[1]
+	}
+
+	retryOptions := xhttp.RetryOptions{
+		Logger:   obs.logger,
+		Retries:  obs.deliveryRetries,
+		Interval: obs.deliveryInterval,
+		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
+		// Always retry on failures up to the max count.
+		ShouldRetry: func(error) bool { return true },
+	}
+
+	// Send it
+	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+	code := "failure"
+	if nil != err {
+		// Report failure
+		obs.droppedNetworkErrCounter.Add(1.0)
 	} else {
-		req.Header.Set("Content-Type", msg.ContentType)
+		// Report Result
+		code = strconv.Itoa(resp.StatusCode)
 
-		// Add x-Midt-* headers
-		wrphttp.AddMessageHeaders(req.Header, msg)
-
-		// Provide the old headers for now
-		req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
-		req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
-
-		// Add the device id without the trailing service
-		id, _ := device.ParseID(msg.Source)
-		req.Header.Set("X-Webpa-Device-Id", string(id))
-		req.Header.Set("X-Webpa-Device-Name", string(id))
-
-		// Apply the secret
-
-		if "" != secret {
-			s := hmac.New(sha1.New, []byte(secret))
-			s.Write(payload)
-			sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
-			req.Header.Set("X-Webpa-Signature", sig)
-		}
-
-		// find the event "short name"
-		match := eventPattern.FindStringSubmatch(msg.Destination)
-		event := "unknown"
-		if match != nil {
-			event = match[1]
-		}
-
-		retryOptions := xhttp.RetryOptions{
-			Logger:   obs.logger,
-			Retries:  obs.deliveryRetries,
-			Interval: obs.deliveryInterval,
-			Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
-			// Always retry on failures up to the max count.
-			ShouldRetry: func(error) bool { return true },
-		}
-
-		// Send it
-		resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
-		if nil != err {
-			// Report failure
-			obs.deliveryCounter.With("url", obs.id, "code", "failure", "event", event).Add(1.0)
-			obs.droppedNetworkErrCounter.Add(1.0)
-		} else {
-			// Report Result
-			obs.deliveryCounter.With("url", obs.id, "code", strconv.Itoa(resp.StatusCode), "event", event).Add(1.0)
-
-			// read until the response is complete before closing to allow
-			// connection reuse
-			if nil != resp.Body {
-				io.Copy(ioutil.Discard, resp.Body)
-				resp.Body.Close()
-			}
+		// read until the response is complete before closing to allow
+		// connection reuse
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
 		}
 	}
+	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows
@@ -548,47 +563,49 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	if nil != err {
 		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
 			"for", obs.id, logging.ErrorKey(), err)
-	} else {
-		errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.id)
-
-		// Send a "you've been cut off" warning message
-		if "" != failureURL {
-
-			payload := bytes.NewReader(msg)
-			req, err := http.NewRequest("POST", failureURL, payload)
-			if nil != err {
-				// Failure
-				errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-					failureURL, "for", obs.id, logging.ErrorKey(), err)
-			} else {
-				req.Header.Set("Content-Type", "application/json")
-
-				if "" != secret {
-					h := hmac.New(sha1.New, []byte(secret))
-					h.Write(msg)
-					sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
-					req.Header.Set("X-Webpa-Signature", sig)
-				}
-
-				resp, err := obs.sender(req)
-				if nil != err {
-					// Failure
-					errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-						failureURL, "for", obs.id, logging.ErrorKey(), err)
-				} else {
-					if nil == resp {
-						// Failure
-						errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
-							"notification", failureURL)
-					} else {
-						// Success
-						logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
-							"status", resp.Status)
-					}
-				}
-			}
-		} else {
-			errorLog.Log(logging.MessageKey(), "No cut-off notification URL specified", "for", obs.id)
-		}
+		return
 	}
+	errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.id)
+
+	// Send a "you've been cut off" warning message
+	if "" == failureURL {
+		errorLog.Log(logging.MessageKey(), "No cut-off notification URL specified", "for", obs.id)
+		return
+	}
+
+	payload := bytes.NewReader(msg)
+	req, err := http.NewRequest("POST", failureURL, payload)
+	if nil != err {
+		// Failure
+		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
+			failureURL, "for", obs.id, logging.ErrorKey(), err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	if "" != secret {
+		h := hmac.New(sha1.New, []byte(secret))
+		h.Write(msg)
+		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
+		req.Header.Set("X-Webpa-Signature", sig)
+	}
+
+	resp, err := obs.sender(req)
+	if nil != err {
+		// Failure
+		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
+			failureURL, "for", obs.id, logging.ErrorKey(), err)
+		return
+	}
+
+	if nil == resp {
+		// Failure
+		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
+			"notification", failureURL)
+		return
+	}
+
+	// Success
+	logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
+		"status", resp.Status)
 }
