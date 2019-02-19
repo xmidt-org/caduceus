@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Remove the worker pool as a fixed number of workers per endpoint and simply cap
+  the maximum number.
+- Fix for webhook shallow copy bug.
+- Fix for delivering events as json or msgpack based events
 - Fix for webhook update for all fields
 - Fix for retry logic so all failures are retried the specified number of times
 - Fix for waiting for DNS to resolve prior to listening for webhook updates
