@@ -17,7 +17,6 @@
 package main
 
 import (
-	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
@@ -77,44 +76,4 @@ func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
 	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
 		" to sender")
 	ch.senderWrapper.Queue(msg)
-}
-
-// Below is the struct and implementation of our worker pool factory
-type WorkerPoolFactory struct {
-	NumWorkers int
-	QueueSize  int
-}
-
-func (wpf WorkerPoolFactory) New() (wp *WorkerPool) {
-	jobs := make(chan func(workerID int), wpf.QueueSize)
-
-	for i := 0; i < wpf.NumWorkers; i++ {
-		go func(id int) {
-			for f := range jobs {
-				f(id)
-			}
-		}(i)
-	}
-
-	wp = &WorkerPool{
-		jobs: jobs,
-	}
-
-	return
-}
-
-// Below is the struct and implementation of our worker pool
-// It utilizes a non-blocking channel, so we throw away any requests that exceed
-// the channel's limit (indicated by its buffer size)
-type WorkerPool struct {
-	jobs chan func(workerID int)
-}
-
-func (wp *WorkerPool) Send(inFunc func(workerID int)) error {
-	select {
-	case wp.jobs <- inFunc:
-		return nil
-	default:
-		return errors.New("Worker pool channel full.")
-	}
 }
