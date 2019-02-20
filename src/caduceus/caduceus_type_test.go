@@ -17,51 +17,12 @@
 package main
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
-
-func TestWorkerPool(t *testing.T) {
-	assert := assert.New(t)
-
-	workerPool := WorkerPoolFactory{
-		NumWorkers: 1,
-		QueueSize:  1,
-	}.New()
-
-	t.Run("TestWorkerPoolSend", func(t *testing.T) {
-		testWG := new(sync.WaitGroup)
-		testWG.Add(1)
-
-		require.NotNil(t, workerPool)
-		err := workerPool.Send(func(workerID int) {
-			testWG.Done()
-		})
-
-		testWG.Wait()
-		assert.Nil(err)
-	})
-
-	workerPool = WorkerPoolFactory{
-		NumWorkers: 0,
-		QueueSize:  0,
-	}.New()
-
-	t.Run("TestWorkerPoolFullQueue", func(t *testing.T) {
-		require.NotNil(t, workerPool)
-		err := workerPool.Send(func(workerID int) {
-			assert.Fail("This should not execute because our worker queue is full and we have no workers.")
-		})
-
-		assert.NotNil(err)
-	})
-}
 
 func TestCaduceusHandler(t *testing.T) {
 	logger := logging.DefaultLogger()
