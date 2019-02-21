@@ -5,13 +5,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+-
+
+## [0.1.2] - 2019-02-21
+### Added
+- Fix for delivering events as json or msgpack based events [issue 113](https://github.com/Comcast/caduceus/issues/113)
+
+### Changed
+- Updated to new version of webpa-common library
 - Remove the worker pool as a fixed number of workers per endpoint and simply cap
-  the maximum number.
-- Fix for webhook shallow copy bug.
-- Fix for delivering events as json or msgpack based events
-- Fix for webhook update for all fields
-- Fix for retry logic so all failures are retried the specified number of times
-- Fix for waiting for DNS to resolve prior to listening for webhook updates
+  the maximum number.  Partial fix for [issue 115](https://github.com/Comcast/caduceus/issues/115), [issue 103](https://github.com/Comcast/caduceus/issues/103)
+- Fix for webhook shallow copy bug.  Partial fix for [issue 115](https://github.com/Comcast/caduceus/issues/115)
+- Fix for webhook update for all fields (updated webpa-common code to bring in fix)
+- Fix for retry logic so all failures are retried the specified number of times - [issue 91](https://github.com/Comcast/caduceus/issues/91)
+- Fix for waiting for DNS to resolve prior to listening for webhook updates - [issue 111](https://github.com/Comcast/caduceus/issues/111)
 - Fix for cpu spike after about 10 mintues due to worker go routines not finishing.
 - Fix logic for updating webhooks
 - Fix for sending the same event multiple times to the same webhook.
@@ -30,6 +38,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/0.1.2...HEAD
+[0.1.2]: https://github.com/Comcast/caduceus/compare/0.1.1...0.1.2
 [0.1.1]: https://github.com/Comcast/caduceus/compare/0.0.1...0.1.1
 [0.0.1]: https://github.com/Comcast/caduceus/compare/0.0.0...0.0.1
