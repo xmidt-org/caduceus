@@ -1,5 +1,5 @@
-hash: 98a3ab8aa409ebc6af88888bdb48f1cf25af970ed8ea0a3bbcaae1d01f7d51dc
-updated: 2019-02-14T18:47:17.113403999-08:00
+hash: 8e0b5dc0f4fcee573e27644aa4b665502fecb68c941dad21430d3f491ee8519d
+updated: 2019-02-21T10:14:46.1291513-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -38,7 +38,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 0f087c5390cb60f4bdff2a27d1858c5e44755ce4
+  version: ee36b7e7561c779aa65a66fbef35b46720486987
   subpackages:
   - concurrent
   - convey
@@ -145,9 +145,10 @@ imports:
   subpackages:
   - difflib
 - name: github.com/prometheus/client_golang
-  version: 967789050ba94deca04a5e84cce8ad472ce313c1
+  version: 505eaef017263e299324067d40ca2c48f6a2cf50
   subpackages:
   - prometheus
+  - prometheus/internal
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: 99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c
