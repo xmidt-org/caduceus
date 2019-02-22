@@ -394,10 +394,9 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 				// a regex was matched, no need to check further matches
 				break
-			} else {
-				obs.queueOverflow()
-				obs.droppedQueueFullCounter.Add(1.0)
 			}
+			obs.queueOverflow()
+			obs.droppedQueueFullCounter.Add(1.0)
 		}
 	}
 }
@@ -437,16 +436,17 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 
 		now := time.Now()
 
-		if now.After(dropUntil) {
-			if now.Before(deliverUntil) {
-				obs.workers.Acquire()
-				go obs.send(secret, accept, msg)
-			} else {
-				obs.droppedExpiredCounter.Add(1.0)
-			}
-		} else {
+		if now.Before(dropUntil) {
 			obs.droppedCutoffCounter.Add(1.0)
+			continue
 		}
+		if now.After(deliverUntil) {
+
+			obs.droppedExpiredCounter.Add(1.0)
+			continue
+		}
+		obs.workers.Acquire()
+		go obs.send(secret, accept, msg)
 	}
 
 	// Grab all the workers to make sure they are done.

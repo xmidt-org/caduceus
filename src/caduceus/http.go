@@ -81,15 +81,15 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	decoder := wrp.NewDecoderBytes(payload, wrp.Msgpack)
 	msg := new(wrp.Message)
-	if err := decoder.Decode(msg); nil == err {
-		sh.caduceusHandler.HandleRequest(0, fixWrp(msg))
-	} else {
+	if err := decoder.Decode(msg); err != nil {
 		// return a 400
 		sh.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Invalid payload format.\n"))
 		debugLog.Log(messageKey, "Invalid payload format.\n")
+		return
 	}
+	sh.caduceusHandler.HandleRequest(0, fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
