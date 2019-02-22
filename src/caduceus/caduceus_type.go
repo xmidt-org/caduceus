@@ -17,27 +17,35 @@
 package main
 
 import (
-	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"time"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
 // TODO: Try to figure out how to make bucket ranges configurable
 type CaduceusConfig struct {
-	AuthHeader                []string
-	NumWorkerThreads          int
-	JobQueueSize              int
-	SenderNumWorkersPerSender int
-	SenderQueueSizePerSender  int
-	SenderCutOffPeriod        int
-	SenderLinger              int
-	SenderClientTimeout       int
-	JWTValidators             []JWTValidator
+	AuthHeader       []string
+	NumWorkerThreads int
+	JobQueueSize     int
+	Sender           SenderConfig
+	JWTValidators    []JWTValidator
+}
+
+type SenderConfig struct {
+	NumWorkersPerSender   int
+	QueueSizePerSender    int
+	CutOffPeriod          time.Duration
+	Linger                time.Duration
+	ClientTimeout         time.Duration
+	ResponseHeaderTimeout time.Duration
+	IdleConnTimeout       time.Duration
+	DeliveryRetries       int
+	DeliveryInterval      time.Duration
 }
 
 type JWTValidator struct {
@@ -68,44 +76,4 @@ func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
 	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
 		" to sender")
 	ch.senderWrapper.Queue(msg)
-}
-
-// Below is the struct and implementation of our worker pool factory
-type WorkerPoolFactory struct {
-	NumWorkers int
-	QueueSize  int
-}
-
-func (wpf WorkerPoolFactory) New() (wp *WorkerPool) {
-	jobs := make(chan func(workerID int), wpf.QueueSize)
-
-	for i := 0; i < wpf.NumWorkers; i++ {
-		go func(id int) {
-			for f := range jobs {
-				f(id)
-			}
-		}(i)
-	}
-
-	wp = &WorkerPool{
-		jobs: jobs,
-	}
-
-	return
-}
-
-// Below is the struct and implementation of our worker pool
-// It utilizes a non-blocking channel, so we throw away any requests that exceed
-// the channel's limit (indicated by its buffer size)
-type WorkerPool struct {
-	jobs chan func(workerID int)
-}
-
-func (wp *WorkerPool) Send(inFunc func(workerID int)) error {
-	select {
-	case wp.jobs <- inFunc:
-		return nil
-	default:
-		return errors.New("Worker pool channel full.")
-	}
 }

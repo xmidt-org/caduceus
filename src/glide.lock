@@ -1,5 +1,5 @@
-hash: ad5359baf66d509bce2cafb65da42025fb2859fd65273770b63db5436be42b53
-updated: 2018-10-23T16:20:13.126192-07:00
+hash: 8e0b5dc0f4fcee573e27644aa4b665502fecb68c941dad21430d3f491ee8519d
+updated: 2019-02-21T10:14:46.1291513-08:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -42,13 +42,14 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: 799f8543361e13dda05e4872a0a2d077dda52486
+  version: ee36b7e7561c779aa65a66fbef35b46720486987
   subpackages:
   - capacitor
   - clock
   - concurrent
   - convey
   - convey/conveyhttp
+  - convey/conveymetric
   - device
   - health
   - logging
@@ -56,6 +57,7 @@ imports:
   - secure
   - secure/handler
   - secure/key
+  - semaphore
   - server
   - service
   - service/consul
@@ -67,6 +69,7 @@ imports:
   - webhook/aws
   - wrp
   - wrp/wrphttp
+  - wrp/wrpmeta
   - xhttp
   - xlistener
   - xmetrics
@@ -80,7 +83,7 @@ imports:
 - name: github.com/go-ini/ini
   version: bda519ae5f4cbc60d391ff8610711627a08b86ae
 - name: github.com/go-kit/kit
-  version: 4dc7be5d2d12881735283bcab7352178e190fc71
+  version: 12210fb6ace19e0496167bb3e667dcd91fa9f69b
   subpackages:
   - endpoint
   - log
@@ -105,8 +108,6 @@ imports:
   - util/conn
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
-- name: github.com/go-stack/stack
-  version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/protobuf
   version: 9eb2c01ac278a5d89ce4b2be68fe4500955d8179
   subpackages:
@@ -136,6 +137,7 @@ imports:
   subpackages:
   - hcl/ast
   - hcl/parser
+  - hcl/printer
   - hcl/scanner
   - hcl/strconv
   - hcl/token
@@ -179,9 +181,10 @@ imports:
   subpackages:
   - difflib
 - name: github.com/prometheus/client_golang
-  version: 967789050ba94deca04a5e84cce8ad472ce313c1
+  version: 505eaef017263e299324067d40ca2c48f6a2cf50
   subpackages:
   - prometheus
+  - prometheus/internal
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: 99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c
@@ -224,7 +227,7 @@ imports:
 - name: github.com/spf13/pflag
   version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: github.com/spf13/viper
-  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
+  version: 6d33b5a963d922d182c91e8a1c88d81fd150cfd4
 - name: github.com/stretchr/objx
   version: 9e1dfc121bca96d392da5d00591953bdb54ab306
 - name: github.com/stretchr/testify
@@ -235,13 +238,13 @@ imports:
   - mock
   - require
 - name: github.com/ugorji/go
-  version: 00a57e09e383d445aeef6c6cd642969dc4360231
+  version: e5e69e061d4f7ee3a69b793cf9c1b41afe21918e
   subpackages:
   - codec
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
 - name: golang.org/x/crypto
-  version: e3636079e1a4c1f337f212cc5cd2aca108f6c900
+  version: 74369b46fc6756741c016591724fd1cb8e26845f
   subpackages:
   - ed25519
   - ed25519/internal/edwards25519

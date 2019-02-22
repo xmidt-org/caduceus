@@ -76,14 +76,17 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	w.Matcher.DeviceId = matcher
 
 	fakeDC := new(mockCounter)
-	fakeDC.On("With", []string{"url", w.Config.URL, "code", "200"}).Return(fakeDC).
+	fakeDC.On("With", []string{"url", w.Config.URL, "code", "200", "event", "test"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "200", "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "200", "event", "unknown"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "failure", "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "event", "test"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "event", "unknown"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "201"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "202"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "failure"}).Return(fakeDC).
-		On("With", []string{"event", "iot"}).Return(fakeDC).
-		On("With", []string{"event", "unknown"}).Return(fakeDC).
-		On("With", []string{"event", "test"}).Return(fakeDC)
+		On("With", []string{"url", w.Config.URL, "code", "failure"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
 
