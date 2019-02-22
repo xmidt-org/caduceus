@@ -146,15 +146,15 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	sw.mutex.Lock()
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
-		if true == ok {
-			sender.Update(inValue.Listener)
-		} else {
+		if !ok {
 			osf.Listener = inValue.Listener
 			obs, err := osf.New()
 			if nil == err {
 				sw.senders[inValue.ID] = obs
 			}
+			continue
 		}
+		sender.Update(inValue.Listener)
 	}
 	sw.mutex.Unlock()
 }
