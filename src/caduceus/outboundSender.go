@@ -463,14 +463,18 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	payload := msg.Payload
 	var payloadReader *bytes.Reader
 
-	if acceptType == "wrp" {
+	// Use the internal content type unless the accept type is wrp
+	contentType := msg.ContentType
+	switch acceptType {
+	case "wrp", "application/msgpack", "application/wrp":
 		// WTS - We should pass the original, raw WRP event instead of
 		// re-encoding it.
+		contentType = "application/msgpack"
 		buffer := bytes.NewBuffer([]byte{})
 		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
 		encoder.Encode(msg)
 		payloadReader = bytes.NewReader(buffer.Bytes())
-	} else {
+	default:
 		payloadReader = bytes.NewReader(payload)
 	}
 
@@ -483,7 +487,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		return
 	}
 
-	req.Header.Set("Content-Type", msg.ContentType)
+	req.Header.Set("Content-Type", contentType)
 
 	// Add x-Midt-* headers
 	wrphttp.AddMessageHeaders(req.Header, msg)
