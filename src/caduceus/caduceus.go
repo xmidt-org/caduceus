@@ -231,13 +231,13 @@ func caduceus(arguments []string) int {
 	//
 	// Now, initialize the service discovery infrastructure
 	//
-	e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
-	if err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
-		return 4
-	}
+	if v.IsSet("service") {
+		e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
+		if err != nil {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
+			return 4
+		}
 
-	if e != nil {
 		defer e.Close()
 		logger.Log(level.Key(), level.InfoValue(), "configurationFile", v.ConfigFileUsed())
 		e.Register()
