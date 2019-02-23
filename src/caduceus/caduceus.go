@@ -19,7 +19,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/Comcast/webpa-common/service/monitor"
 	"github.com/Comcast/webpa-common/service/servicecfg"
 	"github.com/go-kit/kit/log/level"
 	"net/http"
@@ -231,7 +230,9 @@ func caduceus(arguments []string) int {
 	//
 	// Now, initialize the service discovery infrastructure
 	//
-	if v.IsSet("service") {
+	if false == v.IsSet("service") {
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "no service discovery configured")
+	} else {
 		e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
 		if err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
@@ -241,25 +242,6 @@ func caduceus(arguments []string) int {
 		defer e.Close()
 		logger.Log(level.Key(), level.InfoValue(), "configurationFile", v.ConfigFileUsed())
 		e.Register()
-
-		_, err = monitor.New(
-			monitor.WithLogger(logger),
-			monitor.WithFilter(monitor.NewNormalizeFilter(e.DefaultScheme())),
-			monitor.WithEnvironment(e),
-			monitor.WithListeners(
-				monitor.NewMetricsListener(metricsRegistry),
-				monitor.NewRegistrarListener(logger, e, true),
-			),
-		)
-
-		if err != nil {
-			if err.Error() != "No instances to monitor" {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to start service discovery monitor", logging.ErrorKey(), err)
-				return 5
-			}
-		}
-	} else {
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "no service discovery configured")
 	}
 
 	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
