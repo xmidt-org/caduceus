@@ -461,6 +461,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	defer obs.workers.Release()
 
 	payload := msg.Payload
+	body := payload
 	var payloadReader *bytes.Reader
 
 	// Use the internal content type unless the accept type is wrp
@@ -473,10 +474,9 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		buffer := bytes.NewBuffer([]byte{})
 		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
 		encoder.Encode(msg)
-		payloadReader = bytes.NewReader(buffer.Bytes())
-	default:
-		payloadReader = bytes.NewReader(payload)
+		body = buffer.Bytes()
 	}
+	payloadReader = bytes.NewReader(body)
 
 	req, err := http.NewRequest("POST", obs.id, payloadReader)
 	if nil != err {
@@ -505,7 +505,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 
 	if "" != secret {
 		s := hmac.New(sha1.New, []byte(secret))
-		s.Write(payload)
+		s.Write(body)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
