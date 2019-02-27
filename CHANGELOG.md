@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 -
 
+## [0.1.3] - 2019-02-27
+### Changed
+- Fix for [issue 126](https://github.com/Comcast/caduceus/issues/126)
+
 ## [0.1.2] - 2019-02-21
 ### Added
 - Fix for delivering events as json or msgpack based events [issue 113](https://github.com/Comcast/caduceus/issues/113)
