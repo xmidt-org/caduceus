@@ -29,7 +29,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -521,6 +520,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		event = match[1]
 	}
 
+	// TODO: remove the retryoptions and just the WEBPAClient
 	retryOptions := xhttp.RetryOptions{
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
@@ -531,24 +531,12 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	}
 
 	// Send it
-	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
-	code := "failure"
-	if err != nil {
-		// Report failure
-		obs.droppedNetworkErrCounter.Add(1.0)
-	} else {
-		// Report Result
-		code = strconv.Itoa(resp.StatusCode)
-
-		// read until the response is complete before closing to allow
-		// connection reuse
-		if resp.Body != nil {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
-		}
+	// TODO: remove the retrytransactor and just use the WEBPAclient
+	resp, err := obs.WEBPAClient.retryTransactor(req)
+	if resp.Body != nil {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
 	}
-	// TODO This may be removed after middle ware.
-	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows
