@@ -584,7 +584,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
-	resp, err := obs.sender(req)
+	resp, err := obs.WEBPAClient.regTransactor(req)
 	if err != nil {
 		// Failure
 		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification", failureURL, "for", obs.id, logging.ErrorKey(), err)
