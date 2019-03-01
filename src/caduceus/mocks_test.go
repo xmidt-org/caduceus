@@ -72,10 +72,6 @@ func (m *mockOutboundSender) RetiredSince() time.Time {
 	return arguments.Get(0).(time.Time)
 }
 
-func (m *mockOutboundSender) Queue(msg *wrp.Message) {
-	m.Called(msg)
-}
-
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does
 type mockSenderWrapper struct {
 	mock.Mock

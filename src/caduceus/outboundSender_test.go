@@ -19,8 +19,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	//"github.com/stretchr/testify/mock"
@@ -56,6 +58,21 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 	return simpleFactorySetup(trans, cutOffPeriod, matcher).New()
 }
 
+// simpleFactorySetup sets up a outboundSender with metrics.
+//
+// Using Caduceus's test suite
+//
+// If you are testing a new metric it needs to be created in this process below.
+// 1. Create a fake, mockMetric i.e fakeEventType := new(mockCounter)
+// 2. If your metric type has yet to be included in mockCaduceusMetricRegistry within mocks.go
+//    add your metric type to mockCaduceusMetricRegistry
+// 3. Trigger the On method on that "mockMetric" with various different cases of that metric,
+//    in both senderWrapper_test.go and outboundSender_test.go
+//    i.e:
+//	    case 1: On("With", []string{"event", iot}
+//	    case 2: On("With", []string{"event", unknown}
+// 4. Mimic the metric behavior using On:
+//      fakeSlow.On("Add", 1.0).Return()
 func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
 	if nil == trans.fn {
 		trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
@@ -75,6 +92,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	w.Config.Secret = "123456"
 	w.Matcher.DeviceId = matcher
 
+	// test dc metric
 	fakeDC := new(mockCounter)
 	fakeDC.On("With", []string{"url", w.Config.URL, "code", "200", "event", "test"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "200", "event", "iot"}).Return(fakeDC).
@@ -90,10 +108,12 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
 
+	// test slow metric
 	fakeSlow := new(mockCounter)
 	fakeSlow.On("With", []string{"url", w.Config.URL}).Return(fakeSlow)
 	fakeSlow.On("Add", 1.0).Return()
 
+	// test dropped metric
 	fakeDroppedSlow := new(mockCounter)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "cut_off"}).Return(fakeDroppedSlow)
@@ -102,15 +122,18 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
 
+	// test queue depth
 	fakeQdepth := new(mockGauge)
 	fakeQdepth.On("With", []string{"url", w.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
+	// build a registry and register all fake metrics
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
+	//fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeEventType)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
 
 	return &OutboundSenderFactory{
@@ -137,24 +160,32 @@ func simpleRequest() *wrp.Message {
 
 // Simple test that covers the normal successful case with no extra matchers
 func TestSimpleWrp(t *testing.T) {
+	fmt.Printf("\n\nTestingSimpleWRP:\n\n")
 
 	assert := assert.New(t)
 
 	trans := &transport{}
+
+	fmt.Printf("SimpleSetup:\n")
 	obs, err := simpleSetup(trans, time.Second, nil)
 	assert.NotNil(obs)
 	assert.Nil(err)
 
+	// queue case 1
 	req := simpleRequest()
 	req.Destination = "event:iot"
+	fmt.Printf("Queue case 1:\n %v\n", spew.Sprint(req.Destination))
 	obs.Queue(req)
 
 	r2 := simpleRequest()
 	r2.Destination = "event:test"
+	fmt.Printf("\nQueue case 2:\n %v\n", spew.Sprint(r2.Destination))
 	obs.Queue(r2)
 
+	// queue case 3
 	r3 := simpleRequest()
 	r3.Destination = "event:no-match"
+	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(r3.Destination))
 	obs.Queue(r3)
 
 	obs.Shutdown(true)

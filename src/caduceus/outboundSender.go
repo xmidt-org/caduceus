@@ -139,6 +139,7 @@ type CaduceusOutboundSender struct {
 	droppedInvalidConfig     metrics.Counter
 	cutOffCounter            metrics.Counter
 	queueDepthGauge          metrics.Gauge
+	eventType                metrics.Counter
 	wg                       sync.WaitGroup
 	cutOffPeriod             time.Duration
 	workers                  semaphore.Interface
@@ -342,7 +343,6 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	now := time.Now()
 
 	var debugLog = logging.Debug(obs.logger)
-
 	if false == obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
 		return
 	}
@@ -352,6 +352,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			debugLog.Log(logging.MessageKey(),
 				fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
 					msg.Destination, eventRegex.String()))
+
 			continue
 		}
 
