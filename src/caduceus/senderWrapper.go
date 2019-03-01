@@ -24,6 +24,7 @@ import (
 
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )
@@ -88,9 +89,26 @@ type CaduceusSenderWrapper struct {
 	shutdown            chan struct{}
 }
 
+func NewSenderWrapperFactory(c *CaduceusConfig, m xmetrics.Registry, l log.Logger, tr *http.Transport) SenderWrapperFactory {
+	return SenderWrapperFactory{
+		NumWorkersPerSender: c.Sender.NumWorkersPerSender,
+		QueueSizePerSender:  c.Sender.QueueSizePerSender,
+		CutOffPeriod:        c.Sender.CutOffPeriod,
+		Linger:              c.Sender.Linger,
+		DeliveryRetries:     c.Sender.DeliveryRetries,
+		DeliveryInterval:    c.Sender.DeliveryInterval,
+		MetricsRegistry:     m,
+		Logger:              l,
+		Sender: (&http.Client{
+			Transport: tr,
+			Timeout:   c.Sender.ClientTimeout,
+		}).Do,
+	}
+}
+
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
 // based on the factory configuration.
-func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
+func (swf SenderWrapperFactory) NewSenderWrapper() (sw SenderWrapper, err error) {
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
 		sender:              swf.Sender,
 		numWorkersPerSender: swf.NumWorkersPerSender,

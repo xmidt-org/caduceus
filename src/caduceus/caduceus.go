@@ -19,14 +19,15 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/Comcast/webpa-common/service/servicecfg"
-	"github.com/go-kit/kit/log/level"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/Comcast/webpa-common/service/servicecfg"
+	"github.com/go-kit/kit/log/level"
 
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/logging"
@@ -117,8 +118,7 @@ func caduceus(arguments []string) int {
 	infoLog.Log("configurationFile", v.ConfigFileUsed())
 
 	caduceusConfig := new(CaduceusConfig)
-	err = v.Unmarshal(caduceusConfig)
-	if err != nil {
+	if err = v.Unmarshal(caduceusConfig); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to unmarshal configuration data into struct: %s\n", err)
 		return 1
 	}
@@ -130,38 +130,14 @@ func caduceus(arguments []string) int {
 		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
 	}
 
-	caduceusSenderWrapper, err := SenderWrapperFactory{
-		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
-		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
-		CutOffPeriod:        caduceusConfig.Sender.CutOffPeriod,
-		Linger:              caduceusConfig.Sender.Linger,
-		DeliveryRetries:     caduceusConfig.Sender.DeliveryRetries,
-		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
-		MetricsRegistry:     metricsRegistry,
-		Logger:              logger,
-		Sender: (&http.Client{
-			Transport: tr,
-			Timeout:   caduceusConfig.Sender.ClientTimeout,
-		}).Do,
-	}.New()
-
+	senderWrapperFactory := NewSenderWrapperFactory(caduceusConfig, metricsRegistry, logger, tr)
+	caduceusSenderWrapper, err := senderWrapperFactory.NewSenderWrapper()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to initialize new caduceus sender wrapper: %s\n", err)
 		return 1
 	}
 
-	serverWrapper := &ServerHandler{
-		Logger: logger,
-		caduceusHandler: &CaduceusHandler{
-			senderWrapper: caduceusSenderWrapper,
-			Logger:        logger,
-		},
-		errorRequests:            metricsRegistry.NewCounter(ErrorRequestBodyCounter),
-		emptyRequests:            metricsRegistry.NewCounter(EmptyRequestBodyCounter),
-		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
-		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
-		maxOutstanding:           0,
-	}
+	serverWrapper := NewServerHandler(logger, caduceusSenderWrapper, metricsRegistry)
 
 	validator, err := getValidator(v)
 	if err != nil {
@@ -230,7 +206,7 @@ func caduceus(arguments []string) int {
 	//
 	// Now, initialize the service discovery infrastructure
 	//
-	if false == v.IsSet("service") {
+	if v.IsSet("service") == false {
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "no service discovery configured")
 	} else {
 		e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))

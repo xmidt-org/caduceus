@@ -23,6 +23,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/satori/go.uuid"
@@ -38,6 +39,21 @@ type ServerHandler struct {
 	incomingQueueDepthMetric metrics.Gauge
 	incomingQueueDepth       int64
 	maxOutstanding           int64
+}
+
+func NewServerHandler(l log.Logger, s SenderWrapper, m xmetrics.Registry) *ServerHandler {
+	return &ServerHandler{
+		Logger: l,
+		caduceusHandler: &CaduceusHandler{
+			senderWrapper: s,
+			Logger:        l,
+		},
+		errorRequests:            m.NewCounter(ErrorRequestBodyCounter),
+		emptyRequests:            m.NewCounter(EmptyRequestBodyCounter),
+		invalidCount:             m.NewCounter(DropsDueToInvalidPayload),
+		incomingQueueDepthMetric: m.NewGauge(IncomingQueueDepth),
+		maxOutstanding:           0,
+	}
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {

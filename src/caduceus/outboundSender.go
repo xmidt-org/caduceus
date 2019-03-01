@@ -148,23 +148,23 @@ type CaduceusOutboundSender struct {
 	mutex                    sync.RWMutex
 }
 
-// New creates a new OutboundSender object from the factory, or returns an error.
+// New creates a new OutboundSender object from the factory and sends it through a channel or returns an error.
 func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	if _, err = url.ParseRequestURI(osf.Listener.Config.URL); nil != err {
 		return
 	}
 
-	if nil == osf.Sender {
+	if osf.Sender == nil {
 		err = errors.New("nil Sender()")
 		return
 	}
 
-	if 0 == osf.CutOffPeriod.Nanoseconds() {
+	if osf.CutOffPeriod.Nanoseconds() == 0 {
 		err = errors.New("Invalid CutOffPeriod")
 		return
 	}
 
-	if nil == osf.Logger {
+	if osf.Logger == nil {
 		err = errors.New("Logger required")
 		return
 	}
@@ -238,8 +238,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 	// Validate the failure URL, if present
-	if "" != wh.FailureURL {
-		if _, err = url.ParseRequestURI(wh.FailureURL); nil != err {
+	if wh.FailureURL != "" {
+		if _, err = url.ParseRequestURI(wh.FailureURL); err != nil {
 			return
 		}
 	}
@@ -248,7 +248,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	var events []*regexp.Regexp
 	for _, event := range wh.Events {
 		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); nil != err {
+		if re, err = regexp.Compile(event); err != nil {
 			return
 		}
 
@@ -269,7 +269,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		}
 
 		var re *regexp.Regexp
-		if re, err = regexp.Compile(item); nil != err {
+		if re, err = regexp.Compile(item); err != nil {
 			err = fmt.Errorf("Invalid matcher item: '%s'", item)
 			return
 		}
@@ -277,6 +277,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	}
 
 	// write/update obs
+	defer obs.mutex.Unlock()
 	obs.mutex.Lock()
 
 	obs.listener = wh
@@ -295,8 +296,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		obs.matcher = matcher
 	}
 
-	obs.mutex.Unlock()
-
 	return
 }
 
@@ -307,7 +306,7 @@ func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	close(obs.queue)
 
 	obs.mutex.Lock()
-	if false == gentle {
+	if !gentle {
 		obs.deliverUntil = time.Time{}
 	}
 	obs.mutex.Unlock()
@@ -321,9 +320,9 @@ func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
 func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
+	defer obs.mutex.RUnlock()
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
-	obs.mutex.RUnlock()
 
 	return deliverUntil
 }
@@ -333,30 +332,32 @@ func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 // criteria before being accepted or silently dropped.
 func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	obs.mutex.RLock()
-	deliverUntil := obs.deliverUntil
-	dropUntil := obs.dropUntil
-	events := obs.events
-	matcher := obs.matcher
+	var (
+		deliverUntil = obs.deliverUntil
+		dropUntil    = obs.dropUntil
+		events       = obs.events
+		matcher      = obs.matcher
+	)
 	obs.mutex.RUnlock()
 
 	now := time.Now()
 
 	var debugLog = logging.Debug(obs.logger)
 
-	if false == obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
+	if !obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
 		return
 	}
 
 	for _, eventRegex := range events {
-		if false == eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+		if !eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
 			debugLog.Log(logging.MessageKey(),
 				fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
 					msg.Destination, eventRegex.String()))
 			continue
 		}
 
-		matchDevice := (nil == matcher)
-		if nil != matcher {
+		matchDevice := (matcher == nil)
+		if matcher != nil {
 			for _, deviceRegex := range matcher {
 				if deviceRegex.MatchString(msg.Source) {
 					matchDevice = true
@@ -404,16 +405,14 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	var debugLog = logging.Debug(obs.logger)
 
-	if false == now.After(dropUntil) {
-		debugLog.Log(logging.MessageKey(), "Client has been cut off",
-			"now", now, "before", deliverUntil, "after", dropUntil)
+	if !now.After(dropUntil) {
+		debugLog.Log(logging.MessageKey(), "Client has been cut off", "now", now, "before", deliverUntil, "after", dropUntil)
 		obs.droppedCutoffCounter.Add(1.0)
 		return false
 	}
 
-	if false == now.Before(deliverUntil) {
-		debugLog.Log(logging.MessageKey(), "Outside delivery window",
-			"now", now, "before", deliverUntil, "after", dropUntil)
+	if !now.Before(deliverUntil) {
+		debugLog.Log(logging.MessageKey(), "Outside delivery window", "now", now, "before", deliverUntil, "after", dropUntil)
 		obs.droppedExpiredCounter.Add(1.0)
 		return false
 	}
@@ -428,10 +427,12 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		obs.queueDepthGauge.Add(-1.0)
 
 		obs.mutex.RLock()
-		deliverUntil := obs.deliverUntil
-		dropUntil := obs.dropUntil
-		secret := obs.listener.Config.Secret
-		accept := obs.listener.Config.ContentType
+		var (
+			deliverUntil = obs.deliverUntil
+			dropUntil    = obs.dropUntil
+			secret       = obs.listener.Config.Secret
+			accept       = obs.listener.Config.ContentType
+		)
 		obs.mutex.RUnlock()
 
 		now := time.Now()
@@ -455,7 +456,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 	}
 }
 
-// worker is the routine that actually takes the queued messages and delivers
+// send is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
 func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Message) {
 	defer obs.workers.Release()
@@ -479,11 +480,10 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	payloadReader = bytes.NewReader(body)
 
 	req, err := http.NewRequest("POST", obs.id, payloadReader)
-	if nil != err {
+	if err != nil {
 		// Report drop
 		obs.droppedInvalidConfig.Add(1.0)
-		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
-			logging.ErrorKey(), err)
+		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id, logging.ErrorKey(), err)
 		return
 	}
 
@@ -502,8 +502,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	req.Header.Set("X-Webpa-Device-Name", string(id))
 
 	// Apply the secret
-
-	if "" != secret {
+	if secret != "" {
 		s := hmac.New(sha1.New, []byte(secret))
 		s.Write(body)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
@@ -529,7 +528,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	// Send it
 	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
 	code := "failure"
-	if nil != err {
+	if err != nil {
 		// Report failure
 		obs.droppedNetworkErrCounter.Add(1.0)
 	} else {
@@ -538,11 +537,12 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 
 		// read until the response is complete before closing to allow
 		// connection reuse
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	}
+	// TODO This may be removed after middle ware.
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
 }
 
@@ -550,9 +550,11 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
-	secret := obs.listener.Config.Secret
-	failureMsg := obs.failureMsg
-	failureURL := obs.listener.FailureURL
+	var (
+		secret     = obs.listener.Config.Secret
+		failureMsg = obs.failureMsg
+		failureURL = obs.listener.FailureURL
+	)
 	obs.mutex.Unlock()
 
 	var (
@@ -564,30 +566,27 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
 	msg, err := json.Marshal(failureMsg)
-	if nil != err {
-		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
-			"for", obs.id, logging.ErrorKey(), err)
+	if err != nil {
+		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg, "for", obs.id, logging.ErrorKey(), err)
 		return
 	}
 	errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.id)
 
 	// Send a "you've been cut off" warning message
-	if "" == failureURL {
+	if failureURL == "" {
 		errorLog.Log(logging.MessageKey(), "No cut-off notification URL specified", "for", obs.id)
 		return
 	}
 
-	payload := bytes.NewReader(msg)
-	req, err := http.NewRequest("POST", failureURL, payload)
-	if nil != err {
+	req, err := http.NewRequest("POST", failureURL, bytes.NewReader(msg))
+	if err != nil {
 		// Failure
-		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-			failureURL, "for", obs.id, logging.ErrorKey(), err)
+		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification", failureURL, "for", obs.id, logging.ErrorKey(), err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	if "" != secret {
+	if secret != "" {
 		h := hmac.New(sha1.New, []byte(secret))
 		h.Write(msg)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
@@ -595,21 +594,18 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 
 	resp, err := obs.sender(req)
-	if nil != err {
+	if err != nil {
 		// Failure
-		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-			failureURL, "for", obs.id, logging.ErrorKey(), err)
+		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification", failureURL, "for", obs.id, logging.ErrorKey(), err)
 		return
 	}
 
-	if nil == resp {
+	if resp == nil {
 		// Failure
-		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
-			"notification", failureURL)
+		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response", "notification", failureURL)
 		return
 	}
 
 	// Success
-	logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
-		"status", resp.Status)
+	logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL, "status", resp.Status)
 }
