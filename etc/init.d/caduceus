@@ -19,15 +19,16 @@ RETVAL=0
 
 # Set limits here in addition to limits.conf
 #-------------------------------------------------------------------------------
+if [ -n "$KERNEL_OPEN_FILES" ]; then
+	sysctl -w fs.file-max=$KERNEL_OPEN_FILES > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "fs.file-max=$KERNEL_OPEN_FILES failed" && exit $RETVAL
+
+	sysctl -w fs.nr_open=$KERNEL_OPEN_FILES > /dev/null
+	RETVAL=$?
+	[ $RETVAL -ne 0 ] && echo "fs.nr_open=$KERNEL_OPEN_FILES failed" && exit $RETVAL
+fi
 if [ -n "$ULIMIT_OPEN_FILES" ]; then
-	sysctl -w fs.file-max=$ULIMIT_OPEN_FILES > /dev/null
-	RETVAL=$?
-	[ $RETVAL -ne 0 ] && echo "fs.file-max=$ULIMIT_OPEN_FILES failed" && exit $RETVAL
-
-	sysctl -w fs.nr_open=$ULIMIT_OPEN_FILES > /dev/null
-	RETVAL=$?
-	[ $RETVAL -ne 0 ] && echo "fs.nr_open=$ULIMIT_OPEN_FILES failed" && exit $RETVAL
-
 	ulimit -n $ULIMIT_OPEN_FILES > /dev/null
 	RETVAL=$?
 	[ $RETVAL -ne 0 ] && echo "ulimit -n $ULIMIT_OPEN_FILES failed" && exit $RETVAL
