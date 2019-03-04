@@ -18,15 +18,16 @@ package main
 
 import (
 	"bytes"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/stretchr/testify/assert"
 )
 
 type result struct {
@@ -117,7 +118,7 @@ func getFakeFactory() *SenderWrapperFactory {
 
 func TestInvalidLinger(t *testing.T) {
 	swf := getFakeFactory()
-	sw, err := swf.New()
+	sw, err := swf.NewSenderWrapper()
 
 	assert := assert.New(t)
 	assert.Nil(sw)
@@ -155,7 +156,7 @@ func TestSwSimple(t *testing.T) {
 	swf.Sender = trans.RoundTrip
 
 	swf.Linger = 1 * time.Second
-	sw, err := swf.New()
+	sw, err := swf.NewSenderWrapper()
 
 	assert.Nil(err)
 	assert.NotNil(sw)
