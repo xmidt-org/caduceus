@@ -447,7 +447,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 			continue
 		}
 		obs.workers.Acquire()
-		go obs.send(secret, accept, msg)
+		go obs.worker(secret, accept, msg)
 	}
 
 	// Grab all the workers to make sure they are done.
@@ -456,9 +456,9 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 	}
 }
 
-// send is the routine that actually takes the queued messages and delivers
+// worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Message) {
+func (obs *CaduceusOutboundSender) worker(secret, acceptType string, msg *wrp.Message) {
 	defer obs.workers.Release()
 
 	payload := msg.Payload
