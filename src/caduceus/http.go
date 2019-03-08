@@ -25,7 +25,7 @@ import (
 	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 // Below is the struct that will implement our ServeHTTP method
@@ -89,12 +89,31 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		debugLog.Log(messageKey, "Invalid payload format.\n")
 		return
 	}
+
 	sh.caduceusHandler.HandleRequest(0, fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
 	debugLog.Log(messageKey, "Request placed on to queue.")
+}
+
+type RequestHandler interface {
+	HandleRequest(workerID int, msg *wrp.Message)
+}
+
+type CaduceusHandler struct {
+	senderWrapper SenderWrapper
+	log.Logger
+}
+
+func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
+	msg = fixWrp(msg)
+
+	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
+		" to sender")
+
+	ch.senderWrapper.Queue(msg)
 }
 
 func fixWrp(msg *wrp.Message) *wrp.Message {

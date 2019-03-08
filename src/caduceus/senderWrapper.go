@@ -52,8 +52,6 @@ type SenderWrapperFactory struct {
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
-	ContentTypeCounter metrics.Counter
-
 	// The metrics counter for dropped messages due to invalid payloads
 	DroppedMsgCounter metrics.Counter
 

@@ -19,9 +19,6 @@ package main
 import (
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/wrp-go/wrp"
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )
 
@@ -50,20 +47,4 @@ type SenderConfig struct {
 type CaduceusMetricsRegistry interface {
 	NewCounter(name string) metrics.Counter
 	NewGauge(name string) metrics.Gauge
-}
-
-type RequestHandler interface {
-	HandleRequest(workerID int, msg *wrp.Message)
-}
-
-type CaduceusHandler struct {
-	senderWrapper SenderWrapper
-	log.Logger
-}
-
-func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
-
-	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
-		" to sender")
-	ch.senderWrapper.Queue(msg)
 }

@@ -122,18 +122,30 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
 
-	// test queue depth
+	// IncomingContentType cases
+	fakeContentType := new(mockCounter)
+	fakeContentType.On("With", []string{"content", "msgpack"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content", "json"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content", "http"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content", "other"}).Return(fakeContentType)
+	fakeContentType.On("Add", 1.0).Return()
+
+	// QueueDepth case
 	fakeQdepth := new(mockGauge)
 	fakeQdepth.On("With", []string{"url", w.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
-	// build a registry and register all fake metrics
+	// Build a registry and register all fake metrics, these are synymous with the metrics in
+	// metrics.go
+	//
+	// If a new metric within outboundsender is created it must be added here
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeDC)
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
+	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeDC)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
-	//fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeEventType)
+	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeContentType)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
 
 	return &OutboundSenderFactory{

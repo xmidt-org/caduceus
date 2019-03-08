@@ -132,6 +132,7 @@ type CaduceusOutboundSender struct {
 	droppedNetworkErrCounter metrics.Counter
 	droppedInvalidConfig     metrics.Counter
 	cutOffCounter            metrics.Counter
+	contentTypeCounter       metrics.Counter
 	queueDepthGauge          metrics.Gauge
 	eventType                metrics.Counter
 	wg                       sync.WaitGroup
@@ -210,6 +211,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
 		NewGauge(OutgoingQueueDepth).With("url", caduceusOutboundSender.id)
+
+	caduceusOutboundSender.contentTypeCounter = osf.MetricsRegistry.
+		NewCounter(IncomingContentTypeCounter)
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
@@ -441,6 +445,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 			continue
 		}
 		obs.workers.Acquire()
+
 		go obs.send(secret, accept, msg)
 	}
 
@@ -517,6 +522,10 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		ShouldRetry: func(error) bool { return true },
 	}
 
+	// record content type, msgpack, http, other
+	//obs.contentTypeCounter.With("content", strings.TrimLeft(contentType, "/")).Add(1.0)
+	obs.contentTypeCounter.With("content", "msgpack").Add(1.0)
+
 	// Send it
 	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
 	code := "failure"
@@ -585,6 +594,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
+	//  record content type, json.
+	obs.contentTypeCounter.With("content", "json").Add(1.0)
 	resp, err := obs.sender(req)
 	if nil != err {
 		// Failure
