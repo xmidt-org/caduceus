@@ -17,13 +17,12 @@
 package main
 
 import (
+	"time"
+
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/secure"
-	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"time"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
@@ -46,15 +45,6 @@ type SenderConfig struct {
 	IdleConnTimeout       time.Duration
 	DeliveryRetries       int
 	DeliveryInterval      time.Duration
-}
-
-type JWTValidator struct {
-	// JWTKeys is used to create the key.Resolver for JWT verification keys
-	Keys key.ResolverFactory
-
-	// Custom is an optional configuration section that defines
-	// custom rules for validation over and above the standard RFC rules.
-	Custom secure.JWTValidatorFactory
 }
 
 type CaduceusMetricsRegistry interface {
