@@ -19,14 +19,15 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/Comcast/webpa-common/service/servicecfg"
-	"github.com/go-kit/kit/log/level"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/Comcast/webpa-common/service/servicecfg"
+	"github.com/go-kit/kit/log/level"
 
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/logging"
@@ -176,11 +177,11 @@ func caduceus(arguments []string) int {
 		Logger:              logger,
 	}
 
-	caduceusHandler := alice.New(authHandler.Decorate)
+	primaryHandler := alice.New(authHandler.Decorate)
 
 	router := mux.NewRouter()
 
-	router = configServerRouter(router, caduceusHandler, serverWrapper)
+	router = configServerRouter(router, primaryHandler, serverWrapper)
 
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
@@ -191,8 +192,8 @@ func caduceus(arguments []string) int {
 	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
 	// register webhook end points for api
-	router.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
-	router.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
+	router.Handle("/hook", primaryHandler.ThenFunc(webhookRegistry.UpdateRegistry))
+	router.Handle("/hooks", primaryHandler.ThenFunc(webhookRegistry.GetRegistry))
 
 	scheme := v.GetString("scheme")
 	if len(scheme) < 1 {
@@ -287,12 +288,12 @@ func caduceus(arguments []string) int {
 	return 0
 }
 
-func configServerRouter(router *mux.Router, caduceusHandler alice.Chain, serverWrapper *ServerHandler) *mux.Router {
+func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler) *mux.Router {
 	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
 		return len(r.Header["Content-Type"]) == 1 //require single specification for Content-Type Header
 	}
 
-	router.Handle("/api/v3/notify", caduceusHandler.Then(serverWrapper)).Methods("POST").
+	router.Handle("/api/v3/notify", primaryHandler.Then(serverWrapper)).Methods("POST").
 		HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
 
 	return router
