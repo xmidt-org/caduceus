@@ -15,6 +15,18 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func TestNewPrimaryHandler(t *testing.T) {
+	var (
+		l     = logging.New(nil)
+		viper = viper.New()
+		sw    = &ServerHandler{}
+	)
+
+	if _, err := NewPrimaryHandler(l, viper, sw); err != nil {
+		t.Fatalf("NewPrimaryHandler failed: %v", err)
+	}
+}
+
 func TestGetValidator(t *testing.T) {
 	assert := assert.New(t)
 
