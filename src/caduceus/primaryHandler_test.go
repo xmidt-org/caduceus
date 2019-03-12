@@ -17,14 +17,17 @@ import (
 
 func TestNewPrimaryHandler(t *testing.T) {
 	var (
-		l     = logging.New(nil)
-		viper = viper.New()
-		sw    = &ServerHandler{}
+		l                  = logging.New(nil)
+		viper              = viper.New()
+		sw                 = &ServerHandler{}
+		expectedAuthHeader = []string{"Basic xxxxxxx"}
 	)
 
+	viper.Set("authHeader", expectedAuthHeader)
 	if _, err := NewPrimaryHandler(l, viper, sw); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
+
 }
 
 func TestGetValidator(t *testing.T) {
