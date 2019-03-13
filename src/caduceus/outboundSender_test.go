@@ -19,8 +19,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	//"github.com/stretchr/testify/mock"

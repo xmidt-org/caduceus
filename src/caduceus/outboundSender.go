@@ -38,9 +38,9 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/semaphore"
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/Comcast/webpa-common/wrp/wrphttp"
 	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/Comcast/wrp-go/wrp"
+	"github.com/Comcast/wrp-go/wrp/wrphttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )

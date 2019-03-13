@@ -18,15 +18,16 @@ package main
 
 import (
 	"bytes"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/wrp-go/wrp"
+	"github.com/stretchr/testify/assert"
 )
 
 type result struct {

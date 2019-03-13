@@ -2,5 +2,12 @@ package: .
 import:
 - package: github.com/Comcast/webpa-common
   version: ee36b7e7561c779aa65a66fbef35b46720486987
+  ignore:
+    github.com/Comcast/webpa-common/wrp
 - package: github.com/satori/go.uuid
   version: f58768cc1a7a7e77a3bd49e98cdd21419399b6a3
+- package: github.com/influxdata/influxdb
+  version: 48797873ee24fc1dcb5a63f23474d3210f6d68c5
+- package: github.com/prometheus/client_model
+  version: 99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c
+
