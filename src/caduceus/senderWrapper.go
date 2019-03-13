@@ -19,12 +19,11 @@ package main
 import (
 	"errors"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )
@@ -168,7 +167,8 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 // function performs the fan-out and filtering to multiple possible endpoints.
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
-	sw.eventType.With("event_type", strings.TrimLeft(msg.Destination[23:], "/")).Add(1.0)
+
+	sw.eventType.With("event_type", msg.FindEventStringSubMatch())
 
 	for _, v := range sw.senders {
 		v.Queue(msg)
