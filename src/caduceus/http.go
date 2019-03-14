@@ -97,6 +97,27 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	debugLog.Log(messageKey, "Request placed on to queue.")
 }
 
+type CaduceusMetricsRegistry interface {
+	NewCounter(name string) metrics.Counter
+	NewGauge(name string) metrics.Gauge
+}
+
+type RequestHandler interface {
+	HandleRequest(workerID int, msg *wrp.Message)
+}
+
+type CaduceusHandler struct {
+	senderWrapper SenderWrapper
+	log.Logger
+}
+
+func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
+
+	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
+		" to sender")
+	ch.senderWrapper.Queue(msg)
+}
+
 func fixWrp(msg *wrp.Message) *wrp.Message {
 	// "Fix" the WRP if needed.
 

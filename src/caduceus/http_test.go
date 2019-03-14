@@ -280,3 +280,21 @@ func TestServerInvalidBody(t *testing.T) {
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
 	})
 }
+
+func TestCaduceusHandler(t *testing.T) {
+	logger := logging.DefaultLogger()
+
+	fakeSenderWrapper := new(mockSenderWrapper)
+	fakeSenderWrapper.On("Queue", mock.AnythingOfType("*wrp.Message")).Return().Once()
+
+	testHandler := CaduceusHandler{
+		senderWrapper: fakeSenderWrapper,
+		Logger:        logger,
+	}
+
+	t.Run("TestHandleRequest", func(t *testing.T) {
+		testHandler.HandleRequest(0, &wrp.Message{})
+
+		fakeSenderWrapper.AssertExpectations(t)
+	})
+}
