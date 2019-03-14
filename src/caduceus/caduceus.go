@@ -19,8 +19,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/Comcast/webpa-common/service/servicecfg"
-	"github.com/go-kit/kit/log/level"
 	"net/http"
 	_ "net/http/pprof"
 	"net/url"
@@ -28,17 +26,14 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/Comcast/webpa-common/service/servicecfg"
+	"github.com/go-kit/kit/log/level"
+
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/secure"
-	"github.com/Comcast/webpa-common/secure/handler"
-	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/SermoDigital/jose/jwt"
-	"github.com/gorilla/mux"
-	"github.com/justinas/alice"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -47,48 +42,6 @@ const (
 	applicationName = "caduceus"
 	DEFAULT_KEY_ID  = "current"
 )
-
-// getValidator returns validator for JWT tokens
-func getValidator(v *viper.Viper) (validator secure.Validator, err error) {
-	var jwtVals []JWTValidator
-
-	v.UnmarshalKey("jwtValidators", &jwtVals)
-
-	// if a JWTKeys section was supplied, configure a JWS validator
-	// and append it to the chain of validators
-	validators := make(secure.Validators, 0, len(jwtVals))
-
-	for _, validatorDescriptor := range jwtVals {
-		var keyResolver key.Resolver
-		keyResolver, err = validatorDescriptor.Keys.NewResolver()
-		if err != nil {
-			validator = validators
-			return
-		}
-
-		validators = append(
-			validators,
-			secure.JWSValidator{
-				DefaultKeyId:  DEFAULT_KEY_ID,
-				Resolver:      keyResolver,
-				JWTValidators: []*jwt.Validator{validatorDescriptor.Custom.New()},
-			},
-		)
-	}
-
-	// TODO: This should really be part of the unmarshalled validators somehow
-	basicAuth := v.GetStringSlice("authHeader")
-	for _, authValue := range basicAuth {
-		validators = append(
-			validators,
-			secure.ExactMatchValidator(authValue),
-		)
-	}
-
-	validator = validators
-
-	return
-}
 
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
@@ -163,24 +116,11 @@ func caduceus(arguments []string) int {
 		maxOutstanding:           0,
 	}
 
-	validator, err := getValidator(v)
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
 		return 1
 	}
-
-	authHandler := handler.AuthorizationHandler{
-		HeaderName:          "Authorization",
-		ForbiddenStatusCode: 403,
-		Validator:           validator,
-		Logger:              logger,
-	}
-
-	caduceusHandler := alice.New(authHandler.Decorate)
-
-	router := mux.NewRouter()
-
-	router = configServerRouter(router, caduceusHandler, serverWrapper)
 
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
@@ -191,8 +131,8 @@ func caduceus(arguments []string) int {
 	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
 	// register webhook end points for api
-	router.Handle("/hook", caduceusHandler.ThenFunc(webhookRegistry.UpdateRegistry))
-	router.Handle("/hooks", caduceusHandler.ThenFunc(webhookRegistry.GetRegistry))
+	primaryHandler.HandleFunc("/hook", webhookRegistry.UpdateRegistry)
+	primaryHandler.HandleFunc("/hooks", webhookRegistry.GetRegistry)
 
 	scheme := v.GetString("scheme")
 	if len(scheme) < 1 {
@@ -204,9 +144,9 @@ func caduceus(arguments []string) int {
 		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
 	}
 
-	webhookFactory.Initialize(router, selfURL, v.GetString("soa.provider"), webhookHandler, logger, metricsRegistry, nil)
+	webhookFactory.Initialize(primaryHandler, selfURL, v.GetString("soa.provider"), webhookHandler, logger, metricsRegistry, nil)
 
-	_, runnable, done := webPA.Prepare(logger, nil, metricsRegistry, router)
+	_, runnable, done := webPA.Prepare(logger, nil, metricsRegistry, primaryHandler)
 
 	waitGroup, shutdown, err := concurrent.Execute(runnable)
 	if err != nil {
@@ -285,17 +225,6 @@ func caduceus(arguments []string) int {
 	// shutdown the sender wrapper gently so that all queued messages get serviced
 	caduceusSenderWrapper.Shutdown(true)
 	return 0
-}
-
-func configServerRouter(router *mux.Router, caduceusHandler alice.Chain, serverWrapper *ServerHandler) *mux.Router {
-	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
-		return len(r.Header["Content-Type"]) == 1 //require single specification for Content-Type Header
-	}
-
-	router.Handle("/api/v3/notify", caduceusHandler.Then(serverWrapper)).Methods("POST").
-		HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
-
-	return router
 }
 
 func main() {
