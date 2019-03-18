@@ -38,9 +38,9 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/semaphore"
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/Comcast/webpa-common/wrp/wrphttp"
 	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/Comcast/wrp-go/wrp"
+	"github.com/Comcast/wrp-go/wrp/wrphttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )
@@ -51,12 +51,6 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 	`is being cut off and dropped for a period of time.  Please increase your ` +
 	`capacity to handle notifications, or reduce the number of notifications ` +
 	`you have requested.`
-
-var (
-	// eventPattern is the precompiled regex that selects the top level event
-	// classifier
-	eventPattern = regexp.MustCompile(`^event:(?P<event>[^/]+)`)
-)
 
 // outboundRequest stores the outgoing request and assorted data that has been
 // collected so far (to save on processing the information again).
@@ -512,11 +506,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	}
 
 	// find the event "short name"
-	match := eventPattern.FindStringSubmatch(msg.Destination)
-	event := "unknown"
-	if match != nil {
-		event = match[1]
-	}
+	event := msg.FindEventStringSubMatch()
 
 	retryOptions := xhttp.RetryOptions{
 		Logger:   obs.logger,

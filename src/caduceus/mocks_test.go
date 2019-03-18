@@ -22,7 +22,7 @@ import (
 
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 )

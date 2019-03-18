@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/stretchr/testify/mock"
 )
 
