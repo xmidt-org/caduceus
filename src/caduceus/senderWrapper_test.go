@@ -100,7 +100,8 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:9999/foo", "code", "200", "event", "unknown"}).Return(fakeIgnore).
 		On("With", []string{"event_type", "iot"}).Return(fakeIgnore).
 		On("With", []string{"event_type", "test/extra-stuff"}).Return(fakeIgnore).
-		On("With", []string{"event_type", "bob/magic/dog"}).Return(fakeIgnore)
+		On("With", []string{"event_type", "bob/magic/dog"}).Return(fakeIgnore).
+		On("With", []string{"event_type", "unknown"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)

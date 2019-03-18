@@ -1,5 +1,5 @@
 hash: 8e0b5dc0f4fcee573e27644aa4b665502fecb68c941dad21430d3f491ee8519d
-updated: 2019-02-21T10:14:46.1291513-08:00
+updated: 2019-03-19T17:17:52.093918-06:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -44,8 +44,6 @@ imports:
 - name: github.com/Comcast/webpa-common
   version: ee36b7e7561c779aa65a66fbef35b46720486987
   subpackages:
-  - capacitor
-  - clock
   - concurrent
   - convey
   - convey/conveyhttp
@@ -61,19 +59,23 @@ imports:
   - server
   - service
   - service/consul
-  - service/monitor
   - service/servicecfg
   - service/zk
   - types
   - webhook
   - webhook/aws
   - wrp
-  - wrp/wrphttp
   - wrp/wrpmeta
   - xhttp
+  - xhttp/gate
   - xlistener
   - xmetrics
   - xviper
+- name: github.com/Comcast/wrp-go
+  version: a1be47de16c373712b073ce49ee15f88e593a155
+  subpackages:
+  - wrp
+  - wrp/wrphttp
 - name: github.com/davecgh/go-spew
   version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
   subpackages:
@@ -109,7 +111,7 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/golang/protobuf
-  version: 9eb2c01ac278a5d89ce4b2be68fe4500955d8179
+  version: 925541529c1fa6821df4e44ce2723319eb2be768
   subpackages:
   - proto
 - name: github.com/gorilla/context
