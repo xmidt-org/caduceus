@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )

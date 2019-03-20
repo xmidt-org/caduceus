@@ -18,15 +18,16 @@ package main
 
 import (
 	"bytes"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/webhook"
+	"github.com/Comcast/wrp-go/wrp"
+	"github.com/stretchr/testify/assert"
 )
 
 type result struct {
@@ -45,6 +46,8 @@ type swTransport struct {
 }
 
 func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+
+	//
 	atomic.AddInt32(&t.i, 1)
 
 	r := result{URL: req.URL.String(),
@@ -94,15 +97,20 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "network_err"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "invalid_config"}).Return(fakeIgnore).
 		On("With", []string{"url", "http://localhost:8888/foo", "code", "200", "event", "unknown"}).Return(fakeIgnore).
-		On("With", []string{"url", "http://localhost:9999/foo", "code", "200", "event", "unknown"}).Return(fakeIgnore)
+		On("With", []string{"url", "http://localhost:9999/foo", "code", "200", "event", "unknown"}).Return(fakeIgnore).
+		On("With", []string{"event", "iot"}).Return(fakeIgnore).
+		On("With", []string{"event", "test/extra-stuff"}).Return(fakeIgnore).
+		On("With", []string{"event", "bob/magic/dog"}).Return(fakeIgnore).
+		On("With", []string{"event", "unknown"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
-	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeICTC)
 	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
 	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeICTC)
+	fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
 
 	return &SenderWrapperFactory{
@@ -130,6 +138,7 @@ func TestInvalidLinger(t *testing.T) {
 // 1. Remove the limitation of 5min as the only timeout
 // -or-
 // 2. Add a mock for the webhook implementation
+
 func TestSwSimple(t *testing.T) {
 	assert := assert.New(t)
 
@@ -161,7 +170,6 @@ func TestSwSimple(t *testing.T) {
 	assert.NotNil(sw)
 
 	// No listeners
-
 	sw.Queue(iot)
 	sw.Queue(iot)
 	sw.Queue(iot)
@@ -192,6 +200,7 @@ func TestSwSimple(t *testing.T) {
 	sw.Update(list)
 
 	// Send iot message
+
 	sw.Queue(iot)
 
 	// Send test message

@@ -13,6 +13,7 @@ const (
 	SlowConsumerCounter           = "slow_consumer_cut_off_count"
 	IncomingQueueDepth            = "incoming_queue_depth"
 	IncomingContentTypeCounter    = "incoming_content_type_count"
+	IncomingEventTypeCounter      = "incoming_event_type_count"
 	DropsDueToInvalidPayload      = "drops_due_to_invalid_payload"
 	OutgoingQueueDepth            = "outgoing_queue_depths"
 )
@@ -74,6 +75,12 @@ func Metrics() []xmetrics.Metric {
 			Help:       "The depth of the queue per outgoing url.",
 			Type:       "gauge",
 			LabelNames: []string{"url"},
+		},
+		{
+			Name:       IncomingEventTypeCounter,
+			Help:       "Incoming count of events by event type",
+			Type:       "counter",
+			LabelNames: []string{"event"},
 		},
 	}
 }

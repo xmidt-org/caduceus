@@ -22,7 +22,7 @@ import (
 
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 )
@@ -70,10 +70,6 @@ func (m *mockOutboundSender) Shutdown(gentle bool) {
 func (m *mockOutboundSender) RetiredSince() time.Time {
 	arguments := m.Called()
 	return arguments.Get(0).(time.Time)
-}
-
-func (m *mockOutboundSender) Queue(msg *wrp.Message) {
-	m.Called(msg)
 }
 
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does

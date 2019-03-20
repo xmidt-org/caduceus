@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 )
@@ -52,11 +52,12 @@ type SenderWrapperFactory struct {
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
-	// The metrics counter for content-type
 	ContentTypeCounter metrics.Counter
 
 	// The metrics counter for dropped messages due to invalid payloads
 	DroppedMsgCounter metrics.Counter
+
+	EventType metrics.Counter
 
 	// The logger implementation to share with OutboundSenders.
 	Logger log.Logger
@@ -84,6 +85,7 @@ type CaduceusSenderWrapper struct {
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
 	metricsRegistry     CaduceusMetricsRegistry
+	eventType           metrics.Counter
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 }
@@ -106,6 +108,8 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		sw = nil
 		return
 	}
+
+	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
 
 	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
 	caduceusSenderWrapper.shutdown = make(chan struct{})
@@ -163,6 +167,9 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 // function performs the fan-out and filtering to multiple possible endpoints.
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
+
+	sw.eventType.With("event", msg.FindEventStringSubMatch())
+
 	for _, v := range sw.senders {
 		v.Queue(msg)
 	}
