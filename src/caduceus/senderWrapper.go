@@ -168,7 +168,7 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
 
-	sw.eventType.With("event_type", msg.FindEventStringSubMatch())
+	sw.eventType.With("event", msg.FindEventStringSubMatch())
 
 	for _, v := range sw.senders {
 		v.Queue(msg)

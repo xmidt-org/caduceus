@@ -80,7 +80,7 @@ func Metrics() []xmetrics.Metric {
 			Name:       IncomingEventTypeCounter,
 			Help:       "Incoming count of events by event type",
 			Type:       "counter",
-			LabelNames: []string{"event_type"},
+			LabelNames: []string{"event"},
 		},
 	}
 }
