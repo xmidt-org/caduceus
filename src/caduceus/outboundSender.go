@@ -188,32 +188,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
 
-	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
-	caduceusOutboundSender.deliveryRetryCounter = osf.MetricsRegistry.NewCounter(DeliveryRetryCounter)
-
-	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerCounter).With("url", caduceusOutboundSender.id)
-
-	caduceusOutboundSender.droppedQueueFullCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "queue_full")
-
-	caduceusOutboundSender.droppedExpiredCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "expired")
-
-	caduceusOutboundSender.droppedCutoffCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "cut_off")
-
-	caduceusOutboundSender.droppedInvalidConfig = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "invalid_config")
-
-	caduceusOutboundSender.droppedNetworkErrCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "network_err")
-
-	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
-		NewGauge(OutgoingQueueDepth).With("url", caduceusOutboundSender.id)
-
-	caduceusOutboundSender.contentTypeCounter = osf.MetricsRegistry.
-		NewCounter(IncomingContentTypeCounter)
+	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
