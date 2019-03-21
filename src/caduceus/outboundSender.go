@@ -498,8 +498,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	}
 
 	// record content type, msgpack, http, other
-	//obs.contentTypeCounter.With("content", strings.TrimLeft(contentType, "/")).Add(1.0)
-	obs.contentTypeCounter.With("content", "msgpack").Add(1.0)
+	obs.contentTypeCounter.With("content", strings.TrimLeft(contentType, "application/")).Add(1.0)
 
 	// Send it
 	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)

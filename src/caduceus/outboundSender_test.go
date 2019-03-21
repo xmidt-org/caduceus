@@ -186,19 +186,35 @@ func TestSimpleWrp(t *testing.T) {
 	// queue case 1
 	req := simpleRequest()
 	req.Destination = "event:iot"
-	fmt.Printf("Queue case 1:\n %v\n", spew.Sprint(req.Destination))
+	fmt.Printf("Queue case 1:\n %v\n", spew.Sprint(req))
 	obs.Queue(req)
 
-	r2 := simpleRequest()
-	r2.Destination = "event:test"
-	fmt.Printf("\nQueue case 2:\n %v\n", spew.Sprint(r2.Destination))
-	obs.Queue(r2)
+	req = simpleRequest()
+	req.Destination = "event:test"
+	fmt.Printf("\nQueue case 2:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
 
 	// queue case 3
-	r3 := simpleRequest()
-	r3.Destination = "event:no-match"
-	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(r3.Destination))
-	obs.Queue(r3)
+	req = simpleRequest()
+	req.Destination = "event:no-match"
+	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	// queue case 4
+	req = simpleRequest()
+	req.ContentType = "application/json"
+	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	req = simpleRequest()
+	req.ContentType = "application/http"
+	fmt.Printf("\nQueue case 4:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	req = simpleRequest()
+	req.ContentType = "unknown"
+	fmt.Printf("\nQueue case 4:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
 
 	obs.Shutdown(true)
 
