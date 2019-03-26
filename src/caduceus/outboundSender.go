@@ -439,6 +439,8 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	body := payload
 	var payloadReader *bytes.Reader
 
+	obs.contentTypeCounter.With("content", strings.TrimLeft(msg.ContentType, "application/")).Add(1.0)
+
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
 	switch acceptType {
@@ -496,9 +498,6 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		// Always retry on failures up to the max count.
 		ShouldRetry: func(error) bool { return true },
 	}
-
-	// record content type, msgpack, http, other
-	obs.contentTypeCounter.With("content", strings.TrimLeft(contentType, "application/")).Add(1.0)
 
 	// Send it
 	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
