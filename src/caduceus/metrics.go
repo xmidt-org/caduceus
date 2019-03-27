@@ -44,7 +44,7 @@ func Metrics() []xmetrics.Metric {
 			Name:       IncomingContentTypeCounter,
 			Help:       "Count of the content type processed.",
 			Type:       "counter",
-			LabelNames: []string{"content"},
+			LabelNames: []string{"content_type"},
 		},
 		{
 			Name:       DeliveryRetryCounter,
