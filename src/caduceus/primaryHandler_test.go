@@ -8,6 +8,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/viper"
@@ -20,11 +21,12 @@ func TestNewPrimaryHandler(t *testing.T) {
 		l                  = logging.New(nil)
 		viper              = viper.New()
 		sw                 = &ServerHandler{}
+		reg                = &webhook.Registry{}
 		expectedAuthHeader = []string{"Basic xxxxxxx"}
 	)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	if _, err := NewPrimaryHandler(l, viper, sw); err != nil {
+	if _, err := NewPrimaryHandler(l, viper, sw, reg); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 
@@ -90,7 +92,7 @@ func TestMuxServerConfig(t *testing.T) {
 	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper)
+	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, &webhook.Registry{})
 
 	t.Run("TestMuxResponseCorrectMSP", func(t *testing.T) {
 		req := exampleRequest("1234", "application/msgpack", "/api/v3/notify")
