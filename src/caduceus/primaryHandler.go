@@ -7,6 +7,7 @@ import (
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
 	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/Comcast/webpa-common/webhook"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
@@ -28,7 +29,7 @@ type JWTValidator struct {
 	Custom secure.JWTValidatorFactory
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler) (*mux.Router, error) {
+func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, reg *webhook.Registry) (*mux.Router, error) {
 	var (
 		router = mux.NewRouter()
 	)
@@ -47,15 +48,19 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler) (*mux.Ro
 
 	authorizationDecorator := alice.New(authHandler.Decorate)
 
-	return configServerRouter(router, authorizationDecorator, sw), nil
+	return configServerRouter(router, authorizationDecorator, sw, reg), nil
 }
 
-func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler) *mux.Router {
+func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookRegistry *webhook.Registry) *mux.Router {
 	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
 		return len(r.Header["Content-Type"]) == 1 //require single specification for Content-Type Header
 	}
 
 	router.Handle("/"+fmt.Sprintf("%s/%s", baseURI, version)+"/notify", primaryHandler.Then(serverWrapper)).Methods("POST").HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
+
+	// register webhook end points
+	router.Handle("/hook", primaryHandler.ThenFunc(webhookRegistry.UpdateRegistry)).Methods("POST")
+	router.Handle("/hooks", primaryHandler.ThenFunc(webhookRegistry.GetRegistry)).Methods("GET")
 
 	return router
 }

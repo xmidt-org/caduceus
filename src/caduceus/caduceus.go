@@ -116,12 +116,6 @@ func caduceus(arguments []string) int {
 		maxOutstanding:           0,
 	}
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
-		return 1
-	}
-
 	webhookFactory, err := webhook.NewFactory(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
@@ -130,9 +124,11 @@ func caduceus(arguments []string) int {
 	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler(metricsRegistry)
 	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
 
-	// register webhook end points for api
-	primaryHandler.HandleFunc("/hook", webhookRegistry.UpdateRegistry)
-	primaryHandler.HandleFunc("/hooks", webhookRegistry.GetRegistry)
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, &webhookRegistry)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
+		return 1
+	}
 
 	scheme := v.GetString("scheme")
 	if len(scheme) < 1 {
