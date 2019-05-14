@@ -25,6 +25,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+
 	//"github.com/stretchr/testify/mock"
 	"io"
 	"io/ioutil"
@@ -124,10 +125,10 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	// IncomingContentType cases
 	fakeContentType := new(mockCounter)
-	fakeContentType.On("With", []string{"content", "msgpack"}).Return(fakeContentType)
-	fakeContentType.On("With", []string{"content", "json"}).Return(fakeContentType)
-	fakeContentType.On("With", []string{"content", "http"}).Return(fakeContentType)
-	fakeContentType.On("With", []string{"content", "other"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content_type", "msgpack"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content_type", "json"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content_type", "http"}).Return(fakeContentType)
+	fakeContentType.On("With", []string{"content_type", "other"}).Return(fakeContentType)
 	fakeContentType.On("Add", 1.0).Return()
 
 	// QueueDepth case

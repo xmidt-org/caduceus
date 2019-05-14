@@ -439,7 +439,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	body := payload
 	var payloadReader *bytes.Reader
 
-	obs.contentTypeCounter.With("content", strings.TrimLeft(msg.ContentType, "application/")).Add(1.0)
+	obs.contentTypeCounter.With("content_type", strings.TrimLeft(msg.ContentType, "application/")).Add(1.0)
 
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
@@ -568,7 +568,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 
 	//  record content type, json.
-	obs.contentTypeCounter.With("content", "json").Add(1.0)
+	obs.contentTypeCounter.With("content_type", "json").Add(1.0)
 	resp, err := obs.sender(req)
 	if nil != err {
 		// Failure

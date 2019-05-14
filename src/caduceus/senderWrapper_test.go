@@ -98,10 +98,10 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"event", "test/extra-stuff"}).Return(fakeIgnore).
 		On("With", []string{"event", "bob/magic/dog"}).Return(fakeIgnore).
 		On("With", []string{"event", "unknown"}).Return(fakeIgnore).
-		On("With", []string{"content", "msgpack"}).Return(fakeIgnore).
-		On("With", []string{"content", "json"}).Return(fakeIgnore).
-		On("With", []string{"content", "http"}).Return(fakeIgnore).
-		On("With", []string{"content", "other"}).Return(fakeIgnore)
+		On("With", []string{"content_type", "msgpack"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "json"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "http"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "other"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
