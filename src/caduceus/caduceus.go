@@ -17,15 +17,14 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
-	"net/http"
 	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
 
+	"github.com/Comcast/webpa-common/client"
 	"github.com/Comcast/webpa-common/service/servicecfg"
 	"github.com/go-kit/kit/log/level"
 
@@ -61,6 +60,13 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
+	oc := client.ClientMetricOptions{InFlight: true, RequestDuration: true, RequestCounter: false, DroppedMessages: true, OutboundRetries: false}
+	webPAClient, err := client.Initialize(v, metricsRegistry, logger, oc, nil, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to initialize client: %s\n", err.Error())
+		return 1
+	}
+
 	var (
 		infoLog  = logging.Info(logger)
 		errorLog = logging.Error(logger)
@@ -76,13 +82,6 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	tr := &http.Transport{
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
-		ResponseHeaderTimeout: caduceusConfig.Sender.ResponseHeaderTimeout,
-		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
-	}
-
 	caduceusSenderWrapper, err := SenderWrapperFactory{
 		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
 		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
@@ -92,10 +91,7 @@ func caduceus(arguments []string) int {
 		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
-		Sender: (&http.Client{
-			Transport: tr,
-			Timeout:   caduceusConfig.Sender.ClientTimeout,
-		}).Do,
+		Sender:              webPAClient,
 	}.New()
 
 	if err != nil {

@@ -18,10 +18,10 @@ package main
 
 import (
 	"errors"
-	"net/http"
 	"sync"
 	"time"
 
+	"github.com/Comcast/webpa-common/client"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
@@ -54,16 +54,13 @@ type SenderWrapperFactory struct {
 
 	ContentTypeCounter metrics.Counter
 
-	// The metrics counter for dropped messages due to invalid payloads
-	DroppedMsgCounter metrics.Counter
-
 	EventType metrics.Counter
 
 	// The logger implementation to share with OutboundSenders.
 	Logger log.Logger
 
 	// The http client Do() function to share with OutboundSenders.
-	Sender func(*http.Request) (*http.Response, error)
+	Sender *client.WebPAClient
 }
 
 type SenderWrapper interface {
@@ -74,7 +71,7 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              func(*http.Request) (*http.Response, error)
+	sender              *client.WebPAClient
 	numWorkersPerSender int
 	queueSizePerSender  int
 	deliveryRetries     int

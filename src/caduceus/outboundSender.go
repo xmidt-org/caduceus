@@ -34,6 +34,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Comcast/webpa-common/client"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/semaphore"
@@ -77,8 +78,8 @@ type OutboundSenderFactory struct {
 	// The WebHookListener to service
 	Listener webhook.W
 
-	// The http client Do() function to use for outbound requests.
-	Sender func(*http.Request) (*http.Response, error)
+	// The WebPAClient that handles outgoing http requests
+	Sender *client.WebPAClient
 
 	// The number of delivery workers to create and use.
 	NumWorkers int
@@ -117,7 +118,7 @@ type CaduceusOutboundSender struct {
 	listener                 webhook.W
 	deliverUntil             time.Time
 	dropUntil                time.Time
-	sender                   func(*http.Request) (*http.Response, error)
+	sender                   client.WebPAClient
 	events                   []*regexp.Regexp
 	matcher                  []*regexp.Regexp
 	queueSize                int
@@ -508,7 +509,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	// find the event "short name"
 	event := msg.FindEventStringSubMatch()
 
-	retryOptions := xhttp.RetryOptions{
+	ro := xhttp.RetryOptions{
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
@@ -518,12 +519,9 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	}
 
 	// Send it
-	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+	resp, err := obs.sender.RetryTransact(req, ro)
 	code := "failure"
-	if nil != err {
-		// Report failure
-		obs.droppedNetworkErrCounter.Add(1.0)
-	} else {
+	if err != nil {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
 
@@ -534,6 +532,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 			resp.Body.Close()
 		}
 	}
+
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
 }
 
