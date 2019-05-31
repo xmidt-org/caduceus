@@ -516,7 +516,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		// Always retry on failures up to the max count.
 		ShouldRetry: func(error) bool { return true },
 		ShouldRetryStatus: func(code int) bool {
-			return code < 200 && code > 299
+			return code < 200 || code > 299
 		},
 	}
 

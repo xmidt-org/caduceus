@@ -104,6 +104,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		On("With", []string{"url", w.Config.URL, "code", "201"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "202"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC).
+		On("With", []string{"url", w.Config.URL, "code", "429", "event", "iot"}).Return(fakeDC).
 		On("With", []string{"url", w.Config.URL, "code", "failure"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
@@ -204,6 +205,31 @@ func TestSimpleRetry(t *testing.T) {
 	}
 
 	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.NotNil(obs)
+	assert.Nil(err)
+
+	req := simpleRequest()
+	req.Source = "mac:112233445566"
+	req.TransactionUUID = "1234"
+	req.Destination = "event:iot"
+	obs.Queue(req)
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+func Test429Retry(t *testing.T) {
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+	trans.fn = func(req *http.Request, count int) (*http.Response, error) {
+		return &http.Response{StatusCode: 429}, nil
+	}
+
+	obs, err := simpleSetup(trans, time.Second, nil)
+
 	assert.NotNil(obs)
 	assert.Nil(err)
 
