@@ -22,10 +22,8 @@ sender:
   queueSizePerSender: 50
   cutOffPeriod: 30s
   linger: 180s
-  clientTimeout: 60s
   deliveryRetries: 1
   deliveryInterval: 10ms
-  responseHeaderTimeout: 10s
 profilerFrequency: 15
 profilerDuration: 15
 profilerQueueSize: 100
@@ -54,3 +52,12 @@ start:
   duration: 1
   apiPath: http://localhost:6000/hooks
   authHeader: YXV0aEhlYWRlcg==
+
+clientConfig:
+  timeOut: 60
+tlsConfig:
+  insecureSkipVerify: true 
+transportConfig:
+  maxIdleConnsPerHost: 5
+  responseHeaderTimeOut: 5
+  maxResponseHeaderBytes: 5
