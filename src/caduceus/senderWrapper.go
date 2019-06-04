@@ -97,6 +97,8 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		sender:              swf.Sender,
 		numWorkersPerSender: swf.NumWorkersPerSender,
 		queueSizePerSender:  swf.QueueSizePerSender,
+		deliveryRetries:     swf.DeliveryRetries,
+		deliveryInterval:    swf.DeliveryInterval,
 		cutOffPeriod:        swf.CutOffPeriod,
 		linger:              swf.Linger,
 		logger:              swf.Logger,
