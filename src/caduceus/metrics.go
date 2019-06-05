@@ -84,3 +84,16 @@ func Metrics() []xmetrics.Metric {
 		},
 	}
 }
+
+func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSender) {
+	c.deliveryCounter = m.NewCounter(DeliveryCounter)
+	c.deliveryRetryCounter = m.NewCounter(DeliveryRetryCounter)
+	c.cutOffCounter = m.NewCounter(SlowConsumerCounter).With("url", c.id)
+	c.droppedQueueFullCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "queue_full")
+	c.droppedExpiredCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired")
+	c.droppedCutoffCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
+	c.droppedInvalidConfig = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
+	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "network_err")
+	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
+	c.contentTypeCounter = m.NewCounter(IncomingContentTypeCounter)
+}

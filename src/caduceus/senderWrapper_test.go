@@ -65,10 +65,6 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func getFakeFactory() *SenderWrapperFactory {
-	fakeICTC := new(mockCounter)
-	fakeICTC.On("With", []string{"content_type", "msgpack"}).Return(fakeICTC).
-		On("With", []string{"content_type", "unknown"}).Return(fakeICTC).
-		On("Add", 1.0).Return()
 
 	fakeDDTIP := new(mockCounter)
 	fakeDDTIP.On("Add", 1.0).Return()
@@ -101,7 +97,11 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"event", "iot"}).Return(fakeIgnore).
 		On("With", []string{"event", "test/extra-stuff"}).Return(fakeIgnore).
 		On("With", []string{"event", "bob/magic/dog"}).Return(fakeIgnore).
-		On("With", []string{"event", "unknown"}).Return(fakeIgnore)
+		On("With", []string{"event", "unknown"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "msgpack"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "json"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "http"}).Return(fakeIgnore).
+		On("With", []string{"content_type", "other"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
 	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
@@ -109,7 +109,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeICTC)
+	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
 
