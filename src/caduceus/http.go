@@ -25,7 +25,7 @@ import (
 	"github.com/Comcast/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 // Below is the struct that will implement our ServeHTTP method
@@ -89,6 +89,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		debugLog.Log(messageKey, "Invalid payload format.\n")
 		return
 	}
+
 	sh.caduceusHandler.HandleRequest(0, fixWrp(msg))
 
 	// return a 202

@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -65,6 +66,8 @@ func exampleRequest(list ...string) *http.Request {
 }
 
 func TestServerHandler(t *testing.T) {
+	fmt.Print("TestingeServerHandler")
+
 	assert := assert.New(t)
 
 	logger := logging.DefaultLogger()
@@ -100,6 +103,8 @@ func TestServerHandler(t *testing.T) {
 }
 
 func TestServerHandlerFixWrp(t *testing.T) {
+	fmt.Printf("TestServerHandlerFixWrp")
+
 	assert := assert.New(t)
 
 	logger := logging.DefaultLogger()
@@ -112,6 +117,11 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeInvalidCount := new(mockCounter)
 	fakeQueueDepth := new(mockGauge)
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
+
+	fakeIncomingContentTypeCount := new(mockCounter)
+	fakeIncomingContentTypeCount.On("With", []string{"content_type", "application/msgpack"}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("With", []string{"content_type", ""}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
 
 	serverWrapper := &ServerHandler{
 		Logger:                   logger,
@@ -135,6 +145,8 @@ func TestServerHandlerFixWrp(t *testing.T) {
 }
 
 func TestServerHandlerFull(t *testing.T) {
+	fmt.Printf("TestServerHandlerFull")
+
 	assert := assert.New(t)
 
 	logger := logging.DefaultLogger()
@@ -167,6 +179,8 @@ func TestServerHandlerFull(t *testing.T) {
 }
 
 func TestServerEmptyPayload(t *testing.T) {
+	fmt.Printf("TestServerEmptyPayLoad")
+
 	assert := assert.New(t)
 
 	var buffer bytes.Buffer
@@ -204,6 +218,8 @@ func TestServerEmptyPayload(t *testing.T) {
 }
 
 func TestServerUnableToReadBody(t *testing.T) {
+	fmt.Printf("TestServerUnableToReadBody")
+
 	assert := assert.New(t)
 
 	var buffer bytes.Buffer
@@ -243,6 +259,8 @@ func TestServerUnableToReadBody(t *testing.T) {
 }
 
 func TestServerInvalidBody(t *testing.T) {
+	fmt.Printf("TestServerInvalidBody")
+
 	assert := assert.New(t)
 
 	r := bytes.NewReader([]byte("Invalid payload."))

@@ -132,6 +132,7 @@ type CaduceusOutboundSender struct {
 	droppedNetworkErrCounter metrics.Counter
 	droppedInvalidConfig     metrics.Counter
 	cutOffCounter            metrics.Counter
+	contentTypeCounter       metrics.Counter
 	queueDepthGauge          metrics.Gauge
 	eventType                metrics.Counter
 	wg                       sync.WaitGroup
@@ -187,29 +188,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
 
-	caduceusOutboundSender.deliveryCounter = osf.MetricsRegistry.NewCounter(DeliveryCounter)
-	caduceusOutboundSender.deliveryRetryCounter = osf.MetricsRegistry.NewCounter(DeliveryRetryCounter)
-
-	caduceusOutboundSender.cutOffCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerCounter).With("url", caduceusOutboundSender.id)
-
-	caduceusOutboundSender.droppedQueueFullCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "queue_full")
-
-	caduceusOutboundSender.droppedExpiredCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "expired")
-
-	caduceusOutboundSender.droppedCutoffCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "cut_off")
-
-	caduceusOutboundSender.droppedInvalidConfig = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "invalid_config")
-
-	caduceusOutboundSender.droppedNetworkErrCounter = osf.MetricsRegistry.
-		NewCounter(SlowConsumerDroppedMsgCounter).With("url", caduceusOutboundSender.id, "reason", "network_err")
-
-	caduceusOutboundSender.queueDepthGauge = osf.MetricsRegistry.
-		NewGauge(OutgoingQueueDepth).With("url", caduceusOutboundSender.id)
+	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
 	// Give us some head room so that we don't block when we get near the
 	// completely full point.
@@ -441,6 +420,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 			continue
 		}
 		obs.workers.Acquire()
+
 		go obs.send(secret, accept, msg)
 	}
 
@@ -458,6 +438,8 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	payload := msg.Payload
 	body := payload
 	var payloadReader *bytes.Reader
+
+	obs.contentTypeCounter.With("content_type", strings.TrimLeft(msg.ContentType, "application/")).Add(1.0)
 
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
@@ -588,6 +570,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
+	//  record content type, json.
+	obs.contentTypeCounter.With("content_type", "json").Add(1.0)
 	resp, err := obs.sender(req)
 	if nil != err {
 		// Failure
