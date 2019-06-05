@@ -515,6 +515,9 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
 		// Always retry on failures up to the max count.
 		ShouldRetry: func(error) bool { return true },
+		ShouldRetryStatus: func(code int) bool {
+			return code < 200 || code > 299
+		},
 	}
 
 	// Send it
