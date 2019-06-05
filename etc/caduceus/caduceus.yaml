@@ -295,6 +295,13 @@
   # sender provides the details for each "sender" that services the unique
   # webhook url endpoint
   sender:
+
+    # numWorkersPerSender defines the maximum number of outgoing concurrent
+    # HTTP client requests to a particular webhook url.  This number is for
+    # THIS server only, to determine the total maximum, multiply this value
+    # by the number of caducues machines.
+    numWorkersPerSender: 5000
+
     # queueSizePerSender the maximum queue depth (in events) the sender will
     # store before cutting off the webhook because the delivery pipeline has
     # backed up.
@@ -310,6 +317,10 @@
     # linger is the duration of time after a webhook has not been registered
     # before the delivery pipeline is torn down.
     linger: 180s
+
+
+    # (Deprecated)
+    # clientTimeout: 60s
 
     # deliveryRetries is the maximum number of delivery attempts caduceus will
     # make before dropping an event
@@ -340,6 +351,7 @@ transportConfig:
 
 
 
+
   # (Deprecated)
   # profilerFrequency: 15
   # profilerDuration: 15
@@ -352,4 +364,3 @@ transportConfig:
   #   - 100
   #   - 1000
   #   - 10000
-
