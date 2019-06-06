@@ -10,7 +10,6 @@ src/vendor
 src/caduceus/caduceus
 src/caduceus/debug
 src/caduceus/output
-caduceus.spec
 
 # config
 src/caduceus/caduceus.json
