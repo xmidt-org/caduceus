@@ -1,5 +1,5 @@
-hash: 08a81032ec0922b02b1a24a26be20ed5e2eddfdef877123ad8b6a7a5bfbbdb3f
-updated: 2019-05-31T16:30:04.955833-07:00
+hash: 27c1e01af3f74008fc473403bdb10777ad243d29946d436cfc57ea0255e1f456
+updated: 2019-06-05T09:47:53.21219-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -42,7 +42,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/Comcast/webpa-common
-  version: af2102421561cc50aa301642bb52a8376d834a61
+  version: ef2f08de76d5c268ef5f4a63527e443d1556a0c5
   subpackages:
   - concurrent
   - convey
@@ -77,11 +77,11 @@ imports:
   - wrp
   - wrp/wrphttp
 - name: github.com/davecgh/go-spew
-  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
-  version: 1485a34d5d5723fea214f5710708e19a831720e4
+  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: github.com/go-ini/ini
   version: bda519ae5f4cbc60d391ff8610711627a08b86ae
 - name: github.com/go-kit/kit
@@ -135,7 +135,7 @@ imports:
   subpackages:
   - simplelru
 - name: github.com/hashicorp/hcl
-  version: 65a6292f0157eff210d03ed1bf6c59b190b8b906
+  version: ef8a98b0bbce4a65b5aa4c368430a80ddc533168
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -151,7 +151,7 @@ imports:
   subpackages:
   - coordinate
 - name: github.com/influxdata/influxdb
-  version: de58584ce723da61d6cce6c4b92131143c06eea4
+  version: d977c0ac2494a59d72f41dc277771a3d297b8e98
   subpackages:
   - client/v2
   - models
@@ -165,7 +165,7 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/magiconair/properties
-  version: 7757cc9fdb852f7579b24170bcacda2c7471bb6a
+  version: c2353362d570a7bfa228149c62842019201cfb71
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
@@ -175,11 +175,11 @@ imports:
 - name: github.com/mitchellh/go-homedir
   version: b8bc1bf767474819792c23f32d8286a45736f1c6
 - name: github.com/mitchellh/mapstructure
-  version: 3536a929edddb9a5b34bd6861dc4a9647cb459fe
+  version: f15292f7a699fcc1a38a80977f80a046874ba8ac
 - name: github.com/pelletier/go-toml
-  version: 690ec00a4b7e125266cf1c4725ae24af22564f8f
+  version: 603baefff989777996bf283da430d693e78eba3a
 - name: github.com/pmezard/go-difflib
-  version: 5d4384ee4fb2527b0a1256a821ebfc92f91efefc
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
 - name: github.com/prometheus/client_golang
@@ -189,11 +189,11 @@ imports:
   - prometheus/internal
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c
+  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: d811d2e9bf898806ecfb6ef6296774b13ffc314c
+  version: 7600349dcfe1abd18d72d3a1770870d9800a7801
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg
@@ -219,19 +219,19 @@ imports:
 - name: github.com/spaolacci/murmur3
   version: 0d12bf811670bf6a1a63828dfbd003eded177fce
 - name: github.com/spf13/afero
-  version: f4711e4db9e9a1d3887343acb72b2bbfc2f686f5
+  version: 787d034dfe70e44075ccc060d346146ef53270ad
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: 8c9545af88b134710ab1cd196795e7f2388358d7
+  version: 8965335b8c7107321228e3e3702cab9832751bac
 - name: github.com/spf13/jwalterweatherman
-  version: 94f6ae3ed3bceceafa716478c5fbf8d29ca601a1
+  version: 7c0cea34c8ece3fbeb2b27ab9b59511d360fb394
 - name: github.com/spf13/pflag
   version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: github.com/spf13/viper
   version: 6d33b5a963d922d182c91e8a1c88d81fd150cfd4
 - name: github.com/stretchr/objx
-  version: c61a9dfcced1815e7d40e214d00d1a8669a9f58c
+  version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
   version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:
@@ -259,16 +259,16 @@ imports:
   - ipv4
   - ipv6
 - name: golang.org/x/sys
-  version: a2f829d7f35f2ed1c3520c553a6226495455cae0
+  version: ac767d655b305d4e9612f5f6e33120b9176c4ad4
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 5d731a35f4867878fc89f7744f7b6debb3beded6
+  version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
   subpackages:
   - transform
   - unicode/norm
 - name: gopkg.in/natefinch/lumberjack.v2
   version: a96e63847dc3c67d17befa69c303767e2f84e54f
 - name: gopkg.in/yaml.v2
-  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
+  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 testImports: []

@@ -1,6 +1,6 @@
 package: .
 import:
 - package: github.com/Comcast/webpa-common
-  version: af2102421561cc50aa301642bb52a8376d834a61
+  version: v1.1.0
 - package: github.com/satori/go.uuid
   version: f58768cc1a7a7e77a3bd49e98cdd21419399b6a3
