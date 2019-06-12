@@ -69,7 +69,7 @@ popd
 cat ${NAME}.spec.in > ${NAME}.spec
 cat ChangeLog >> ${NAME}.spec
 
-if [ 0 eq $SIGN ]; then
+if [ 0 == $SIGN ]; then
     yes "" | rpmbuild -ba \
         --define "_ver $release" \
         --define "_releaseno ${BUILD_NUMBER}" \
@@ -88,3 +88,4 @@ fi
 pushd ..
 echo "$new_release" > versionno.txt
 popd
+

@@ -1,12 +1,17 @@
 [Unit]
 Description=The Xmidt server for delivering events.
-After=network.target
+After=network.target remote-fs.target nss-lookup.target
 
 [Service]
 Type=simple
-User=caduceus
+PIDFile=/run/caduceus.pid
+ExecStartPre=/usr/bin/rm -f /run/caduceus.pid
 ExecStart=/usr/bin/caduceus
-Restart=on-failure
+ExecReload=/bin/kill -s HUP $MAINPID
+TimeoutStopSec=10
+KillMode=process
+PrivateTmp=true
+Restart=always
 
 [Install]
 WantedBy=multi-user.target

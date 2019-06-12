@@ -39,8 +39,9 @@ import (
 )
 
 const (
-	applicationName = "caduceus"
-	DEFAULT_KEY_ID  = "current"
+	applicationName    = "caduceus"
+	DEFAULT_KEY_ID     = "current"
+	applicationVersion = "0.1.4"
 )
 
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
