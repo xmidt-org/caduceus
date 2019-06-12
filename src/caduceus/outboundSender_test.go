@@ -273,6 +273,54 @@ func Test429Retry(t *testing.T) {
 	assert.Equal(int32(2), trans.i)
 }
 
+func TestAltURL(t *testing.T) {
+	assert := assert.New(t)
+
+	urls := map[string]int{}
+
+	w := webhook.W{
+		Until:  time.Now().Add(60 * time.Second),
+		Events: []string{".*"},
+	}
+	w.Config.URL = "http://localhost:9999/foo"
+	w.Config.ContentType = "application/json"
+	w.Config.MaxRetryCount = 3
+	w.Config.AlternativeURLs = []string{
+		"http://localhost:9999/bar",
+		"http://localhost:9999/faa",
+		"http://localhost:9999/bas",
+	}
+
+	trans := &transport{}
+	trans.fn = func(req *http.Request, count int) (*http.Response, error) {
+		if _, ok := urls[req.URL.Path]; ok {
+			urls[req.URL.Path]++
+		} else {
+			urls[req.URL.Path] = 1
+		}
+		return &http.Response{StatusCode: 429}, nil
+	}
+
+	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.Nil(err)
+	err = obs.Update(w)
+	assert.NotNil(obs)
+	assert.Nil(err)
+
+	req := simpleRequest()
+	req.Source = "mac:112233445566"
+	req.TransactionUUID = "1234"
+	req.Destination = "event:iot"
+	obs.Queue(req)
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(4), trans.i)
+	for k, v := range urls {
+		assert.Equal(1, v, k)
+	}
+}
+
 // Simple test that covers the normal successful case with extra matchers
 func TestSimpleWrpWithMatchers(t *testing.T) {
 
