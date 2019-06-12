@@ -5,13 +5,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-### Added
-- Add alternative urls and consumer max retry logic for webhooks [issue 140](https://github.com/Comcast/caduceus/pull/140)
-
-### Changed
-- Retry on non 2xx status codes [issue 139](https://github.com/Comcast/caduceus/pull/139)
-- Fix for no retries being attempted [issue 141](https://github.com/Comcast/caduceus/pull/141)
-- Add metric for incoming content type [issue 133](https://github.com/Comcast/caduceus/pull/133)
 
 ## [0.1.3] - 2019-02-27
 ### Changed

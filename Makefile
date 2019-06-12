@@ -53,8 +53,8 @@ install:
 .PHONY: release-artifacts
 release-artifacts: glide-install
 	mkdir -p ./.ignore
-	export GOPATH=$(GOPATH) && cd src/$(APP) && GOOS=darwin GOARCH=amd64 go build -o ../../.ignore/$(APP)-$(PROGVER).darwin-amd64
-	export GOPATH=$(GOPATH) && cd src/$(APP) && GOOS=linux  GOARCH=amd64 go build -o ../../.ignore/$(APP)-$(PROGVER).linux-amd64
+	GOOS=darwin GOARCH=amd64 go build -o .ignore/$(APP)-$(PROGVER).darwin-amd64 $(APP)
+	GOOS=linux  GOARCH=amd64 go build -o .ignore/$(APP)-$(PROGVER).linux-amd64 $(APP)
 
 .PHONY: docker
 docker:
@@ -63,16 +63,16 @@ docker:
 # build docker without running modules
 .PHONY: local-docker
 local-docker:
-	GOOS=linux  GOARCH=amd64 go build -o $(APP)_linux_amd64
+	GOOS=linux  GOARCH=amd64 go build -o $(APP)_linux_amd64 $(APP)
 	docker build -f ./deploy/Dockerfile.local -t $(APP):local .
 
 .PHONY: style
 style:
-	! gofmt -d $$(find . -path ./vendor -prune -o -name '*.go' -print) | grep '^'
+	! gofmt -d $$(find src/$(APP) -path ./vendor -prune -o -name '*.go' -print) | grep '^'
 
 .PHONY: test
 test:
-	go test -o $(BINARY) -v -race  -coverprofile=cover.out $(go list ./... | grep -v "/vendor/")
+	go test -v -race -coverprofile=cover.out $(APP)/...
 
 .PHONY: test-cover
 test-cover: test
