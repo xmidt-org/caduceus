@@ -20,4 +20,4 @@ branches:
     - master
 
 script:
-  - make style codecov
+  - make build style codecov
