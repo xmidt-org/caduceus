@@ -20,4 +20,5 @@ branches:
     - master
 
 script:
-  - make style codecov
+  - go get -v github.com/Masterminds/glide
+  - make build style codecov
