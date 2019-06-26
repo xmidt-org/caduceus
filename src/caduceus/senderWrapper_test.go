@@ -112,6 +112,12 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", ConsumerRenewalTimeGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", ConsumerDeliverUntilGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,
