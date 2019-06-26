@@ -134,6 +134,12 @@ type CaduceusOutboundSender struct {
 	cutOffCounter            metrics.Counter
 	contentTypeCounter       metrics.Counter
 	queueDepthGauge          metrics.Gauge
+	renewalTimeGauge         metrics.Gauge
+	deliverUntilGauge        metrics.Gauge
+	dropUntilGauge           metrics.Gauge
+	maxWorkersGauge          metrics.Gauge
+	currentWorkersGauge      metrics.Gauge
+	deliveryRetryMaxGauge    metrics.Gauge
 	eventType                metrics.Counter
 	wg                       sync.WaitGroup
 	cutOffPeriod             time.Duration
@@ -255,6 +261,8 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		matcher = append(matcher, re)
 	}
 
+	obs.renewalTimeGauge.Set(float64(time.Now().Unix()))
+
 	// write/update obs
 	obs.mutex.Lock()
 
@@ -266,18 +274,24 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 	obs.listener.FailureURL = wh.FailureURL
 	obs.deliverUntil = wh.Until
+	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+
 	obs.events = events
 
 	// update default deliver retry count for sender
 	if wh.Config.MaxRetryCount != 0 {
 		obs.deliveryRetries = wh.Config.MaxRetryCount
 	}
+	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
 
 	// if matcher list is empty set it nil for Queue() logic
 	obs.matcher = nil
 	if 0 < len(matcher) {
 		obs.matcher = matcher
 	}
+
+	// Update this here in case we make this configurable later
+	obs.maxWorkersGauge.Set(float64(obs.maxWorkers))
 
 	obs.mutex.Unlock()
 
@@ -293,12 +307,14 @@ func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
+		obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
 	}
 	obs.mutex.Unlock()
 	obs.wg.Wait()
 
 	obs.mutex.Lock()
 	obs.deliverUntil = time.Time{}
+	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
 	obs.mutex.Unlock()
 }
 
@@ -430,6 +446,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 			continue
 		}
 		obs.workers.Acquire()
+		obs.currentWorkersGauge.Add(1.0)
 
 		go obs.send(secret, accept, msg)
 	}
@@ -444,6 +461,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 // them to the listeners outside webpa
 func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Message) {
 	defer obs.workers.Release()
+	defer obs.currentWorkersGauge.Add(-1.0)
 
 	payload := msg.Payload
 	body := payload
@@ -553,6 +571,7 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
+	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
 	failureMsg := obs.failureMsg
 	failureURL := obs.listener.FailureURL
