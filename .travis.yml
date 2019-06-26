@@ -20,4 +20,5 @@ branches:
     - master
 
 script:
+  - curl https://glide.sh/get | sh
   - make build style codecov
