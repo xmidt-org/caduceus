@@ -113,41 +113,42 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	id                       string
-	listener                 webhook.W
-	deliverUntil             time.Time
-	dropUntil                time.Time
-	sender                   func(*http.Request) (*http.Response, error)
-	events                   []*regexp.Regexp
-	matcher                  []*regexp.Regexp
-	queueSize                int
-	queue                    chan *wrp.Message
-	deliveryRetries          int
-	deliveryInterval         time.Duration
-	deliveryCounter          metrics.Counter
-	deliveryRetryCounter     metrics.Counter
-	droppedQueueFullCounter  metrics.Counter
-	droppedCutoffCounter     metrics.Counter
-	droppedExpiredCounter    metrics.Counter
-	droppedNetworkErrCounter metrics.Counter
-	droppedInvalidConfig     metrics.Counter
-	cutOffCounter            metrics.Counter
-	contentTypeCounter       metrics.Counter
-	queueDepthGauge          metrics.Gauge
-	renewalTimeGauge         metrics.Gauge
-	deliverUntilGauge        metrics.Gauge
-	dropUntilGauge           metrics.Gauge
-	maxWorkersGauge          metrics.Gauge
-	currentWorkersGauge      metrics.Gauge
-	deliveryRetryMaxGauge    metrics.Gauge
-	eventType                metrics.Counter
-	wg                       sync.WaitGroup
-	cutOffPeriod             time.Duration
-	workers                  semaphore.Interface
-	maxWorkers               int
-	failureMsg               FailureMessage
-	logger                   log.Logger
-	mutex                    sync.RWMutex
+	id                               string
+	listener                         webhook.W
+	deliverUntil                     time.Time
+	dropUntil                        time.Time
+	sender                           func(*http.Request) (*http.Response, error)
+	events                           []*regexp.Regexp
+	matcher                          []*regexp.Regexp
+	queueSize                        int
+	queue                            chan *wrp.Message
+	deliveryRetries                  int
+	deliveryInterval                 time.Duration
+	deliveryCounter                  metrics.Counter
+	deliveryRetryCounter             metrics.Counter
+	droppedQueueFullCounter          metrics.Counter
+	droppedCutoffCounter             metrics.Counter
+	droppedExpiredCounter            metrics.Counter
+	droppedExpiredBeforeQueueCounter metrics.Counter
+	droppedNetworkErrCounter         metrics.Counter
+	droppedInvalidConfig             metrics.Counter
+	cutOffCounter                    metrics.Counter
+	contentTypeCounter               metrics.Counter
+	queueDepthGauge                  metrics.Gauge
+	renewalTimeGauge                 metrics.Gauge
+	deliverUntilGauge                metrics.Gauge
+	dropUntilGauge                   metrics.Gauge
+	maxWorkersGauge                  metrics.Gauge
+	currentWorkersGauge              metrics.Gauge
+	deliveryRetryMaxGauge            metrics.Gauge
+	eventType                        metrics.Counter
+	wg                               sync.WaitGroup
+	cutOffPeriod                     time.Duration
+	workers                          semaphore.Interface
+	maxWorkers                       int
+	failureMsg                       FailureMessage
+	logger                           log.Logger
+	mutex                            sync.RWMutex
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -414,7 +415,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 	if false == now.Before(deliverUntil) {
 		debugLog.Log(logging.MessageKey(), "Outside delivery window",
 			"now", now, "before", deliverUntil, "after", dropUntil)
-		obs.droppedExpiredCounter.Add(1.0)
+		obs.droppedExpiredBeforeQueueCounter.Add(1.0)
 		return false
 	}
 
