@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -302,6 +303,14 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 			r = r.Next()
 		}
 		obs.urls = r
+	}
+
+	// Randomize where we start so all the instances don't synchronize
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	offset := r.Intn(obs.urls.Len())
+	for 0 < offset {
+		obs.urls = obs.urls.Next()
+		offset--
 	}
 
 	obs.mutex.Unlock()
