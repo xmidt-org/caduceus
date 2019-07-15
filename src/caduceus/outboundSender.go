@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"container/ring"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -26,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -114,6 +116,7 @@ type OutboundSender interface {
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
 	id                       string
+	urls                     *ring.Ring
 	listener                 webhook.W
 	deliverUntil             time.Time
 	dropUntil                time.Time
@@ -255,6 +258,17 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		matcher = append(matcher, re)
 	}
 
+	// Validate the various urls
+	urlCount := len(wh.Config.AlternativeURLs)
+	for i := 0; i < urlCount; i++ {
+		_, err = url.Parse(wh.Config.AlternativeURLs[i])
+		if err != nil {
+			logging.Error(obs.logger).Log(logging.MessageKey(), "failed to update url",
+				"url", wh.Config.AlternativeURLs[i], logging.ErrorKey(), err)
+			return
+		}
+	}
+
 	// write/update obs
 	obs.mutex.Lock()
 
@@ -277,6 +291,26 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	obs.matcher = nil
 	if 0 < len(matcher) {
 		obs.matcher = matcher
+	}
+
+	if 0 == urlCount {
+		obs.urls = ring.New(1)
+		obs.urls.Value = obs.id
+	} else {
+		r := ring.New(urlCount)
+		for i := 0; i < urlCount; i++ {
+			r.Value = wh.Config.AlternativeURLs[i]
+			r = r.Next()
+		}
+		obs.urls = r
+	}
+
+	// Randomize where we start so all the instances don't synchronize
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	offset := r.Intn(obs.urls.Len())
+	for 0 < offset {
+		obs.urls = obs.urls.Next()
+		offset--
 	}
 
 	obs.mutex.Unlock()
@@ -412,6 +446,10 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		obs.queueDepthGauge.Add(-1.0)
 
 		obs.mutex.RLock()
+		urls := obs.urls
+		// Move to the next URL to try 1st the next time.
+		obs.urls = obs.urls.Next()
+
 		deliverUntil := obs.deliverUntil
 		dropUntil := obs.dropUntil
 		secret := obs.listener.Config.Secret
@@ -431,7 +469,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		}
 		obs.workers.Acquire()
 
-		go obs.send(secret, accept, msg)
+		go obs.send(urls, secret, accept, msg)
 	}
 
 	// Grab all the workers to make sure they are done.
@@ -442,7 +480,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Message) {
+func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
 	defer obs.workers.Release()
 
 	payload := msg.Payload
@@ -465,12 +503,12 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 	}
 	payloadReader = bytes.NewReader(body)
 
-	req, err := http.NewRequest("POST", obs.id, payloadReader)
+	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
 	if nil != err {
 		// Report drop
 		obs.droppedInvalidConfig.Add(1.0)
-		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL", "url", obs.id,
-			logging.ErrorKey(), err)
+		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL",
+			"url", urls.Value.(string), "id", obs.id, logging.ErrorKey(), err)
 		return
 	}
 
@@ -512,21 +550,16 @@ func (obs *CaduceusOutboundSender) send(secret, acceptType string, msg *wrp.Mess
 		},
 	}
 
-	// if the consumer request alternative urls update subsequent requests with the new urls.
-	if len(obs.listener.Config.AlternativeURLs) > 0 {
-		index := 0
-		retryOptions.UpdateRequest = func(request *http.Request) {
-			if index >= len(obs.listener.Config.AlternativeURLs) {
-				index = 0
-			}
-			url, err := url.Parse(obs.listener.Config.AlternativeURLs[index])
-			index++
-			if err != nil {
-				logging.Error(obs.logger).Log(logging.MessageKey(), "failed to update url", "url", obs.listener.Config.AlternativeURLs[index], logging.ErrorKey(), err)
-				return
-			}
-			request.URL = url
+	// update subsequent requests with the next url in the list upon failure
+	retryOptions.UpdateRequest = func(request *http.Request) {
+		urls = urls.Next()
+		tmp, err := url.Parse(urls.Value.(string))
+		if err != nil {
+			logging.Error(obs.logger).Log(logging.MessageKey(), "failed to update url",
+				"url", urls.Value.(string), logging.ErrorKey(), err)
+			return
 		}
+		request.URL = tmp
 	}
 
 	// Send it

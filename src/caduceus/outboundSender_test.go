@@ -286,6 +286,7 @@ func TestAltURL(t *testing.T) {
 	w.Config.ContentType = "application/json"
 	w.Config.MaxRetryCount = 3
 	w.Config.AlternativeURLs = []string{
+		"http://localhost:9999/foo",
 		"http://localhost:9999/bar",
 		"http://localhost:9999/faa",
 		"http://localhost:9999/bas",
