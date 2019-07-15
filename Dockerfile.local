@@ -1,21 +1,23 @@
 FROM golang:alpine as builder
 MAINTAINER Jack Murdock <jack_murdock@comcast.com>
 
-# build the binary
-WORKDIR /go/src
-COPY src/ /go/src/
+ENV build_gopath /go/src/caduceus
 
+COPY src/ ${build_gopath}/src
+
+WORKDIR ${build_gopath}/src
+ENV GOPATH ${build_gopath}
+
+# build the binary
+WORKDIR ${build_gopath}/src/caduceus
 RUN go build -o caduceus_linux_amd64 caduceus
 
-EXPOSE 6000 6001 6002
-RUN mkdir -p /etc/caduceus
-VOLUME /etc/caduceus
-
-# the actual image
+# prep the actual image
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
+EXPOSE 6100 6101 6102
 RUN mkdir -p /etc/caduceus
 VOLUME /etc/caduceus
 WORKDIR /root/
-COPY --from=builder /go/src/caduceus_linux_amd64 .
+COPY --from=builder /go/src/caduceus/src/caduceus/caduceus_linux_amd64 .
 ENTRYPOINT ["./caduceus_linux_amd64"]

@@ -63,7 +63,6 @@ docker:
 # build docker without running modules
 .PHONY: local-docker
 local-docker:
-	GOOS=linux  GOARCH=amd64 go build -o $(APP)_linux_amd64 $(APP)
 	docker build -f ./deploy/Dockerfile.local -t $(APP):local .
 
 .PHONY: style
