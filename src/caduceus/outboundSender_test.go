@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/wrp-go/wrp"
 	"github.com/davecgh/go-spew/spew"
@@ -137,6 +138,11 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeQdepth.On("With", []string{"url", w.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
+	// DropsDueToPanic case
+	fakePanicDrop := new(mockCounter)
+	fakePanicDrop.On("With", []string{"url", w.Config.URL}).Return(fakePanicDrop)
+	fakePanicDrop.On("Add", 1.0).Return()
+
 	// Build a registry and register all fake metrics, these are synymous with the metrics in
 	// metrics.go
 	//
@@ -148,6 +154,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
 	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeContentType)
+	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakePanicDrop)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
 
 	return &OutboundSenderFactory{
@@ -158,7 +165,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		QueueSize:       10,
 		DeliveryRetries: 1,
 		MetricsRegistry: fakeRegistry,
-		Logger:          getLogger(),
+		Logger:          logging.DefaultLogger(), //getLogger(),
 	}
 }
 
@@ -397,6 +404,13 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	r4.Source = "mac:112233445560"
 	r4.Destination = "event:test"
 	obs.Queue(r4)
+
+	/* This will panic. */
+	r5 := simpleRequest()
+	r5.TransactionUUID = "1234"
+	r5.Source = "mac:112233445560"
+	r5.Destination = "event:test\xedoops"
+	obs.Queue(r5)
 
 	obs.Shutdown(true)
 

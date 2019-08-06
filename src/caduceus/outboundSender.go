@@ -134,6 +134,7 @@ type CaduceusOutboundSender struct {
 	droppedExpiredCounter    metrics.Counter
 	droppedNetworkErrCounter metrics.Counter
 	droppedInvalidConfig     metrics.Counter
+	droppedPanic             metrics.Counter
 	cutOffCounter            metrics.Counter
 	contentTypeCounter       metrics.Counter
 	queueDepthGauge          metrics.Gauge
@@ -481,7 +482,14 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
 func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
-	defer obs.workers.Release()
+	defer func() {
+		if r := recover(); nil != r {
+			obs.droppedPanic.Add(1.0)
+			logging.Error(obs.logger).Log(logging.MessageKey(), "goroutine send() panicked",
+				"id", obs.id, "panic", r)
+		}
+		obs.workers.Release()
+	}()
 
 	payload := msg.Payload
 	body := payload

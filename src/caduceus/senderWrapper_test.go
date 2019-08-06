@@ -111,6 +111,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeIgnore)
 	fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakeIgnore)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
 
 	return &SenderWrapperFactory{
