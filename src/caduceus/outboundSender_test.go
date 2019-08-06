@@ -165,7 +165,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		QueueSize:       10,
 		DeliveryRetries: 1,
 		MetricsRegistry: fakeRegistry,
-		Logger:          logging.DefaultLogger(), //getLogger(),
+		Logger:          getLogger(),
 	}
 }
 
