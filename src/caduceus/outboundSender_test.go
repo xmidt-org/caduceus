@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/webhook"
 	"github.com/Comcast/wrp-go/wrp"
 	"github.com/davecgh/go-spew/spew"
