@@ -16,6 +16,7 @@ const (
 	IncomingEventTypeCounter      = "incoming_event_type_count"
 	DropsDueToInvalidPayload      = "drops_due_to_invalid_payload"
 	OutgoingQueueDepth            = "outgoing_queue_depths"
+	DropsDueToPanic               = "drops_due_to_panic"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -82,6 +83,12 @@ func Metrics() []xmetrics.Metric {
 			Type:       "counter",
 			LabelNames: []string{"event"},
 		},
+		{
+			Name:       DropsDueToPanic,
+			Help:       "The outgoing message delivery pipeline panicked.",
+			Type:       "counter",
+			LabelNames: []string{"url"},
+		},
 	}
 }
 
@@ -94,6 +101,7 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.droppedCutoffCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
 	c.droppedInvalidConfig = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
 	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "network_err")
+	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
 	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
 	c.contentTypeCounter = m.NewCounter(IncomingContentTypeCounter)
 }

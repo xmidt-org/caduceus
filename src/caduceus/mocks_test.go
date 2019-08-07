@@ -19,6 +19,7 @@ package main
 import (
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/webhook"
@@ -99,6 +100,11 @@ func (m *mockCounter) Add(delta float64) {
 }
 
 func (m *mockCounter) With(labelValues ...string) metrics.Counter {
+	for _, v := range labelValues {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+	}
 	args := m.Called(labelValues)
 	return args.Get(0).(metrics.Counter)
 }
@@ -117,6 +123,11 @@ func (m *mockGauge) Set(value float64) {
 }
 
 func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
+	for _, v := range labelValues {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+	}
 	args := m.Called(labelValues)
 	return args.Get(0).(metrics.Gauge)
 }
