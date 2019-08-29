@@ -1,7 +1,7 @@
 DEFAULT: build
 
 GO           ?= go
-GOFMT        ?= $(GO) fmt
+GOFMT        ?= $(GO)fmt
 APP          := caduceus
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
 BINARY    := $(FIRST_GOPATH)/bin/$(APP)
