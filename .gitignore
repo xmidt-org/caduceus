@@ -45,3 +45,4 @@ _testmain.go
 .idea/*
 
 caduceus
+.ignore

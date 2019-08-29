@@ -2,8 +2,8 @@
 %define __os_install_post %{nil}
 
 Name:       caduceus
-Version:    %{_ver}
-Release:    %{_releaseno}%{?dist}
+Version:    %{_version}
+Release:    %{_release}%{?dist}
 Summary:    The Xmidt API interface server.
 
 Vendor:     Comcast
