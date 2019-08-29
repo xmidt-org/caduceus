@@ -37,7 +37,7 @@ popd
 %{__install} -D -p -m 644 etc/systemd/%{name}.service %{buildroot}%{_unitdir}/%{name}.service
 
 # Install Configuration
-%{__install} -D -p -m 644 %{name}.yaml %{buildroot}%{_sysconfdir}/%{name}/%{name}.yaml
+%{__install} -D -p -m 644 example-%{name}.yaml %{buildroot}%{_sysconfdir}/%{name}/%{name}.yaml
 
 
 # Create Logging Location

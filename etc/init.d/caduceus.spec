@@ -43,7 +43,7 @@ mkdir -p %{buildroot}%{_initddir}
 # Install Configuration
 %{__install} -d %{buildroot}%{_sysconfdir}/%{name}
 %{__install} -p etc/%{name}/%{name}.env.example %{buildroot}%{_sysconfdir}/%{name}/%{name}.env.example
-%{__install} -p %{name}.yaml                    %{buildroot}%{_sysconfdir}/%{name}/%{name}.yaml
+%{__install} -p example-%{name}.yaml            %{buildroot}%{_sysconfdir}/%{name}/%{name}.yaml
 %{__install} -p etc/%{name}/supervisord.conf    %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
 
 # Create Logging Location
