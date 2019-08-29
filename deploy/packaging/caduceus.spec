@@ -16,7 +16,7 @@ Source0:    %{name}-%{_version}.tar.gz
 Prefix:     /opt
 BuildRoot:  %{_tmppath}/%{name}
 BuildRequires: systemd
-BuildRequires: golang >= 1.11
+BuildRequires: golang >= 1.12
 
 %description
 The shield to protect our users from incoming events for the codex project.
