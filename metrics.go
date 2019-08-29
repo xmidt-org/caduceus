@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (

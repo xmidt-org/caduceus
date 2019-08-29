@@ -1,12 +1,12 @@
 # caduceus
 
-[![Build Status](https://travis-ci.org/Comcast/caduceus.svg?branch=master)](https://travis-ci.org/Comcast/caduceus) 
-[![codecov.io](http://codecov.io/github/Comcast/caduceus/coverage.svg?branch=master)](http://codecov.io/github/Comcast/caduceus?branch=master)
-[![Code Climate](https://codeclimate.com/github/Comcast/caduceus/badges/gpa.svg)](https://codeclimate.com/github/Comcast/caduceus)
-[![Issue Count](https://codeclimate.com/github/Comcast/caduceus/badges/issue_count.svg)](https://codeclimate.com/github/Comcast/caduceus)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Comcast/caduceus)](https://goreportcard.com/report/github.com/Comcast/caduceus)
-[![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/Comcast/caduceus/blob/master/LICENSE)
-[![GitHub release](https://img.shields.io/github/release/Comcast/caduceus.svg)](CHANGELOG.md)
+[![Build Status](https://travis-ci.org/xmidt-org/caduceus.svg?branch=master)](https://travis-ci.com/xmidt-org/caduceus)
+[![codecov.io](http://codecov.io/github/xmidt-org/caduceus/coverage.svg?branch=master)](http://codecov.io/github/xmidt-org/caduceus?branch=master)
+[![Code Climate](https://codeclimate.com/github/xmidt-org/caduceus/badges/gpa.svg)](https://codeclimate.com/github/xmidt-org/caduceus)
+[![Issue Count](https://codeclimate.com/github/xmidt-org/caduceus/badges/issue_count.svg)](https://codeclimate.com/github/xmidt-org/caduceus)
+[![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/caduceus)](https://goreportcard.com/report/github.com/xmidt-org/caduceus)
+[![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/caduceus/blob/master/LICENSE)
+[![GitHub release](https://img.shields.io/github/release/xmidt-org/caduceus.svg)](CHANGELOG.md)
 
 The Xmidt server for delivering events written in Go.
 
@@ -17,13 +17,13 @@ The Xmidt server for delivering events written in Go.
 1. Import the public GPG key (replace `0.0.1-65` with the release you want)
 
 ```
-rpm --import https://github.com/Comcast/caduceus/releases/download/0.0.1-65/RPM-GPG-KEY-comcast-xmidt
+rpm --import https://github.com/xmidt-org/caduceus/releases/download/0.0.1-65/RPM-GPG-KEY-comcast-xmidt
 ```
 
 2. Install the rpm with yum (so it installs any/all dependencies for you)
 
 ```
-yum install https://github.com/Comcast/caduceus/releases/download/0.0.1-65/caduceus-0.0.1-65.el6.x86_64.rpm
+yum install https://github.com/xmidt-org/caduceus/releases/download/0.0.1-65/caduceus-0.0.1-65.el6.x86_64.rpm
 ```
 
 ## Dockerized Caduceus
@@ -94,7 +94,7 @@ curl -X POST \
   -H 'Content-Type: application/msgpack' \
   --data "@msg.bin"
 ```
-where `msg.bin` is a msgpack encoded json 
+where `msg.bin` is a msgpack encoded json
 
 #### List Hooks
 ```bash

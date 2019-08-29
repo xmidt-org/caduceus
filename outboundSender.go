@@ -36,15 +36,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Comcast/webpa-common/device"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/semaphore"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/xhttp"
-	"github.com/Comcast/wrp-go/wrp"
-	"github.com/Comcast/wrp-go/wrp/wrphttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/semaphore"
+	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/wrp-go/wrp"
+	"github.com/xmidt-org/wrp-go/wrp/wrphttp"
 )
 
 // failureText is human readable text for the failure message

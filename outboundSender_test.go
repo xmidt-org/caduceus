@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/wrp-go/wrp"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/wrp-go/wrp"
 
 	//"github.com/stretchr/testify/mock"
 	"io"

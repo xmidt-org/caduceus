@@ -26,16 +26,16 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/Comcast/webpa-common/service/servicecfg"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/webpa-common/service/servicecfg"
 
-	"github.com/Comcast/webpa-common/concurrent"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/server"
-	"github.com/Comcast/webpa-common/webhook"
-	"github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/xmidt-org/webpa-common/concurrent"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/server"
+	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/webpa-common/webhook/aws"
 )
 
 const (
