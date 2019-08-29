@@ -17,14 +17,14 @@ build: go-mod-vendor
 	$(GO) build -o $(APP)
 
 rpm:
-	mkdir -p ./OPATH/SOURCES
-	tar -czvf ./OPATH/SOURCES/$(APP)-$(PROGVER).tar.gz . --exclude ./.git --exclude ./OPATH --exclude ./conf --exclude ./deploy --exclude ./vendor
-	cp conf/$(APP).service ./OPATH/SOURCES/
-	cp $(APP).yaml  ./OPATH/SOURCES/
-	cp LICENSE ./OPATH/SOURCES/
-	cp NOTICE ./OPATH/SOURCES/
-	cp CHANGELOG.md ./OPATH/SOURCES/
-	rpmbuild --define "_topdir $(CURDIR)/OPATH" \
+	mkdir -p ./.ignore/SOURCES
+	tar -czf ./.ignore/SOURCES/$(APP)-$(PROGVER).tar.gz --transform 's/^\./$(APP)-$(PROGVER)/' --exclude ./.git --exclude ./.ignore --exclude ./conf --exclude ./deploy --exclude ./vendor --exclude ./vendor .
+	cp conf/$(APP).service ./.ignore/SOURCES
+	cp $(APP).yaml  ./.ignore/SOURCES
+	cp LICENSE ./.ignore/SOURCES
+	cp NOTICE ./.ignore/SOURCES
+	cp CHANGELOG.md ./.ignore/SOURCES
+	rpmbuild --define "_topdir $(CURDIR)/.ignore" \
     		--define "_version $(PROGVER)" \
     		--define "_release 1" \
     		-ba deploy/packaging/$(APP).spec
