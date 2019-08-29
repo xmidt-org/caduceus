@@ -19,8 +19,5 @@ branches:
   only:
     - master
 
-install:
-  - go get -v github.com/Masterminds/glide
-
 script:
-  - make build style codecov
+  - make style codecov
