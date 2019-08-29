@@ -120,6 +120,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "cut_off"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired_before_queueing"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "invalid_config"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", 1.0).Return()
@@ -155,6 +156,12 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeContentType)
 	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakePanicDrop)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", ConsumerRenewalTimeGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", ConsumerDeliverUntilGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
 
 	return &OutboundSenderFactory{
 		Listener:        w,

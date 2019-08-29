@@ -115,37 +115,44 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	id                       string
-	urls                     *ring.Ring
-	listener                 webhook.W
-	deliverUntil             time.Time
-	dropUntil                time.Time
-	sender                   func(*http.Request) (*http.Response, error)
-	events                   []*regexp.Regexp
-	matcher                  []*regexp.Regexp
-	queueSize                int
-	queue                    chan *wrp.Message
-	deliveryRetries          int
-	deliveryInterval         time.Duration
-	deliveryCounter          metrics.Counter
-	deliveryRetryCounter     metrics.Counter
-	droppedQueueFullCounter  metrics.Counter
-	droppedCutoffCounter     metrics.Counter
-	droppedExpiredCounter    metrics.Counter
-	droppedNetworkErrCounter metrics.Counter
-	droppedInvalidConfig     metrics.Counter
-	droppedPanic             metrics.Counter
-	cutOffCounter            metrics.Counter
-	contentTypeCounter       metrics.Counter
-	queueDepthGauge          metrics.Gauge
-	eventType                metrics.Counter
-	wg                       sync.WaitGroup
-	cutOffPeriod             time.Duration
-	workers                  semaphore.Interface
-	maxWorkers               int
-	failureMsg               FailureMessage
-	logger                   log.Logger
-	mutex                    sync.RWMutex
+	id                               string
+	urls                             *ring.Ring
+	listener                         webhook.W
+	deliverUntil                     time.Time
+	dropUntil                        time.Time
+	sender                           func(*http.Request) (*http.Response, error)
+	events                           []*regexp.Regexp
+	matcher                          []*regexp.Regexp
+	queueSize                        int
+	queue                            chan *wrp.Message
+	deliveryRetries                  int
+	deliveryInterval                 time.Duration
+	deliveryCounter                  metrics.Counter
+	deliveryRetryCounter             metrics.Counter
+	droppedQueueFullCounter          metrics.Counter
+	droppedCutoffCounter             metrics.Counter
+	droppedExpiredCounter            metrics.Counter
+	droppedExpiredBeforeQueueCounter metrics.Counter
+	droppedNetworkErrCounter         metrics.Counter
+	droppedInvalidConfig             metrics.Counter
+	droppedPanic                     metrics.Counter
+	cutOffCounter                    metrics.Counter
+	contentTypeCounter               metrics.Counter
+	queueDepthGauge                  metrics.Gauge
+	renewalTimeGauge                 metrics.Gauge
+	deliverUntilGauge                metrics.Gauge
+	dropUntilGauge                   metrics.Gauge
+	maxWorkersGauge                  metrics.Gauge
+	currentWorkersGauge              metrics.Gauge
+	deliveryRetryMaxGauge            metrics.Gauge
+	eventType                        metrics.Counter
+	wg                               sync.WaitGroup
+	cutOffPeriod                     time.Duration
+	workers                          semaphore.Interface
+	maxWorkers                       int
+	failureMsg                       FailureMessage
+	logger                           log.Logger
+	mutex                            sync.RWMutex
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -270,6 +277,8 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		}
 	}
 
+	obs.renewalTimeGauge.Set(float64(time.Now().Unix()))
+
 	// write/update obs
 	obs.mutex.Lock()
 
@@ -281,12 +290,15 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 	obs.listener.FailureURL = wh.FailureURL
 	obs.deliverUntil = wh.Until
+	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+
 	obs.events = events
 
 	// update default deliver retry count for sender
 	if wh.Config.MaxRetryCount != 0 {
 		obs.deliveryRetries = wh.Config.MaxRetryCount
 	}
+	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
 
 	// if matcher list is empty set it nil for Queue() logic
 	obs.matcher = nil
@@ -314,6 +326,9 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 		offset--
 	}
 
+	// Update this here in case we make this configurable later
+	obs.maxWorkersGauge.Set(float64(obs.maxWorkers))
+
 	obs.mutex.Unlock()
 
 	return
@@ -328,12 +343,14 @@ func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
+		obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
 	}
 	obs.mutex.Unlock()
 	obs.wg.Wait()
 
 	obs.mutex.Lock()
 	obs.deliverUntil = time.Time{}
+	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
 	obs.mutex.Unlock()
 }
 
@@ -433,7 +450,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 	if false == now.Before(deliverUntil) {
 		debugLog.Log(logging.MessageKey(), "Outside delivery window",
 			"now", now, "before", deliverUntil, "after", dropUntil)
-		obs.droppedExpiredCounter.Add(1.0)
+		obs.droppedExpiredBeforeQueueCounter.Add(1.0)
 		return false
 	}
 
@@ -469,6 +486,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 			continue
 		}
 		obs.workers.Acquire()
+		obs.currentWorkersGauge.Add(1.0)
 
 		go obs.send(urls, secret, accept, msg)
 	}
@@ -489,6 +507,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 				"id", obs.id, "panic", r)
 		}
 		obs.workers.Release()
+		obs.currentWorkersGauge.Add(-1.0)
 	}()
 
 	payload := msg.Payload
@@ -594,6 +613,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
+	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
 	failureMsg := obs.failureMsg
 	failureURL := obs.listener.FailureURL
