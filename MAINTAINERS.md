@@ -1,6 +1,6 @@
 Maintainers of this repository:
 
+* Weston Schmidt @schmidtw
 * John Bass @johnabass
-* Joel Unzain @joe94
+* Kristina Spring @kristinaspring
 * Nick Harter @njharter
-* Jack Murdock @kcajmagic
