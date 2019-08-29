@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Metrics to support debugging the problem found by GH Issue #145.
 
+### Changed
+- example-caduceus.yaml file is now the one use by default. (GH Issue #155)
+
 ## [v0.1.5]
 fixed build upload
 

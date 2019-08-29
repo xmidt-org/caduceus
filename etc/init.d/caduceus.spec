@@ -10,7 +10,7 @@ License:    ASL 2.0
 URL:        https://github.com/Comcast/%{name}
 Source0:    %{name}-%{_fullver}.tar.gz
 
-BuildRequires:  golang >= 1.11
+BuildRequires:  golang >= 1.12
 Requires:       supervisor
 
 Provides:       %{name}
@@ -43,7 +43,7 @@ mkdir -p %{buildroot}%{_initddir}
 # Install Configuration
 %{__install} -d %{buildroot}%{_sysconfdir}/%{name}
 %{__install} -p etc/%{name}/%{name}.env.example %{buildroot}%{_sysconfdir}/%{name}/%{name}.env.example
-%{__install} -p etc/%{name}/%{name}.yaml        %{buildroot}%{_sysconfdir}/%{name}/%{name}.yaml
+%{__install} -p %{name}.yaml                    %{buildroot}%{_sysconfdir}/%{name}/%{name}.yaml
 %{__install} -p etc/%{name}/supervisord.conf    %{buildroot}%{_sysconfdir}/%{name}/supervisord.conf
 
 # Create Logging Location
