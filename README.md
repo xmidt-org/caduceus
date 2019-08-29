@@ -1,6 +1,6 @@
 # caduceus
 
-[![Build Status](https://travis-ci.org/xmidt-org/caduceus.svg?branch=master)](https://travis-ci.com/xmidt-org/caduceus)
+[![Build Status](https://travis-ci.com/xmidt-org/caduceus.svg?branch=master)](https://travis-ci.com/xmidt-org/caduceus)
 [![codecov.io](http://codecov.io/github/xmidt-org/caduceus/coverage.svg?branch=master)](http://codecov.io/github/xmidt-org/caduceus?branch=master)
 [![Code Climate](https://codeclimate.com/github/xmidt-org/caduceus/badges/gpa.svg)](https://codeclimate.com/github/xmidt-org/caduceus)
 [![Issue Count](https://codeclimate.com/github/xmidt-org/caduceus/badges/issue_count.svg)](https://codeclimate.com/github/xmidt-org/caduceus)
@@ -12,7 +12,7 @@ The Xmidt server for delivering events written in Go.
 
 # How to Install
 
-## Centos 6
+## Centos 7
 
 1. Import the public GPG key (replace `0.0.1-65` with the release you want)
 
