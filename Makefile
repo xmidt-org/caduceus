@@ -53,8 +53,9 @@ install: go-mod-vendor
 
 .PHONY: release-artifacts
 release-artifacts: go-mod-vendor
-	GOOS=darwin GOARCH=amd64 $(GO) build -o ./OPATH/$(APP)-$(PROGVER).darwin-amd64
-	GOOS=linux  GOARCH=amd64 $(GO) build -o ./OPATH/$(APP)-$(PROGVER).linux-amd64
+	mkdir -p ./.ignore
+	GOOS=darwin GOARCH=amd64 $(GO) build -o ./ignore/$(APP)-$(PROGVER).darwin-amd64
+	GOOS=linux  GOARCH=amd64 $(GO) build -o ./ignore/$(APP)-$(PROGVER).linux-amd64
 
 .PHONY: docker
 docker:
