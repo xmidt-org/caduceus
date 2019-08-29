@@ -24,10 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/wrp-go/wrp"
-	"github.com/stretchr/testify/assert"
 )
 
 type result struct {

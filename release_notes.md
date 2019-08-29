@@ -1,2 +1,1 @@
 - converting glide to go mod
-- updating webpa-common/wrp to wrp-go

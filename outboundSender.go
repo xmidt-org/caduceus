@@ -36,6 +36,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
@@ -43,8 +45,6 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/xmidt-org/wrp-go/wrp"
 	"github.com/xmidt-org/wrp-go/wrp/wrphttp"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
 )
 
 // failureText is human readable text for the failure message

@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/xmidt-org/webpa-common/secure"
-	"github.com/xmidt-org/webpa-common/secure/handler"
-	"github.com/xmidt-org/webpa-common/secure/key"
-	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/viper"
+	"github.com/xmidt-org/webpa-common/secure"
+	"github.com/xmidt-org/webpa-common/secure/handler"
+	"github.com/xmidt-org/webpa-common/secure/key"
+	"github.com/xmidt-org/webpa-common/webhook"
 )
 
 const (

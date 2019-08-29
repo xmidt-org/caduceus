@@ -19,9 +19,9 @@ package main
 import (
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/wrp-go/wrp"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestCaduceusHandler(t *testing.T) {

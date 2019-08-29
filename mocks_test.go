@@ -21,11 +21,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/go-kit/kit/metrics"
+	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/health"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/wrp-go/wrp"
-	"github.com/go-kit/kit/metrics"
-	"github.com/stretchr/testify/mock"
 )
 
 // mockHandler only needs to mock the `HandleRequest` method

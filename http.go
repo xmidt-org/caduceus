@@ -21,11 +21,11 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	uuid "github.com/satori/go.uuid"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/wrp-go/wrp"
 )
 
 // Below is the struct that will implement our ServeHTTP method
