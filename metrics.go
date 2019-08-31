@@ -137,7 +137,7 @@ func Metrics() []xmetrics.Metric {
 func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSender) {
 	c.deliveryCounter = m.NewCounter(DeliveryCounter)
 	c.deliveryRetryCounter = m.NewCounter(DeliveryRetryCounter)
-	c.deliveryRetryMaxGauge = m.NewGauge(DeliveryRetryMaxGauge)
+	c.deliveryRetryMaxGauge = m.NewGauge(DeliveryRetryMaxGauge).With("url", c.id)
 	c.cutOffCounter = m.NewCounter(SlowConsumerCounter).With("url", c.id)
 	c.droppedQueueFullCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "queue_full")
 	c.droppedExpiredCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired")
