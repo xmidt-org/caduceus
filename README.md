@@ -59,7 +59,7 @@ a port configuration like
     address: ":6002"
 ```
 
-You will need some other configuration to get everything running. Refer to [example-caduceus.yaml](example-caduceus.yaml)
+You will need some other configuration to get everything running. Refer to [caduceus.yaml](caduceus.yaml)
  for an example configuration
 
 
