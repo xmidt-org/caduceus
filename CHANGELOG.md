@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.2.1]
+### Changed
+- Fixed a missing cardinality dimension in a metric that caused a panic.
+
+
+
 ## [v0.2.0]
 ### Added
 - Metrics to support debugging the problem found by GH Issue [issue 145](https://github.com/Comcast/caduceus/issues/145)
@@ -68,7 +74,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.1...HEAD
+[v0.2.1]: https://github.com/Comcast/caduceus/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/Comcast/caduceus/compare/v0.1.5...v0.2.0
 [v0.1.5]: https://github.com/Comcast/caduceus/compare/v0.1.4...v0.1.5
 [v0.1.4]: https://github.com/Comcast/caduceus/compare/v0.1.3...v0.1.4
