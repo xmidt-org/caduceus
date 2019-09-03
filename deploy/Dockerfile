@@ -19,4 +19,5 @@ EXPOSE 8080
 
 COPY --from=builder /go/src/github.com/xmidt-org/caduceus/caduceus_linux_amd64 /
 COPY caduceus.yaml /
+COPY deploy/Dockerfile NOTICE LICENSE CHANGELOG.md /
 ENTRYPOINT ["/caduceus_linux_amd64"]
