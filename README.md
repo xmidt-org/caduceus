@@ -1,4 +1,5 @@
 # caduceus
+(pronounced "kuh-doo-see-uhs")
 
 [![Build Status](https://travis-ci.com/xmidt-org/caduceus.svg?branch=master)](https://travis-ci.com/xmidt-org/caduceus)
 [![codecov.io](http://codecov.io/github/xmidt-org/caduceus/coverage.svg?branch=master)](http://codecov.io/github/xmidt-org/caduceus?branch=master)
@@ -8,60 +9,77 @@
 [![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/caduceus/blob/master/LICENSE)
 [![GitHub release](https://img.shields.io/github/release/xmidt-org/caduceus.svg)](CHANGELOG.md)
 
-The Xmidt server for delivering events written in Go.
+## Summary
+The [XMiDT](https://xmidt.io/) server for delivering events from talaria to the
+registered consumer. Refer the [overview docs](https://xmidt.io/docs/introduction/overview/)
+for more information on how caduceus fits into the overall picture.
 
-# How to Install
+## Details
+Caduceus has one function: to deliver events to a consumer.
+To enable this caduceus has three endpoints: 1) receive events, 2) register webhooks,
+and 3) get webhooks.
 
-## Centos 7
+#### Notify - `api/v3/notify` endpoint
+The notify endpoint will accept a `msgpack` encoding of a [WRP Messages](https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol).
+If a webhook is registered and matches the device regex and event regex the event
+will be sent to the corresponding url. To register a webhook refer to
+the [webhook registration section](#notify)
 
-1. Import the public GPG key (replace `0.0.1-65` with the release you want)
-
+#### Webhook - `/hook` endpoint
+To register a webhook, the consumer must send an http POST request to caduceus
+including the http url for receiving the events and a list of regex filters to get events.
+The following is an example request. Note: this is not a valid json since I added comments.
 ```
-rpm --import https://github.com/xmidt-org/caduceus/releases/download/0.0.1-65/RPM-GPG-KEY-comcast-xmidt
+{
+  "config" : {
+    # The url to push events to.
+    "url" : "http://localhost:8080/webhook",
+
+    # The content type event.
+    # (Optional) defaults to msgpack.
+    "content_type" : "application/json",
+
+    # The secret used for SHA1 HMAC.
+    # Used to validate the received payload.
+    # (Optional) defaults to no sha1 hmac.
+    "secret" : "secret",
+
+    # On failure how many times to retry the url for the event.
+    # (Optional) defaults to the configured value on the server
+    "max_retry_count": 3,
+
+    # Alternative urls to send requests too. A list of server urls to use in
+    # round robin for sending events.
+    # (Optional) defaults to no alternative urls.
+    "alt_urls" : [
+      "http://localhost:8080/webhook"
+    ]
+  },
+
+  # The URL to notify when we cut off a client due to overflow.
+  # (Optional) defaults no notification of error.
+  "failure_url" : "http://localhost:8080/webhook-failure",
+
+  # The list of regular expressions to match event type against.
+  "events" : [
+    ".*"
+  ],
+
+  # matcher type contains values to match against the metadata.
+  # currently only device_id is supported.
+  # (Optional) defaults to all devices.
+  "matcher" : {
+    "device_id": [
+      ".*"
+    ]
+  }
+}
 ```
 
-2. Install the rpm with yum (so it installs any/all dependencies for you)
-
-```
-yum install https://github.com/xmidt-org/caduceus/releases/download/0.0.1-65/caduceus-0.0.1-65.el6.x86_64.rpm
-```
-
-## Dockerized Caduceus
-Docker containers make life super easy.
-
-You will need SNS(or mock SNS) in order for Caduceus to work correctly.
-
-### Installation
-- [Docker](https://www.docker.com/) (duh)
-  - `brew install docker`
-
-</br>
-
-### Running
-#### Build the docker image
-```bash
-docker build -t caduceus:local .
-```
-This `build.sh` script will build the binary and docker image
-
-#### Run the image
-```bash
-docker run -itd -p 6000:6000 -p 6001:6001 -p 6002:6002 -v `pwd`/temp/:/etc/caduceus --name caduceus caduceus:local
-```
-this assumes you have a folder `temp` in your directory with a configuration file name caduceus aka `caduceus.yaml` with
-a port configuration like
-```yaml
-  primary:
-    address: ":6000"
-  health:
-    address: ":6001"
-  pprof:
-    address: ":6002"
-```
-
-You will need some other configuration to get everything running. Refer to [caduceus.yaml](caduceus.yaml)
- for an example configuration
-
+#### Get Webhooks - `/hooks` endpoint
+To speed up caduceus start up time and testing the registration of webhooks the
+`/hooks` endpoint was created. This is a simple `GET` requests which will return
+all the webhooks and their configuration.
 
 ## Usage
 Once everything is up and running you can start sending requests. Bellow are
@@ -112,3 +130,84 @@ curl http://localhost:6001/health
 ```bash
 curl http://localhost:6002/debug/pprof/mutex
 ```
+
+
+## Build
+
+### Source
+
+In order to build from the source, you need a working Go environment with
+version 1.11 or greater. Find more information on the [Go website](https://golang.org/doc/install).
+
+You can directly use `go get` to put the caduceus binary into your `GOPATH`:
+```bash
+GO111MODULE=on go get github.com/xmidt-org/caduceus
+```
+
+You can also clone the repository yourself and build using make:
+
+```bash
+mkdir -p $GOPATH/src/github.com/xmidt-org
+cd $GOPATH/src/github.com/xmidt-org
+git clone git@github.com:xmidt-org/caduceus.git
+cd caduceus
+make build
+```
+
+### Makefile
+
+The Makefile has the following options you may find helpful:
+* `make build`: builds the caduceus binary
+* `make rpm`: builds an rpm containing caduceus
+* `make docker`: builds a docker image for caduceus, making sure to get all
+   dependencies
+* `make local-docker`: builds a docker image for caduceus with the assumption
+   that the dependencies can be found already
+* `make test`: runs unit tests with coverage for caduceus
+* `make clean`: deletes previously-built binaries and object files
+
+### Docker
+
+The docker image can be built either with the Makefile or by running a docker
+command.  Either option requires first getting the source code.
+
+See [Makefile](#Makefile) on specifics of how to build the image that way.
+
+For running a command, either you can run `docker build` after getting all
+dependencies, or make the command fetch the dependencies.  If you don't want to
+get the dependencies, run the following command:
+```bash
+docker build -t caduceus:local -f deploy/Dockerfile .
+```
+If you want to get the dependencies then build, run the following commands:
+```bash
+GO111MODULE=on go mod vendor
+docker build -t caduceus:local -f deploy/Dockerfile.local .
+```
+
+For either command, if you want the tag to be a version instead of `local`,
+then replace `local` in the `docker build` command.
+
+### Kubernetes
+
+WIP. TODO: add info
+
+## Deploy
+
+For deploying a XMiDT cluster refer to [getting started](https://xmidt.io/docs/operating/getting_started/).
+
+For running locally, ensure you have the binary [built](#Source).  If it's in
+your `GOPATH`, run:
+```
+caduceus
+```
+If the binary is in your current folder, run:
+```
+./caduceus
+```
+
+## Contributing
+
+Refer to [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Refer to [CONTRIBUTING.md](CONTRIBUTING.md).
