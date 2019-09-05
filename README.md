@@ -1,5 +1,5 @@
 # caduceus
-(pronounced "kuh-doo-see-uhs")
+(pronounced "kuh-doo-see-us")
 
 [![Build Status](https://travis-ci.com/xmidt-org/caduceus.svg?branch=master)](https://travis-ci.com/xmidt-org/caduceus)
 [![codecov.io](http://codecov.io/github/xmidt-org/caduceus/coverage.svg?branch=master)](http://codecov.io/github/xmidt-org/caduceus?branch=master)
@@ -16,19 +16,19 @@ for more information on how caduceus fits into the overall picture.
 
 ## Details
 Caduceus has one function: to deliver events to a consumer.
-To enable this caduceus has three endpoints: 1) receive events, 2) register webhooks,
+To enable this, caduceus has three endpoints: 1) receive events, 2) register webhooks,
 and 3) get webhooks.
 
 #### Notify - `api/v3/notify` endpoint
 The notify endpoint will accept a `msgpack` encoding of a [WRP Messages](https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol).
-If a webhook is registered and matches the device regex and event regex the event
-will be sent to the corresponding url. To register a webhook refer to
+If a webhook is registered and matches the device regex and event regex, the event
+will be sent to the webhook's registered url. To register a webhook, refer to
 the [webhook registration section](#notify)
 
 #### Webhook - `/hook` endpoint
-To register a webhook, the consumer must send an http POST request to caduceus
-including the http url for receiving the events and a list of regex filters to get events.
-The following is an example request. Note: this is not a valid json since I added comments.
+To register a webhook and get events, the consumer must send an http POST request to caduceus
+that includes the http url for receiving the events and a list of regex filters.
+The following is an example request. Note: this is not a valid json because of the added comments.
 ```
 {
   "config" : {
@@ -77,8 +77,8 @@ The following is an example request. Note: this is not a valid json since I adde
 ```
 
 #### Get Webhooks - `/hooks` endpoint
-To speed up caduceus start up time and testing the registration of webhooks the
-`/hooks` endpoint was created. This is a simple `GET` requests which will return
+To speed up caduceus start up time and test the registration of webhooks, the
+`/hooks` endpoint was created. This is a simple `GET` request which will return
 all the webhooks and their configuration.
 
 ## Usage
