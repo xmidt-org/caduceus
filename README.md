@@ -23,7 +23,7 @@ and 3) get webhooks.
 The notify endpoint will accept a `msgpack` encoding of a [WRP Messages](https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol).
 If a webhook is registered and matches the device regex and event regex, the event
 will be sent to the webhook's registered url. To register a webhook, refer to
-the [webhook registration section](#notify)
+the [webhook registration section](#webhook---hook-endpoint)
 
 #### Webhook - `/hook` endpoint
 To register a webhook and get events, the consumer must send an http POST request to caduceus
