@@ -61,6 +61,8 @@ The following is an example request. Note: this is not a valid json because of t
   "failure_url" : "http://localhost:8080/webhook-failure",
 
   # The list of regular expressions to match event type against.
+  # Warning: This is a very expensive webhook registration. This is not recommended for production.
+  # This registration will be sent all events.
   "events" : [
     ".*"
   ],
