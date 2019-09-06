@@ -20,7 +20,7 @@ To enable this, caduceus has three endpoints: 1) receive events, 2) register web
 and 3) get webhooks.
 
 #### Notify - `api/v3/notify` endpoint
-The notify endpoint will accept a `msgpack` encoding of a [WRP Messages](https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol).
+The notify endpoint will accept a `msgpack` encoding of a [WRP Message](https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol).
 If a webhook is registered and matches the device regex and event regex, the event
 will be sent to the webhook's registered url. To register a webhook, refer to
 the [webhook registration section](#webhook---hook-endpoint)
