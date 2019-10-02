@@ -297,7 +297,6 @@ func TestAltURL(t *testing.T) {
 	}
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
-	w.Config.MaxRetryCount = 3
 	w.Config.AlternativeURLs = []string{
 		"http://localhost:9999/foo",
 		"http://localhost:9999/bar",
@@ -329,7 +328,7 @@ func TestAltURL(t *testing.T) {
 
 	obs.Shutdown(true)
 
-	assert.Equal(int32(4), trans.i)
+	assert.Equal(int32(2), trans.i)
 	for k, v := range urls {
 		assert.Equal(1, v, k)
 	}

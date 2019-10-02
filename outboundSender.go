@@ -176,11 +176,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return
 	}
 
-	// update default deliver retry count for sender
-	if osf.Listener.Config.MaxRetryCount != 0 {
-		osf.DeliveryRetries = osf.Listener.Config.MaxRetryCount
-	}
-
 	caduceusOutboundSender := &CaduceusOutboundSender{
 		id:               osf.Listener.Config.URL,
 		listener:         osf.Listener,
@@ -294,10 +289,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 
 	obs.events = events
 
-	// update default deliver retry count for sender
-	if wh.Config.MaxRetryCount != 0 {
-		obs.deliveryRetries = wh.Config.MaxRetryCount
-	}
 	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
 
 	// if matcher list is empty set it nil for Queue() logic
