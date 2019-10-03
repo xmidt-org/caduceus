@@ -44,10 +44,6 @@ The following is an example request. Note: this is not a valid json because of t
     # (Optional) defaults to no sha1 hmac.
     "secret" : "secret",
 
-    # On failure how many times to retry the url for the event.
-    # (Optional) defaults to the configured value on the server
-    "max_retry_count": 3,
-
     # Alternative urls to send requests too. A list of server urls to use in
     # round robin for sending events.
     # (Optional) defaults to no alternative urls.
