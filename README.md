@@ -207,5 +207,3 @@ If the binary is in your current folder, run:
 ## Contributing
 
 Refer to [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Refer to [CONTRIBUTING.md](CONTRIBUTING.md).
