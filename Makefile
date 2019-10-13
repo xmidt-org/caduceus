@@ -3,10 +3,11 @@ DEFAULT: build
 GO           ?= go
 GOFMT        ?= $(GO)fmt
 APP          := caduceus
+DOCKER_ORG   := xmidt
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
 BINARY    := $(FIRST_GOPATH)/bin/$(APP)
 
-PROGVER = $(shell grep 'applicationVersion.*= ' main.go | awk '{print $$3}' | sed -e 's/\"//g')
+PROGVER = $(shell git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
 
 .PHONY: go-mod-vendor
 go-mod-vendor:
@@ -49,23 +50,22 @@ update-version:
 
 .PHONY: install
 install: go-mod-vendor
-	echo $(GO) build -o $(BINARY) $(PROGVER)
+	go install -ldflags "-X 'main.BuildTime=`date -u '+%Y-%m-%d %H:%M:%S'`' -X main.GitCommit=`git rev-parse --short HEAD` -X main.Version=$(PROGVER)"
 
 .PHONY: release-artifacts
 release-artifacts: go-mod-vendor
 	mkdir -p ./.ignore
-	GOOS=darwin GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).darwin-amd64
-	GOOS=linux  GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).linux-amd64
+	GOOS=darwin GOARCH=amd64 $(GO) build -ldflags "-X 'main.BuildTime=`date -u '+%Y-%m-%d %H:%M:%S'`' -X main.GitCommit=`git rev-parse --short HEAD` -X main.Version=$(PROGVER)" -o ./.ignore/$(APP)-$(PROGVER).darwin-amd64
+	GOOS=linux  GOARCH=amd64 $(GO) build -ldflags "-X 'main.BuildTime=`date -u '+%Y-%m-%d %H:%M:%S'`' -X main.GitCommit=`git rev-parse --short HEAD` -X main.Version=$(PROGVER)" -o ./.ignore/$(APP)-$(PROGVER).linux-amd64
 
 .PHONY: docker
 docker:
-	docker build -f ./deploy/Dockerfile -t $(APP):$(PROGVER) .
+	docker build --build-arg VERSION=$(PROGVER) -f ./deploy/Dockerfile -t $(DOCKER_ORG)/$(APP):$(PROGVER) .
 
 # build docker without running modules
 .PHONY: local-docker
 local-docker:
-	GOOS=linux  GOARCH=amd64 $(GO) build -o $(APP)_linux_amd64
-	docker build -f ./deploy/Dockerfile.local -t $(APP):local .
+	docker build --build-arg VERSION=$(PROGVER)+local -f ./deploy/Dockerfile.local -t $(DOCKER_ORG)/$(APP):local .
 
 .PHONY: style
 style:
