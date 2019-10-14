@@ -14,6 +14,20 @@ The [XMiDT](https://xmidt.io/) server for delivering events from talaria to the
 registered consumer. Refer the [overview docs](https://xmidt.io/docs/introduction/overview/)
 for more information on how caduceus fits into the overall picture.
 
+## Table of Contents
+
+- [Code of Conduct](#code-of-conduct)
+- [Details](#details)
+- [Usage](#usage)
+- [Build](#build)
+- [Deploy](#deploy)
+- [Contributing](#contributing)
+
+## Code of Conduct
+
+This project and everyone participating in it are governed by the [XMiDT Code Of Conduct](https://xmidt.io/code_of_conduct/). 
+By participating, you agree to this Code.
+
 ## Details
 Caduceus has one function: to deliver events to a consumer.
 To enable this, caduceus has three endpoints: 1) receive events, 2) register webhooks,
