@@ -22,7 +22,7 @@ BuildRequires: golang >= 1.12
 The Xmidt API interface server.
 
 %build
-GO111MODULE=on go build -o $RPM_SOURCE_DIR/%{name} %{_topdir}/..
+GO111MODULE=on go build -ldflags "-X 'main.BuildTime=`date -u '+%Y-%m-%d %H:%M:%S'`' -X main.GitCommit=`git rev-parse --short HEAD` -X main.Version=%{_version}" -o $RPM_SOURCE_DIR/%{name} %{_topdir}/..
 
 %install
 echo rm -rf %{buildroot}

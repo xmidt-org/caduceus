@@ -2,12 +2,15 @@ FROM golang:alpine as builder
 MAINTAINER Jack Murdock <jack_murdock@comcast.com>
 
 WORKDIR /go/src/github.com/xmidt-org/caduceus
+ARG VERSION=undefined
+ARG GITCOMMIT=undefined
+ARG BUILDTIME=undefined
 
 RUN apk update && apk upgrade && \
     apk add --no-cache bash git openssh
 
 COPY . .
-RUN GO111MODULE=on go build -o caduceus_linux_amd64
+RUN GO111MODULE=on go build -ldflags "-X 'main.BuildTime=${BUILDTIME}' -X main.GitCommit=${GITCOMMIT} -X main.Version=${VERSION}" -o caduceus_linux_amd64
 
 FROM alpine
 
