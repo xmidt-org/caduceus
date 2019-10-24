@@ -1,0 +1,430 @@
+apiVersion: v1
+data:
+  caduceus.yaml: |
+    # The unique fully-qualified-domain-name of the server.
+    # (Optional)
+      fqdn: "caduceus-instance-123.example.com"
+
+    # Unsure where server is used.
+    # (Optional)
+      server: "caduceus-instance-123.example.com"
+
+    ########################################
+    #   Labeling/Tracing via HTTP Headers Configuration
+    ########################################
+
+    # Provides this build number to the X-Caduceus-Build header for
+    # showing machine version information.  The build number SHOULD
+    # match the scheme `version-build` but there is not a strict requirement.
+    # (Optional)
+      build: "0.1.3-434"
+
+    # Provides the region information to the X-Caduceus-Region header
+    # for showing what region this machine is located in.  The region
+    # is arbitrary and optional.
+    # (Optional)
+      region: "east"
+
+    # Provides the flavor information to the X-Caduceus-Flavor header
+    # for showing what flavor this machine is associated with.  The flavor
+    # is arbitrary and optional.
+    # (Optional)
+      flavor: "mint"
+
+    ########################################
+    #   primary endpoint Configuration
+    ########################################
+
+      # primary defines the details needed for the primary endpoint.  The
+      # primary endpoint accepts the events from talaria (typically).
+      primary:
+        # address provides the port number for the endpoint to bind to.
+        # ":443" is ideal, but may require some special handling due to it being
+        # a reserved (by the kernel) port.
+        address: "{{ .Values.caduceus.address.host }}:{{ .Values.caduceus.address.port }}"
+        # HTTPS/TLS 
+        #
+        # certificateFile provides the public key and CA chain in PEM format if
+        # TLS is used.  Note: the certificate needs to match the fqdn for clients
+        # to accept without issue.
+        #
+        # keyFile provides the private key that matches the certificateFile
+        # (Optional)
+        # certificateFile: "/etc/caduceus/public.pem"
+        # keyFile: "/etc/caduceus/private.pem"
+
+    ########################################
+    #   health endpoint Configuration
+    ########################################
+
+      # health defines the details needed for the health check endpoint.  The
+      # health check endpoint is generally used by services (like AWS Route53
+      # or consul) to determine if this particular machine is healthy or not.
+      health:
+        # address provides the port number for the endpoint to bind to.
+        # ":80" is ideal, but may require some special handling due to it being
+        # a reserved (by the kernel) port.
+        address: "{{ .Values.health.address.host }}:{{ .Values.health.address.port }}"
+
+        # logInterval appears to be present from before we had formal metrics
+        # (Deprecated)
+        # logInterval: "60s"
+        # options appears to be present from before we had formal metrics
+        # (Deprecated)
+        # options:
+        #  - "PayloadsOverZero"
+        #  - "PayloadsOverHundred"
+        #  - "PayloadsOverThousand"
+        #  - "PayloadsOverTenThousand"
+
+    ########################################
+    #   Debugging/pprof Configuration
+    ########################################
+
+      # pprof defines the details needed for the pprof debug endpoint.
+      # (Optional)
+      pprof:
+        # address provides the port number for the endpoint to bind to.
+        address: "{{ .Values.pprof.address.host }}:{{ .Values.pprof.address.port }}"
+
+    ########################################
+    #   Metrics Configuration
+    ########################################
+
+      # metric defines the details needed for the prometheus metrics endpoint
+      # (Optional)
+      metric:
+        # address provides the port number for the endpoint to bind to.  Port 9389
+        # was chosen because it does not conflict with any of the other prometheus
+        # metrics or other machines in the xmidt cluster.  You may use any port you
+        # wish.
+        address: "{{ .Values.metric.address.host }}:{{ .Values.metric.address.port }}"
+
+        # metricsOptions provides the details needed to configure the prometheus
+        # metric data.  Metrics generally have the form:
+        #
+        # {namespace}_{subsystem}_{metric}
+        #
+        # so if you use the suggested value below, your metrics are prefixed like
+        # this:
+        #
+        # xmidt_caduceus_{metric}
+        #
+        # (Optional)
+        metricsOptions:
+          # namespace is the namespace of the metrics provided
+          # (Optional)
+          namespace: "xmidt"
+          # subsystem is the subsystem of the metrics provided
+          # (Optional)
+          subsystem: "caduceus"
+
+    ########################################
+    #   Service Discovery Configuration
+    ########################################
+
+      # service defines the parameters needed to interact with the consul cluster
+      # for service discovery.  Presently only consul is supported.  This is
+      # presently only used by Prometheus to discover machines to monitor, but
+      # in the not-too-distant future talaria will use this interaction to load
+      # balance across all caduceus machines instead of using DNS.
+      # (Optional)
+      service:
+        # consul configures the consul library in caduceus to use the local
+        # service discovery agent
+        consul:
+          # client defines how to connect to the local consul agent (on the same
+          # VM/container)
+          client:
+            # address is the address of the local consul agent
+            address: "{{ .Values.service.consul.address.host }}:{{ .Values.service.consul.address.port }}"
+            # scheme is how the consul library should interact with the local
+            # consul agent
+            scheme: "{{ .Values.service.consul.address.scheme }}"
+            # waitTime is TBD
+            waitTime: "30s"
+
+          # disableGenerateID is TBD
+          disableGenerateID: true
+
+          # registrations defines what services caduceus should register with
+          # consul
+          # 
+          #     id      - the VM/container instance name registered with consul
+          #     name    - the name of service being registered
+          #     tags    - a list of tags to associate with this registration
+          #     address - the mechanism to reach the service (generally unique fqdn)
+          #     port    - the port to reach the service at
+          #     checks  - the list of checks to perform to determine if the service
+          #               is available/healthy
+          #         checkID                        - TBD
+          #         ttl                            - how long the check is valid for
+          #         deregisterCriticalServiceAfter - the duration to wait before the
+          #                                          service is removed due to check
+          #                                          failures
+          registrations:
+            - 
+              id: "caduceus-instance-123.example.com"
+              name: "caduceus"
+              tags:
+                - "prod"
+                - "mint"
+                - "stage=prod"
+                - "flavor=mint"
+              address: "caduceus-instance-123.example.com"
+              port: 6001
+              checks:
+                - 
+                  checkID: "caduceus-instance-123.example.com:ttl"
+                  ttl: "30s"
+                  deregisterCriticalServiceAfter: "70s"
+
+    ########################################
+    #   Logging Related Configuration
+    ########################################
+
+      # log configures the logging subsystem details
+      log:
+        # file is the name of the most recent log file.  If set to "stdout" this
+        # will log to os.Stdout.
+        # (Optional) defaults to os.TempDir()
+        file: "/var/log/caduceus/caduceus.log"
+
+        # level is the logging level to use - INFO, DEBUG, WARN, ERROR
+        # (Optional) defaults to ERROR
+        level: "ERROR"
+
+        # maxsize is the maximum file size in MB
+        # (Optional) defaults to max 100MB
+        maxsize: 50
+
+        # maxage is the maximum number of days to retain old log files
+        # (Optional) defaults to ignore age limit (0)
+        maxage: 30
+
+        # maxbackups is the maximum number of old log files to retain
+        # (Optional) defaults to retain all (0)
+        maxbackups: 10
+
+        # json is a flag indicating whether JSON logging output should be used.
+        # (Optional) defaults to false
+        json: true
+
+    ########################################
+    #   Authorization Related Configuration
+    ########################################
+
+      # Any combination of these configurations may be used for authorization.
+      # If ANY match, the request goes onwards.
+
+      # jwtValidators provides the details about where to get the keys for JWT
+      # kid values and their associated information (expiration, etc) for JWTs
+      # used as authorization
+      # (Optional)
+      jwtValidators:
+        - 
+          keys:
+            factory:
+              uri: "https://jwt.example.com/keys/{keyId}"
+            purpose: 0
+            updateInterval: 604800000000000
+
+      # authHeader provides the list of basic auth headers that caduceus will accept
+      # as authorization
+      # (Optional)
+      authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=","xxxxxxxxxxxxxxxxxxxxxx=="]
+
+    ########################################
+    #   Startup Related Configuration
+    ########################################
+
+      # start is a way to bypass the need to wait for the duration before accepting
+      # events.  The wait is needed to ensure caduceus knows all the hooks it needs
+      # to deliver events to.  Presently the only 2 ways to do that for an SNS
+      # backed service is to:
+      #
+      #     1. Wait until all the hooks have timed out and re-registered (duration)
+      #     2. Ask some server that has the entire list to share it (apiPath)
+      #
+      # TBD add details
+      start:
+        duration: 60000000000
+        apiPath: "https://tr1d1um.example.com:443/api/v2/hooks"
+        sat:
+          path: "https://jwt.example.com/get"
+          id: "magic-id"
+          secret: "xxx"
+          capabilities: "webpa:api:.*:all"
+
+      # waitForDns TBD
+      waitForDns: 0
+
+      # soa is a way for the caduceus machine to check to see if it's DNS name is
+      # present before it tries to use it's DNS name to register with services like
+      # AWS Route53.  This check goes directly to the SOA record authority and
+      # bypasses the various caching servers that could cache the non-existence
+      # record which generally have VERY long TTLs.  Ultimately this way caduceus
+      # can restart much faster.
+      # (Optional)
+      soa:
+        provider: "example.awsdns-19.com:53"
+
+    ########################################
+    #   Webhook Related Configuration
+    ########################################
+
+      # aws provides the details needed to subscribe to the SNS topic that sends
+      # webhook registration events out to all listeners
+      #
+      # TBD add details
+      aws:
+        accessKey: "xxxxxxxxxxxxxxxxxxxx"
+        secretKey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        env: "xmidt-prod"
+        sns:
+          region: "us-east-1"
+          topicArn: "arn:aws:sns:us-east-1:000000000000:xmidt-prod"
+          urlPath: "/api/v2/aws/sns"
+
+    ########################################
+    #   Delivery Pipeline Related Configuration
+    ########################################
+
+      # (Deprecated)
+      # numWorkerThreads: 3000
+      # jobQueueSize: 6000
+
+      # sender provides the details for each "sender" that services the unique
+      # webhook url endpoint
+      sender:
+        # numWorkersPerSender defines the maximum number of outgoing concurrent
+        # HTTP client requests to a particular webhook url.  This number is for
+        # THIS server only, to determine the total maximum, multiply this value
+        # by the number of caducues machines.
+        numWorkersPerSender: 5000
+
+        # queueSizePerSender the maximum queue depth (in events) the sender will
+        # store before cutting off the webhook because the delivery pipeline has
+        # backed up.
+        queueSizePerSender: 10000
+
+        # cutOffPeriod is the duration of time the webhook will be cut off if the
+        # delivery pipeline gets backed up.  All outstanding events will be
+        # dropped, as well as all new events otherwise destined for this webhook
+        # will be dropped.  This period of time is to allow the webhook server
+        # time to recover.
+        cutOffPeriod: 10s
+
+        # linger is the duration of time after a webhook has not been registered
+        # before the delivery pipeline is torn down.
+        linger: 180s
+
+        # (Deprecated)
+        # clientTimeout: 60s
+
+        # deliveryRetries is the maximum number of delivery attempts caduceus will
+        # make before dropping an event
+        deliveryRetries: 1
+
+        # deliveryInterval is the time to wait after a failed delivery attempt
+        # before attempting to deliver again
+        deliveryInterval: 10ms
+
+        # responseHeaderTimeout is the time to wait for a response before giving up
+        # and marking the delivery a failure
+        responseHeaderTimeout: 10s
+kind: ConfigMap
+metadata:
+  labels:
+    app: xmidt-app
+  name: caduceus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    component: caduceus
+    release: caduceus
+  name: caduceus
+spec:
+  clusterIP: None
+  ports:
+    - name: primary
+      port: {{ .Values.caduceus.address.port }}
+      protocol: TCP
+    - name: health
+      port: {{ .Values.health.address.port }}
+      protocol: TCP
+    - name: pprof
+      port: {{ .Values.pprof.address.port }}
+      protocol: TCP
+    - name: metric
+      port: {{ .Values.metric.address.port }}
+  selector:
+    app: xmidt-app-caduceus
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: caduceus
+  labels:
+    app: xmidt-app-caduceus
+spec:
+  selector:
+    matchLabels:
+      app: xmidt-app-caduceus
+  updateStrategy:
+    type: RollingUpdate
+  replicas: 1
+  serviceName: xmidt-app-caduceus
+  template:
+    metadata:
+      labels:
+        app: xmidt-app-caduceus
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - xmidt-app-caduceus
+      volumes:
+        - name: caduceus-config
+          projected:
+            sources:
+              - configMap:
+                  name: caduceus-config
+                  items:
+                    - key: caduceus.yaml
+                      path: caduceus.yaml
+                      mode: 0755
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 999
+        supplementalGroups: [999]
+      containers:
+        - image: {{ .Values.caduceus.image }}
+          name: caduceus
+          ports:
+            - containerPort: {{ .Values.caduceus.address.port }}
+              protocol: TCP
+            - containerPort: {{ .Values.health.address.port }}
+              protocol: TCP
+            - containerPort: {{ .Values.pprof.address.port }}
+              protocol: TCP
+            - containerPort: {{ .Values.metric.address.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: caduceus-config
+              mountPath: "/etc/caduceus"
+              readOnly: true
+      {{ if (.Values.imagePullSecretName) }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecretName }}}
+      {{ end }}

@@ -1,0 +1,34 @@
+# Default values for caduceus.
+caduceus:
+  # docker image used
+  image: xmidt/caduceus
+  address:
+    host: ""
+    port: "6000"
+
+health:
+  address:
+    host: ""
+    port: "6001"
+
+pprof:
+  address:
+    host: ""
+    port: "6002"
+
+metric:
+  address:
+    host: ""
+    port: "9389"  
+
+service:
+  consul:
+    address:
+      scheme: "http"
+      host: "consul"
+      port: "8500"
+
+# Pull secret used when images are stored in a private repository
+# imagePullSecretName:
+
+
