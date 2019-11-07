@@ -25,14 +25,14 @@ rpm:
 	mkdir -p ./.ignore/SOURCES
 	tar -czvf ./.ignore/SOURCES/$(APP)-$(RPM_VERSION)-$(RPM_RELEASE).tar.gz . --exclude ./.git --exclude ./.ignore --exclude ./conf --exclude ./deploy --exclude ./vendor
 	cp conf/$(APP).service ./.ignore/SOURCES/
-	cp conf/$(APP).yaml  ./.ignore/SOURCES/
+	cp $(APP).yaml  ./.ignore/SOURCES/
 	cp LICENSE ./.ignore/SOURCES/
 	cp NOTICE ./.ignore/SOURCES/
 	cp CHANGELOG.md ./.ignore/SOURCES/
 	rpmbuild --define "_topdir $(CURDIR)/.ignore" \
-    		--define "_version $(RPM_VERSION)" \
-    		--define "_release $(RPM_RELEASE)" \
-    		-ba deploy/packaging/$(APP).spec
+			--define "_version $(RPM_VERSION)" \
+			--define "_release $(RPM_RELEASE)" \
+			-ba deploy/packaging/$(APP).spec
 
 .PHONY: version
 version:
