@@ -5,7 +5,7 @@ GOFMT        ?= $(GO)fmt
 APP          := caduceus
 DOCKER_ORG   := xmidt
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
-BINARY    := $(FIRST_GOPATH)/bin/$(APP)
+BINARY    	 := $(FIRST_GOPATH)/bin/$(APP)
 
 PROGVER = $(shell git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
 RPM_VERSION=$(shell echo $(PROGVER) | sed 's/\(.*\)-\(.*\)/\1/')
@@ -19,20 +19,20 @@ go-mod-vendor:
 
 .PHONY: build
 build: go-mod-vendor
-	$(GO) build -o $(APP)
+	$(GO) build -o $(APP) -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
 
 rpm:
 	mkdir -p ./.ignore/SOURCES
-	tar -czf ./.ignore/SOURCES/$(APP)-$(RPM_VERSION)-$(RPM_RELEASE).tar.gz --transform 's/^\./$(APP)-$(RPM_VERSION)-$(RPM_RELEASE)/' --exclude ./.git --exclude ./.ignore --exclude ./conf --exclude ./deploy --exclude ./vendor --exclude ./vendor .
-	cp conf/$(APP).service ./.ignore/SOURCES
-	cp $(APP).yaml  ./.ignore/SOURCES
-	cp LICENSE ./.ignore/SOURCES
-	cp NOTICE ./.ignore/SOURCES
-	cp CHANGELOG.md ./.ignore/SOURCES
+	tar -czvf ./.ignore/SOURCES/$(APP)-$(RPM_VERSION)-$(RPM_RELEASE).tar.gz . --exclude ./.git --exclude ./.ignore --exclude ./conf --exclude ./deploy --exclude ./vendor
+	cp conf/$(APP).service ./.ignore/SOURCES/
+	cp $(APP).yaml  ./.ignore/SOURCES/
+	cp LICENSE ./.ignore/SOURCES/
+	cp NOTICE ./.ignore/SOURCES/
+	cp CHANGELOG.md ./.ignore/SOURCES/
 	rpmbuild --define "_topdir $(CURDIR)/.ignore" \
-		--define "_version $(RPM_VERSION)" \
-		--define "_release $(RPM_RELEASE)" \
-		-ba deploy/packaging/$(APP).spec
+			--define "_version $(RPM_VERSION)" \
+			--define "_release $(RPM_RELEASE)" \
+			-ba deploy/packaging/$(APP).spec
 
 .PHONY: version
 version:
@@ -54,13 +54,13 @@ update-version:
 
 .PHONY: install
 install: go-mod-vendor
-	go install -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
+	$(GO) install -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
 
 .PHONY: release-artifacts
 release-artifacts: go-mod-vendor
 	mkdir -p ./.ignore
-	GOOS=darwin GOARCH=amd64 $(GO) build -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)" -o ./.ignore/$(APP)-$(PROGVER).darwin-amd64
-	GOOS=linux  GOARCH=amd64 $(GO) build -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)" -o ./.ignore/$(APP)-$(PROGVER).linux-amd64
+	GOOS=darwin GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).darwin-amd64 -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
+	GOOS=linux  GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).linux-amd64 -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
 
 .PHONY: docker
 docker:
@@ -70,7 +70,6 @@ docker:
 		--build-arg BUILDTIME='$(BUILDTIME)' \
 		-f ./deploy/Dockerfile -t $(DOCKER_ORG)/$(APP):$(PROGVER) .
 
-# build docker without running modules
 .PHONY: local-docker
 local-docker:
 	docker build \
@@ -101,4 +100,4 @@ it:
 
 .PHONY: clean
 clean:
-	rm -rf ./$(APP) ./OPATH ./coverage.txt ./vendor
+	rm -rf ./$(APP) ./.ignore ./coverage.txt ./vendor

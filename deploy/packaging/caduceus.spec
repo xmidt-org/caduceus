@@ -11,7 +11,7 @@ Packager:   Comcast
 Group:      System Environment/Daemons
 License:    ASL 2.0
 URL:        https://github.com/xmidt-org/caduceus
-Source0:    %{name}-%{_version}.tar.gz
+Source0:    %{name}-%{_version}-%{_release}.tar.gz
 
 Prefix:     /opt
 BuildRoot:  %{_tmppath}/%{name}
@@ -19,7 +19,7 @@ BuildRequires: systemd
 BuildRequires: golang >= 1.12
 
 %description
-The Xmidt API interface server.
+The XMiDT server for delivering events
 
 %build
 GO111MODULE=on go build -ldflags "-X 'main.BuildTime=`date -u '+%Y-%m-%d %H:%M:%S'`' -X main.GitCommit=`git rev-parse --short HEAD` -X main.Version=%{_version}" -o $RPM_SOURCE_DIR/%{name} %{_topdir}/..
