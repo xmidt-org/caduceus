@@ -46,3 +46,7 @@ _testmain.go
 
 caduceus
 .ignore
+
+
+!deploy/helm/caduceus
+deploy/helm/caduceus/rendered.*
