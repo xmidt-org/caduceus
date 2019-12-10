@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.12.x
+  - 1.13.x
   - tip
 
 os:
@@ -10,14 +10,46 @@ os:
 services:
   - docker
 
-matrix:
-  allow_failures:
-    - go: tip
-  fast_finish: true
-
 branches:
   only:
     - master
+    - /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
 script:
   - make style codecov
+
+jobs:
+  include:
+    # - stage: integration
+    #   name: "Integration Tests"
+    #   if: branch = master
+    #   script:
+    #     - make it
+    - stage: tag
+      name: "Tag For Release"
+      if: branch = master && type = push
+      before_script:
+        - echo -e "machine github.com\n  login $GH_TOKEN" > ~/.netrc
+      script:
+        - export OLD_VERSION=$(make version)
+        - git config --global user.name "xmidt-bot"
+        - git config --global user.email "$BOT_EMAIL"
+        - export TAG=$(cat CHANGELOG.md | perl -0777 -ne 'print "$1" if /.*## \[Unreleased\]\s+## \[(v\d+.\d+.\d+)\].*/s')
+        - export TODAY=`date +'%m/%d/%Y'`
+        - export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$ENV{TODAY}\n\n$1\n" if /.*## \[$ENV{TAG}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
+        - if [[ "$TAG" != "" && "$TAG" != "$OLD_VERSION" ]]; then git tag -a "$TAG" -m "$NOTES"; git push origin --tags; echo $?; fi
+    - stage: release
+      name: "Make a Release"
+      if: branch != master
+      script: skip
+      before_deploy:
+        - make release-artifacts
+      deploy:
+        on:
+          all_branches: true
+          tags: true
+        provider: releases
+        api_key: "$GH_TOKEN"
+        file_glob: true
+        file: ./.ignore/*
+        skip_cleanup: true

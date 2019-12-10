@@ -8,8 +8,6 @@ FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
 BINARY    	 := $(FIRST_GOPATH)/bin/$(APP)
 
 PROGVER = $(shell git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
-RPM_VERSION=$(shell echo $(PROGVER) | sed 's/\(.*\)-\(.*\)/\1/')
-RPM_RELEASE=$(shell echo $(PROGVER) | sed -n 's/.*-\(.*\)/\1/p'  | grep . && (echo "$(echo $(PROGVER) | sed 's/.*-\(.*\)/\1/')") || echo "1")
 BUILDTIME = $(shell date -u '+%Y-%m-%d %H:%M:%S')
 GITCOMMIT = $(shell git rev-parse --short HEAD)
 
@@ -20,19 +18,6 @@ go-mod-vendor:
 .PHONY: build
 build: go-mod-vendor
 	$(GO) build -o $(APP) -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
-
-rpm:
-	mkdir -p ./.ignore/SOURCES
-	tar -czvf ./.ignore/SOURCES/$(APP)-$(RPM_VERSION)-$(RPM_RELEASE).tar.gz . --exclude ./.git --exclude ./.ignore --exclude ./conf --exclude ./deploy --exclude ./vendor
-	cp conf/$(APP).service ./.ignore/SOURCES/
-	cp $(APP).yaml  ./.ignore/SOURCES/
-	cp LICENSE ./.ignore/SOURCES/
-	cp NOTICE ./.ignore/SOURCES/
-	cp CHANGELOG.md ./.ignore/SOURCES/
-	rpmbuild --define "_topdir $(CURDIR)/.ignore" \
-			--define "_version $(RPM_VERSION)" \
-			--define "_release $(RPM_RELEASE)" \
-			-ba deploy/packaging/$(APP).spec
 
 .PHONY: version
 version:
