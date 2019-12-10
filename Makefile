@@ -4,8 +4,6 @@ GO           ?= go
 GOFMT        ?= $(GO)fmt
 APP          := caduceus
 DOCKER_ORG   := xmidt
-FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
-BINARY    	 := $(FIRST_GOPATH)/bin/$(APP)
 
 PROGVER = $(shell git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
 BUILDTIME = $(shell date -u '+%Y-%m-%d %H:%M:%S')
