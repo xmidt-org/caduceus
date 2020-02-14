@@ -145,7 +145,6 @@ type CaduceusOutboundSender struct {
 	maxWorkersGauge                  metrics.Gauge
 	currentWorkersGauge              metrics.Gauge
 	deliveryRetryMaxGauge            metrics.Gauge
-	webhookListSize                  metrics.Gauge
 	eventType                        metrics.Counter
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration

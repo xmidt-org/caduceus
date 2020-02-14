@@ -130,13 +130,16 @@ func caduceus(arguments []string) int {
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
 		maxOutstanding:           0,
 	}
-
+	measures := NewMeasures(metricsRegistry)
 	client, err := api.NewClient(&caduceusConfig.ConsulConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating consul client: %s\n", err)
 		return 1
 	}
-	fmt.Println(caduceusConfig.InMemConfig.TTL)
+	var updateListSizeMetric webhookStore.ListenerFunc
+	updateListSizeMetric = func(hooks []webhook.W) {
+		measures.WebhookListSize.Set(float64(len(hooks)))
+	}
 	webhookRegistry := NewRegistry(RegistryConfig{
 		Logger:      logger,
 		Listener:    caduceusSenderWrapper.Update,
@@ -145,7 +148,7 @@ func caduceus(arguments []string) int {
 			Client: client,
 			Prefix: caduceusConfig.WebhookPrefix,
 		},
-	})
+	}, updateListSizeMetric)
 
 	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, webhookRegistry)
 	if err != nil {

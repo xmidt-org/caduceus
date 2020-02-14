@@ -23,7 +23,7 @@ type RegistryConfig struct {
 	ConsulConfig webhookStore.ConsulConfig
 }
 
-func NewRegistry(config RegistryConfig) *Registry {
+func NewRegistry(config RegistryConfig, listener webhookStore.Listener) *Registry {
 	if config.ConsulConfig.Client == nil {
 		logging.Error(config.Logger).Log(logging.MessageKey(), "consul client must be defined")
 		return nil
@@ -35,11 +35,9 @@ func NewRegistry(config RegistryConfig) *Registry {
 	}, webhookStore.WithLogger(config.Logger))
 	hookStorage := webhookStore.CreateInMemStore(config.InMemConfig, webhookStore.WithLogger(config.Logger), webhookStore.WithStorage(consulStore))
 	consulStore.SetListener(hookStorage)
-	var listerFunc webhookStore.ListenerFunc
-	listerFunc = func(hooks []webhook.W) {
-		logging.Info(config.Logger).Log(logging.MessageKey(), "recieved update", "length", len(hooks))
+	if listener != nil {
+		hookStorage.SetListener(listener)
 	}
-	hookStorage.SetListener(listerFunc)
 
 	return &Registry{
 		config:    config,
