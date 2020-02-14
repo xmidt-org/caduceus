@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 - updated release pipeline to use travis [#174](https://github.com/xmidt-org/caduceus/pull/174)
 - bumped wrp-go to v2 [#182](https://github.com/xmidt-org/caduceus/pull/182)
+- switch webhook configuration from sns to consul.
 
 ## [v0.2.2]
 - bump webpa-common to v1.5.0

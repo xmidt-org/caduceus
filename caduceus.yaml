@@ -186,11 +186,11 @@
     # file is the name of the most recent log file.  If set to "stdout" this
     # will log to os.Stdout.
     # (Optional) defaults to os.TempDir()
-    file: "/var/log/caduceus/caduceus.log"
+    file: "stdout"
 
     # level is the logging level to use - INFO, DEBUG, WARN, ERROR
     # (Optional) defaults to ERROR
-    level: "ERROR"
+    level: "DEBUG"
 
     # maxsize is the maximum file size in MB
     # (Optional) defaults to max 100MB
@@ -231,41 +231,6 @@
   # as authorization
   # (Optional)
   authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=","xxxxxxxxxxxxxxxxxxxxxx=="]
-
-########################################
-#   Startup Related Configuration
-########################################
-
-  # start is a way to bypass the need to wait for the duration before accepting
-  # events.  The wait is needed to ensure caduceus knows all the hooks it needs
-  # to deliver events to.  Presently the only 2 ways to do that for an SNS
-  # backed service is to:
-  #
-  #     1. Wait until all the hooks have timed out and re-registered (duration)
-  #     2. Ask some server that has the entire list to share it (apiPath)
-  #
-  # TBD add details
-  start:
-    duration: 60000000000
-    apiPath: "https://tr1d1um.example.com:443/api/v2/hooks"
-    sat:
-      path: "https://jwt.example.com/get"
-      id: "magic-id"
-      secret: "xxx"
-      capabilities: "webpa:api:.*:all"
-
-  # waitForDns TBD
-  waitForDns: 0
-
-  # soa is a way for the caduceus machine to check to see if it's DNS name is
-  # present before it tries to use it's DNS name to register with services like
-  # AWS Route53.  This check goes directly to the SOA record authority and
-  # bypasses the various caching servers that could cache the non-existence
-  # record which generally have VERY long TTLs.  Ultimately this way caduceus
-  # can restart much faster.
-  # (Optional)
-  soa:
-    provider: "example.awsdns-19.com:53"
 
 ########################################
 #   Webhook Related Configuration
@@ -344,3 +309,101 @@
   #   - 100
   #   - 1000
   #   - 10000
+########################################
+#   Webhook Related Configuration
+########################################
+  # webhookPrefix is the prefix for the kv pair inside of consul
+  webhookPrefix: dev-webhooks
+
+  # inMemConfig configures the in memory storage of the webhooks. aka how long webhooks should live etc.
+  inMemConfig:
+    # ttl is how long a webhook registration will last.
+    # (Optional) defaults to 5m
+    ttl: 10m
+
+    # checkInterval is how long the internal crapper will check if the inMemory webhook should be removed.
+    # (Optional) defaults to 1m
+    checkInterval: 1s
+
+  # consulConfig configures the consul agent for writing kv paris.
+  consulConfig:
+    # address is the address of the Consul server
+    # (Optional) defaults to 127.0.0.1:8500
+    address: "consul0:8500"
+
+    # Scheme is the URI scheme for the Consul server
+    # (Optional) defaults to http
+    scheme: "http"
+
+    # datacenter to use. If not provided, the default agent datacenter is used.
+    # This should be the datacenter known as the truth.
+    # You can leverage https://github.com/hashicorp/consul-replicate to replicate the consul pairs.
+    # (Optional) defaults to "" (empty string)
+    datacenter: ""
+
+    # transport is the Transport to use for the http client.
+    # (Optional) refer to https://golang.org/src/net/http/transport.go for more information
+    #    transport:
+    #      forceAttemptHTTP2: true
+    #      maxIdleConns: 100
+    #      idleConnTimeout: 90s
+    #      tlsHandshakeTimeout: 10s
+    #      expectContinueTimeout: 1s
+
+    # HttpClient is the client to use. Default will be
+    # used if not provided.
+    # (Optional) refer to https://golang.org/src/net/http/client.go for more information
+    #    httpClient:
+    #      timeout: 0s
+
+    # HttpAuth is the auth info to use for http access.
+    # (Optional)
+    #    httpAuth:
+    #      username: ""
+    #      password: ""
+
+    # WaitTime limits how long a Watch will block. If not provided,
+    # the agent default values will be used.
+    waitTime: 0s
+
+    # Token is used to provide a per-request ACL token
+    # which overrides the agent's default token.
+    # (Optional) defaults to "" (empty string)
+    token: ""
+
+    # TokenFile is a file containing the current token to use for this client.
+    # If provided it is read once at startup and never again.
+    # (Optional) defaults to "" (empty string)
+    tokenFile: ""
+
+    # Namespace is the name of the namespace to send along for the request
+    # when no other Namespace ispresent in the QueryOptions
+    # (Optional) defaults to "" (empty string)
+    namespace: ""
+
+    # tlsConfig is the consul agent configuration
+    # refer to https://godoc.org/github.com/hashicorp/consul/api#TLSConfig for more information
+    #    tlsConfig:
+    #      # Address is the optional address of the Consul server. The port, if any
+    #      # will be removed from here and this will be set to the ServerName of the
+    #      # resulting config.
+    #      address: ""
+    #
+    #      # CAFile is the optional path to the CA certificate used for Consul
+    #      # communication, defaults to the system bundle if not specified.
+    #      cAFile: ""
+    #
+    #      # CAPath is the optional path to a directory of CA certificates to use for
+    #      # Consul communication, defaults to the system bundle if not specified.
+    #      cAPath: ""
+    #
+    #      # CertFile is the optional path to the certificate for Consul
+    #      # communication. If this is set then you need to also set KeyFile.
+    #      CertFile: ""
+    #
+    #      # KeyFile is the optional path to the private key for Consul communication.
+    #      # If this is set then you need to also set CertFile.
+    #      keyFile: "string"
+    #
+    #      # InsecureSkipVerify if set to true will disable TLS host verification.
+    #      insecureSkipVerify: false

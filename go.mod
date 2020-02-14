@@ -9,6 +9,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-kit/kit v0.8.0
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/consul v1.4.2
 	github.com/influxdata/influxdb v1.7.7 // indirect
 	github.com/justinas/alice v1.2.0
 	github.com/prometheus/client_golang v1.0.0 // indirect
@@ -24,3 +25,5 @@ require (
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 )
+
+replace github.com/xmidt-org/webpa-common => github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214170225-dd137482688f

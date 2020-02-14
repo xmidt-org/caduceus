@@ -17,6 +17,8 @@
 package main
 
 import (
+	"github.com/hashicorp/consul/api"
+	"github.com/xmidt-org/webpa-common/webhookStore"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -33,6 +35,9 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
+	ConsulConfig     api.Config
+	WebhookPrefix    string
+	InMemConfig      webhookStore.InMemConfig
 }
 
 type SenderConfig struct {
