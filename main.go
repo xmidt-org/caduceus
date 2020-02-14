@@ -136,7 +136,7 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Error creating consul client: %s\n", err)
 		return 1
 	}
-
+	fmt.Println(caduceusConfig.InMemConfig.TTL)
 	webhookRegistry := NewRegistry(RegistryConfig{
 		Logger:      logger,
 		Listener:    caduceusSenderWrapper.Update,

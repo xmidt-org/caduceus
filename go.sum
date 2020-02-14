@@ -128,6 +128,10 @@ github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200213003914-8edd3fa938bf h1:
 github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200213003914-8edd3fa938bf/go.mod h1:r6I3zj1HM1iZHcytbgViJpoYCBNHIATF/7aZMgCOfXg=
 github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214170225-dd137482688f h1:NqGTMxBZuHpoqfz7E5U3b6U+UvDVNJT4bOe7mH7u3AU=
 github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214170225-dd137482688f/go.mod h1:r6I3zj1HM1iZHcytbgViJpoYCBNHIATF/7aZMgCOfXg=
+github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214183631-a0f31922e943 h1:XFzcG951nLfOgODnYn0tVpWDxWBz1IGKNWzSrdaVvDk=
+github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214183631-a0f31922e943/go.mod h1:r6I3zj1HM1iZHcytbgViJpoYCBNHIATF/7aZMgCOfXg=
+github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214201211-908c8d3e0135 h1:K+Pb38j6aUBy2pGgJl4lKwCBSLbA0YbpYYMk3h9lY+Q=
+github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214201211-908c8d3e0135/go.mod h1:r6I3zj1HM1iZHcytbgViJpoYCBNHIATF/7aZMgCOfXg=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=

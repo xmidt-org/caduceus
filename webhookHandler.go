@@ -29,14 +29,17 @@ func NewRegistry(config RegistryConfig) *Registry {
 		return nil
 	}
 
-	hookStorage := webhookStore.CreateInMemStore(
-		config.InMemConfig,
-		webhookStore.WithLogger(config.Logger),
-		webhookStore.WithStorageListener(
-			func(options ...webhookStore.Option) webhookStore.Pusher { return webhookStore.CreateConsulStore(config.ConsulConfig, options...) },
-			webhookStore.WithLogger(config.Logger)),
-		webhookStore.WithListener(config.Listener),
-	)
+	consulStore := webhookStore.CreateConsulStore(webhookStore.ConsulConfig{
+		Client: config.ConsulConfig.Client,
+		Prefix: "testing",
+	}, webhookStore.WithLogger(config.Logger))
+	hookStorage := webhookStore.CreateInMemStore(config.InMemConfig, webhookStore.WithLogger(config.Logger), webhookStore.WithStorage(consulStore))
+	consulStore.SetListener(hookStorage)
+	var listerFunc webhookStore.ListenerFunc
+	listerFunc = func(hooks []webhook.W) {
+		logging.Info(config.Logger).Log(logging.MessageKey(), "recieved update", "length", len(hooks))
+	}
+	hookStorage.SetListener(listerFunc)
 
 	return &Registry{
 		config:    config,
@@ -53,12 +56,35 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 
 // get is an api call to return all the registered listeners
 func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
+	logging.Info(r.config.Logger).Log(logging.MessageKey(), "get registry")
 	items, err := r.hookStore.GetWebhook()
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 	}
+	data := []struct {
+		URL         string   `json:"url"`
+		ContentType string   `json:"content_type"`
+		FailureURL  string   `json:"failure_url"`
+		Events      []string `json:"events"`
+		Matcher     struct {
+			DeviceId []string `json:"device_id"`
+		} `json:"matcher,omitempty"`
+		LastRegistration string `json:"registered_from_address"`
+	}{}
+	for _, hook := range items {
+		data = append(data, struct {
+			URL         string   `json:"url"`
+			ContentType string   `json:"content_type"`
+			FailureURL  string   `json:"failure_url"`
+			Events      []string `json:"events"`
+			Matcher     struct {
+				DeviceId []string `json:"device_id"`
+			} `json:"matcher,omitempty"`
+			LastRegistration string `json:"registered_from_address"`
+		}{URL: hook.Config.URL, ContentType: hook.Config.ContentType, FailureURL: hook.FailureURL, Events: hook.Events, Matcher: hook.Matcher, LastRegistration: hook.Address})
+	}
 
-	if msg, err := json.Marshal(items); err != nil {
+	if msg, err := json.Marshal(data); err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 	} else {
 		rw.Header().Set("Content-Type", "application/json")

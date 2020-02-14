@@ -26,4 +26,4 @@ require (
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 )
 
-replace github.com/xmidt-org/webpa-common => github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214170225-dd137482688f
+replace github.com/xmidt-org/webpa-common => github.com/kcajmagic/webpa-common v0.9.0-alpha.0.20200214201211-908c8d3e0135

@@ -230,7 +230,7 @@
   # authHeader provides the list of basic auth headers that caduceus will accept
   # as authorization
   # (Optional)
-  authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=","xxxxxxxxxxxxxxxxxxxxxx=="]
+  authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=","dXNlcjpwYXNz"]
 
 ########################################
 #   Webhook Related Configuration
@@ -319,7 +319,7 @@
   inMemConfig:
     # ttl is how long a webhook registration will last.
     # (Optional) defaults to 5m
-    ttl: 10m
+    tTL: 1m
 
     # checkInterval is how long the internal crapper will check if the inMemory webhook should be removed.
     # (Optional) defaults to 1m
@@ -329,7 +329,7 @@
   consulConfig:
     # address is the address of the Consul server
     # (Optional) defaults to 127.0.0.1:8500
-    address: "consul0:8500"
+#    address: "consul0:8500"
 
     # Scheme is the URI scheme for the Consul server
     # (Optional) defaults to http
