@@ -23,6 +23,7 @@ const (
 	ConsumerDropUntilGauge          = "consumer_drop_until"
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
+	ListSize                        = "webhook_list_size_value"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -131,6 +132,11 @@ func Metrics() []xmetrics.Metric {
 			Type:       "gauge",
 			LabelNames: []string{"url"},
 		},
+		{
+			Name: ListSize,
+			Help: "Amount of current listeners",
+			Type: "gauge",
+		},
 	}
 }
 
@@ -154,4 +160,5 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
+	c.webhookListSize = m.NewGauge(ListSize)
 }
