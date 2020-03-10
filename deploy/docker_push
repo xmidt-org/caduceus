@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+
+# upload  docker as $TRAVIS_TAG or latest
+echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
+LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
+VERSION_TAG=$(echo "$TRAVIS_TAG" | sed 's/v\(.*\)/\1/')
+
+docker build --build-arg VERSION="$VERSION_TAG" --build-arg GITCOMMIT="`git rev-parse --short HEAD`"   --build-arg BUILDTIME="`date -u '+%Y-%m-%d %H:%M:%S'`"   -f ./deploy/Dockerfile -t xmidt/caduceus:$VERSION_TAG .
+
+docker push xmidt/caduceus:$VERSION_TAG
+
+if [[ "$VERSION_TAG" == "$LATEST_TAG" ]]; then
+    docker tag xmidt/caduceus:$VERSION_TAG xmidt/caduceus:latest
+    docker push xmidt/caduceus:latest
+fi

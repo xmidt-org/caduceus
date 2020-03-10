@@ -5,17 +5,19 @@ GOFMT        ?= $(GO)fmt
 APP          := caduceus
 DOCKER_ORG   := xmidt
 
-PROGVER = $(shell git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
+VERSION ?= $(shell git describe --tag --always --dirty)
+PROGVER ?= $(shell git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
 BUILDTIME = $(shell date -u '+%Y-%m-%d %H:%M:%S')
 GITCOMMIT = $(shell git rev-parse --short HEAD)
+GOBUILDFLAGS = -a -ldflags "-w -s -X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(VERSION)" -o $(APP)
 
-.PHONY: go-mod-vendor
-go-mod-vendor:
-	GO111MODULE=on $(GO) mod vendor
+.PHONY: vendor
+vendor:
+	$(GO) mod vendor
 
 .PHONY: build
-build: go-mod-vendor
-	$(GO) build -o $(APP) -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
+build: vendor
+	CGO_ENABLED=0 $(GO) build $(GOBUILDFLAGS)
 
 .PHONY: version
 version:
@@ -36,19 +38,19 @@ update-version:
 
 
 .PHONY: install
-install: go-mod-vendor
-	$(GO) install -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
+install: vendor
+	$(GO) install -ldflags "-w -s -X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(VERSION)"
 
 .PHONY: release-artifacts
-release-artifacts: go-mod-vendor
+release-artifacts: vendor
 	mkdir -p ./.ignore
-	GOOS=darwin GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).darwin-amd64 -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
-	GOOS=linux  GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).linux-amd64 -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(PROGVER)"
+	GOOS=darwin GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).darwin-amd64 -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(VERSION)"
+	GOOS=linux  GOARCH=amd64 $(GO) build -o ./.ignore/$(APP)-$(PROGVER).linux-amd64 -ldflags "-X 'main.BuildTime=$(BUILDTIME)' -X main.GitCommit=$(GITCOMMIT) -X main.Version=$(VERSION)"
 
 .PHONY: docker
 docker:
 	docker build \
-		--build-arg VERSION=$(PROGVER) \
+		--build-arg VERSION=$(VERSION) \
 		--build-arg GITCOMMIT=$(GITCOMMIT) \
 		--build-arg BUILDTIME='$(BUILDTIME)' \
 		-f ./deploy/Dockerfile -t $(DOCKER_ORG)/$(APP):$(PROGVER) .
@@ -56,18 +58,18 @@ docker:
 .PHONY: local-docker
 local-docker:
 	docker build \
-		--build-arg VERSION=$(PROGVER)+local \
+		--build-arg VERSION=$(VERSION) \
 		--build-arg GITCOMMIT=$(GITCOMMIT) \
 		--build-arg BUILDTIME='$(BUILDTIME)' \
-		-f ./deploy/Dockerfile.local -t $(DOCKER_ORG)/$(APP):local .
+		-f ./deploy/Dockerfile -t $(DOCKER_ORG)/$(APP):local .
 
 .PHONY: style
-style:
+style: vendor
 	! $(GOFMT) -d $$(find . -path ./vendor -prune -o -name '*.go' -print) | grep '^'
 
 .PHONY: test
-test: go-mod-vendor
-	GO111MODULE=on $(GO) test -v -race  -coverprofile=cover.out ./...
+test: vendor
+	$(GO) test -v -race  -coverprofile=cover.out ./...
 
 .PHONY: test-cover
 test-cover: test
