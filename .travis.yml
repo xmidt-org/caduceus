@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.13.x
+  - 1.14.x
   - tip
 
 os:
@@ -19,6 +19,9 @@ script:
   - make style codecov
 
 jobs:
+  fast_finish: true
+  allow_failures:
+    - go: tip
   include:
     # - stage: integration
     #   name: "Integration Tests"
@@ -53,3 +56,13 @@ jobs:
         file_glob: true
         file: ./.ignore/*
         skip_cleanup: true
+    - stage: docker-release
+      name: "Make Docker Release"
+      if: branch != master
+      script: skip
+      deploy:
+        - provider: script
+          script: bash deploy/docker_push
+          on:
+            all_branches: true
+            tags: true
