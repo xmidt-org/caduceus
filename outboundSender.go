@@ -603,6 +603,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 // queueOverflow handles the logic of what to do when a queue overflows
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
+	if time.Now().Before(obs.dropUntil) {
+		obs.mutex.Unlock()
+		return
+	}
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
