@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - adding docker automation [#184](https://github.com/xmidt-org/caduceus/pull/184)
+- fixing caduceus queue cutoffs [#185](https://github.com/xmidt-org/caduceus/issues/185)
 
 ## [v0.2.3]
 - updated release pipeline to use travis [#174](https://github.com/xmidt-org/caduceus/pull/174)
