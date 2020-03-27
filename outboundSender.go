@@ -153,6 +153,7 @@ type CaduceusOutboundSender struct {
 	failureMsg                       FailureMessage
 	logger                           log.Logger
 	mutex                            sync.RWMutex
+	queueEmpty                       bool
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -431,7 +432,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	var debugLog = logging.Debug(obs.logger)
 
-	if false == now.After(dropUntil) {
+	if false == now.After(dropUntil) && obs.queueEmpty {
 		debugLog.Log(logging.MessageKey(), "Client has been cut off",
 			"now", now, "before", deliverUntil, "after", dropUntil)
 		obs.droppedCutoffCounter.Add(1.0)
@@ -448,6 +449,19 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 	return true
 }
 
+func (obs *CaduceusOutboundSender) Empty() {
+	for obs.queueEmpty == false {
+		select {
+		case <-obs.queue:
+			obs.queueDepthGauge.Add(-1.0)
+			continue
+		default:
+			obs.queueEmpty = true
+		}
+	}
+	return
+}
+
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
 
@@ -455,6 +469,9 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		obs.queueDepthGauge.Add(-1.0)
 
 		obs.mutex.RLock()
+		if obs.queueEmpty == false {
+			obs.Empty()
+		}
 		urls := obs.urls
 		// Move to the next URL to try 1st the next time.
 		obs.urls = obs.urls.Next()
@@ -619,6 +636,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		errorLog = logging.Error(obs.logger)
 	)
 
+	obs.queueEmpty = false
 	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
