@@ -416,13 +416,15 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			}
 		*/
 		if matchDevice {
-			if len(obs.queue) < obs.queueSize {
+			select {
+			case obs.queue <- msg:
 				obs.queueDepthGauge.Add(1.0)
-				obs.queue <- msg
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
-				// a regex was matched, no need to check further matches
 				break
+			default:
+				continue
 			}
+
 			obs.queueOverflow()
 			obs.droppedQueueFullCounter.Add(1.0)
 		}
