@@ -195,6 +195,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
+		queueEmpty: true,
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -393,40 +394,36 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			}
 		}
 		/*
-			// if the device id matches then we want to look through all the metadata
-			// and make sure that the obs metadata matches the metadata provided
-			if matchDevice {
-				for key, val := range metaData {
-					if matchers, ok := matcher[key]; ok {
-						for _, deviceRegex := range matchers {
-							matchDevice = false
-							if deviceRegex.MatchString(val) {
-								matchDevice = true
-								break
-							}
-						}
-
-						// metadata was provided but did not match our expectations,
-						// so it is time to drop the message
-						if !matchDevice {
-							break
-						}
-					}
-				}
-			}
+			 // if the device id matches then we want to look through all the metadata
+			 // and make sure that the obs metadata matches the metadata provided
+			 if matchDevice {
+				 for key, val := range metaData {
+					 if matchers, ok := matcher[key]; ok {
+						 for _, deviceRegex := range matchers {
+							 matchDevice = false
+							 if deviceRegex.MatchString(val) {
+								 matchDevice = true
+								 break
+							 }
+						 }
+						 // metadata was provided but did not match our expectations,
+						 // so it is time to drop the message
+						 if !matchDevice {
+							 break
+						 }
+					 }
+				 }
+			 }
 		*/
 		if matchDevice {
 			select {
 			case obs.queue <- msg:
 				obs.queueDepthGauge.Add(1.0)
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
-				break
 			default:
-				continue
+				obs.queueOverflow()
+				obs.droppedQueueFullCounter.Add(1.0)
 			}
-
-			obs.queueOverflow()
-			obs.droppedQueueFullCounter.Add(1.0)
 		}
 	}
 }
@@ -434,7 +431,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	var debugLog = logging.Debug(obs.logger)
 
-	if false == now.After(dropUntil) && obs.queueEmpty {
+	if false == now.After(dropUntil) || !obs.queueEmpty {
 		debugLog.Log(logging.MessageKey(), "Client has been cut off",
 			"now", now, "before", deliverUntil, "after", dropUntil)
 		obs.droppedCutoffCounter.Add(1.0)
@@ -452,11 +449,10 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 }
 
 func (obs *CaduceusOutboundSender) Empty() {
-	for obs.queueEmpty == false {
+	for !obs.queueEmpty {
 		select {
 		case <-obs.queue:
 			obs.queueDepthGauge.Add(-1.0)
-			continue
 		default:
 			obs.queueEmpty = true
 		}
@@ -471,7 +467,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 		obs.queueDepthGauge.Add(-1.0)
 
 		obs.mutex.RLock()
-		if obs.queueEmpty == false {
+		if !obs.queueEmpty {
 			obs.Empty()
 		}
 		urls := obs.urls
