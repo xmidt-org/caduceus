@@ -465,7 +465,6 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 
 	for msg := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
-
 		obs.mutex.RLock()
 		if !obs.queueEmpty {
 			obs.Empty()

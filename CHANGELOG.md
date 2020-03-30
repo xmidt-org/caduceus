@@ -5,8 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- fixing emptying queue when received cutoff [#188](https://github.com/xmidt-org/caduceus/issues/188)
-- adding queue full check to prevent push event into queue if already full [#189](https://github.com/xmidt-org/caduceus/issues/189)
+- fix emptying queue when received cutoff [#188](https://github.com/xmidt-org/caduceus/issues/188)
+- add queue full check to prevent push event into queue if already full [#189](https://github.com/xmidt-org/caduceus/issues/189)
 
 ## [v0.2.4]
 - added docker automation [#184](https://github.com/xmidt-org/caduceus/pull/184)
