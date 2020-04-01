@@ -153,6 +153,7 @@ type CaduceusOutboundSender struct {
 	failureMsg                       FailureMessage
 	logger                           log.Logger
 	mutex                            sync.RWMutex
+	queueEmpty                       bool
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -194,6 +195,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
+		queueEmpty: true,
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -392,38 +394,36 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			}
 		}
 		/*
-			// if the device id matches then we want to look through all the metadata
-			// and make sure that the obs metadata matches the metadata provided
-			if matchDevice {
-				for key, val := range metaData {
-					if matchers, ok := matcher[key]; ok {
-						for _, deviceRegex := range matchers {
-							matchDevice = false
-							if deviceRegex.MatchString(val) {
-								matchDevice = true
-								break
-							}
-						}
-
-						// metadata was provided but did not match our expectations,
-						// so it is time to drop the message
-						if !matchDevice {
-							break
-						}
-					}
-				}
-			}
+			 // if the device id matches then we want to look through all the metadata
+			 // and make sure that the obs metadata matches the metadata provided
+			 if matchDevice {
+				 for key, val := range metaData {
+					 if matchers, ok := matcher[key]; ok {
+						 for _, deviceRegex := range matchers {
+							 matchDevice = false
+							 if deviceRegex.MatchString(val) {
+								 matchDevice = true
+								 break
+							 }
+						 }
+						 // metadata was provided but did not match our expectations,
+						 // so it is time to drop the message
+						 if !matchDevice {
+							 break
+						 }
+					 }
+				 }
+			 }
 		*/
 		if matchDevice {
-			if len(obs.queue) < obs.queueSize {
+			select {
+			case obs.queue <- msg:
 				obs.queueDepthGauge.Add(1.0)
-				obs.queue <- msg
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
-				// a regex was matched, no need to check further matches
-				break
+			default:
+				obs.queueOverflow()
+				obs.droppedQueueFullCounter.Add(1.0)
 			}
-			obs.queueOverflow()
-			obs.droppedQueueFullCounter.Add(1.0)
 		}
 	}
 }
@@ -431,7 +431,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	var debugLog = logging.Debug(obs.logger)
 
-	if false == now.After(dropUntil) {
+	if false == now.After(dropUntil) || !obs.queueEmpty {
 		debugLog.Log(logging.MessageKey(), "Client has been cut off",
 			"now", now, "before", deliverUntil, "after", dropUntil)
 		obs.droppedCutoffCounter.Add(1.0)
@@ -448,13 +448,27 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 	return true
 }
 
+func (obs *CaduceusOutboundSender) Empty() {
+	for !obs.queueEmpty {
+		select {
+		case <-obs.queue:
+			obs.queueDepthGauge.Add(-1.0)
+		default:
+			obs.queueEmpty = true
+		}
+	}
+	return
+}
+
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
 
 	for msg := range obs.queue {
 		obs.queueDepthGauge.Add(-1.0)
-
 		obs.mutex.RLock()
+		if !obs.queueEmpty {
+			obs.Empty()
+		}
 		urls := obs.urls
 		// Move to the next URL to try 1st the next time.
 		obs.urls = obs.urls.Next()
@@ -619,6 +633,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		errorLog = logging.Error(obs.logger)
 	)
 
+	obs.queueEmpty = false
 	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
