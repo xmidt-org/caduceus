@@ -210,13 +210,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
 	// Give us some head room so that we don't block when we get near the
-	// completely full point.
-	// insertQueue := make(chan *wrp.Message, osf.QueueSize)
-	// for i := 0; i < 10; i++ {
-	// 	caduceusOutboundSender.newQueue <- insertQueue
-	// }
-
-	// caduceusOutboundSender.queue = make(chan *wrp.Message, osf.QueueSize)
 	caduceusOutboundSender.newQueue.v.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
@@ -343,7 +336,6 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	// close(obs.queue)
 	close(obs.newQueue.v.Load().(chan *wrp.Message))
 	obs.mutex.Lock()
 	if false == gentle {
