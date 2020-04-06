@@ -453,13 +453,10 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 
 func (obs *CaduceusOutboundSender) Empty() {
 
-	logging.Info(obs.logger).Log("Items in queue before", "amount_IN_queue_before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
-
+	logging.Info(obs.logger).Log("Items in queue before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
 	obs.newQueue.v.Store(make(chan *wrp.Message, obs.queueSize))
-	logging.Info(obs.logger).Log("Items in queue before", "amount_IN_queue_before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
-
-	//obs.queueDepthGauge.Set(0.0)
-	obs.queueDepthGauge.Add(-1.0 * float64(len(obs.newQueue.v.Load().(chan *wrp.Message))))
+	logging.Info(obs.logger).Log("Items in queue after", len(obs.newQueue.v.Load().(chan *wrp.Message)))
+	obs.queueDepthGauge.Set(0.0)
 	obs.queueEmpty = true
 
 	return
@@ -625,6 +622,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		obs.mutex.Unlock()
 		return
 	}
+	obs.queueEmpty = false
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
@@ -637,7 +635,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		errorLog = logging.Error(obs.logger)
 	)
 
-	obs.queueEmpty = false
+	// obs.queueEmpty = false
 	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
