@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - fix emptying queue when received cutoff [#188](https://github.com/xmidt-org/caduceus/issues/188)
 - add queue full check to prevent push event into queue if already full [#189](https://github.com/xmidt-org/caduceus/issues/189)
 
+## [v0.2.5]
+- fix emptying queue when received cutoff [#188](https://github.com/xmidt-org/caduceus/issues/188)
+- add queue full check to prevent push event into queue if already full [#189](https://github.com/xmidt-org/caduceus/issues/189)
+
 ## [v0.2.4]
 - added docker automation [#184](https://github.com/xmidt-org/caduceus/pull/184)
 - fixed caduceus queue cutoffs [#185](https://github.com/xmidt-org/caduceus/issues/185)
@@ -77,7 +81,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.5...HEAD
+[v0.2.5]: https://github.com/Comcast/caduceus/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/Comcast/caduceus/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/Comcast/caduceus/compare/v0.2.2...v0.2.3
 [v0.2.2]: https://github.com/Comcast/caduceus/compare/v0.2.2-rc.1...v0.2.2

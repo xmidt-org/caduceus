@@ -462,6 +462,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 
 func (obs *CaduceusOutboundSender) Empty() {
 
+
 	logging.Info(obs.logger).Log("Items in queue before", "amount_IN_queue_before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
 
 	obs.newQueue.v.Store(make(chan *wrp.Message, obs.queueSize))
@@ -472,14 +473,12 @@ func (obs *CaduceusOutboundSender) Empty() {
 	obs.queueEmpty = true
 
 	return
-
 }
 
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
 
 	for msg := range obs.newQueue.v.Load().(chan *wrp.Message) {
-
 		obs.queueDepthGauge.Add(-1.0)
 		obs.mutex.RLock()
 		if !obs.queueEmpty {
