@@ -357,7 +357,6 @@ func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	obs.mutex.RUnlock()
-
 	return deliverUntil
 }
 
@@ -453,7 +452,6 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 }
 
 func (obs *CaduceusOutboundSender) Empty() {
-
 
 	logging.Info(obs.logger).Log("Items in queue before", "amount_IN_queue_before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
 
