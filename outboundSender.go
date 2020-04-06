@@ -155,12 +155,11 @@ type CaduceusOutboundSender struct {
 	logger                           log.Logger
 	mutex                            sync.RWMutex
 	queueEmpty                       bool
-	doubleQueue                      Queue
+	newQueue                         Queue
 }
 
 type Queue struct {
-	v        atomic.Value
-	maxDepth int
+	v atomic.Value
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -214,11 +213,11 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	// completely full point.
 	// insertQueue := make(chan *wrp.Message, osf.QueueSize)
 	// for i := 0; i < 10; i++ {
-	// 	caduceusOutboundSender.doubleQueue <- insertQueue
+	// 	caduceusOutboundSender.newQueue <- insertQueue
 	// }
 
 	// caduceusOutboundSender.queue = make(chan *wrp.Message, osf.QueueSize)
-	caduceusOutboundSender.doubleQueue.v.Store(make(chan *wrp.Message, osf.QueueSize))
+	caduceusOutboundSender.newQueue.v.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
@@ -345,7 +344,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	// close(obs.queue)
-	close(obs.doubleQueue.v.Load().(chan *wrp.Message))
+	close(obs.newQueue.v.Load().(chan *wrp.Message))
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
@@ -430,21 +429,13 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		*/
 		if matchDevice {
 			select {
-			case obs.doubleQueue.v.Load().(chan *wrp.Message) <- msg:
+			case obs.newQueue.v.Load().(chan *wrp.Message) <- msg:
 				obs.queueDepthGauge.Add(1.0)
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 			default:
 				obs.queueOverflow()
 				obs.droppedQueueFullCounter.Add(1.0)
 			}
-			// select {
-			// case obs.queue <- msg:
-			// 	obs.queueDepthGauge.Add(1.0)
-			// 	debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
-			// default:
-			// 	obs.queueOverflow()
-			// 	obs.droppedQueueFullCounter.Add(1.0)
-			// }
 		}
 	}
 }
@@ -470,37 +461,28 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 }
 
 func (obs *CaduceusOutboundSender) Empty() {
-	for !obs.queueEmpty {
-		select {
-		case _, ok := <-obs.doubleQueue.v.Load().(chan *wrp.Message):
-			// case <-obs.queue:
-			if ok {
-				obs.doubleQueue.v.Store(make(chan *wrp.Message, obs.queueSize))
-				obs.queueDepthGauge.Set(-1.0 * float64(len(obs.doubleQueue.v.Load().(chan *wrp.Message))))
-			}
-			// obs.queueDepthGauge.Add(-1.0)
-			// time.Sleep(1 * time.Millisecond)
-		default:
-			obs.queueEmpty = true
-		}
-	}
+
+	logging.Info(obs.logger).Log("Items in queue before", "amount_IN_queue_before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
+
+	obs.newQueue.v.Store(make(chan *wrp.Message, obs.queueSize))
+	logging.Info(obs.logger).Log("Items in queue before", "amount_IN_queue_before", len(obs.newQueue.v.Load().(chan *wrp.Message)))
+
+	//obs.queueDepthGauge.Set(0.0)
+	obs.queueDepthGauge.Add(-1.0 * float64(len(obs.newQueue.v.Load().(chan *wrp.Message))))
+	obs.queueEmpty = true
+
 	return
+
 }
 
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
 
-	queueChannel := obs.doubleQueue.v.Load().(chan *wrp.Message)
-
-	// for msg := range obs.queue {
-	for msg := range queueChannel {
+	for msg := range obs.newQueue.v.Load().(chan *wrp.Message) {
 
 		obs.queueDepthGauge.Add(-1.0)
 		obs.mutex.RLock()
 		if !obs.queueEmpty {
-			//close(obs.queue)
-			//obs.queue = make(chan *wrp.Message, obs.queueSize)
-			// obs.queueEmpty = true
 			obs.Empty()
 		}
 		urls := obs.urls
@@ -520,7 +502,6 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 			continue
 		}
 		if now.After(deliverUntil) {
-
 			obs.droppedExpiredCounter.Add(1.0)
 			continue
 		}
