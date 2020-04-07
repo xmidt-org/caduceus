@@ -464,40 +464,49 @@ func (obs *CaduceusOutboundSender) Empty() {
 
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
+Loop:
+	for {
+		msgQueue := obs.newQueue.v.Load().(chan *wrp.Message)
+		var msg *wrp.Message
+		var urls *ring.Ring
+		var secret, accept string
+		var ok bool
 
-	for msg := range obs.newQueue.v.Load().(chan *wrp.Message) {
-		obs.queueDepthGauge.Add(-1.0)
-		obs.mutex.RLock()
-		if !obs.queueEmpty {
-			obs.Empty()
+		select {
+		case msg, ok = <-msgQueue:
+			if !ok {
+				break Loop
+			}
+			obs.queueDepthGauge.Add(-1.0)
+			obs.mutex.RLock()
+			if !obs.queueEmpty {
+				obs.Empty()
+			}
+			urls = obs.urls
+			// Move to the next URL to try 1st the next time.
+			obs.urls = obs.urls.Next()
+			deliverUntil := obs.deliverUntil
+			dropUntil := obs.dropUntil
+			secret = obs.listener.Config.Secret
+			accept = obs.listener.Config.ContentType
+			obs.mutex.RUnlock()
+
+			now := time.Now()
+
+			if now.Before(dropUntil) {
+				obs.droppedCutoffCounter.Add(1.0)
+				continue
+			}
+			if now.After(deliverUntil) {
+				obs.droppedExpiredCounter.Add(1.0)
+				continue
+			}
+			obs.workers.Acquire()
+			obs.currentWorkersGauge.Add(1.0)
+
+			go obs.send(urls, secret, accept, msg)
 		}
-		urls := obs.urls
-		// Move to the next URL to try 1st the next time.
-		obs.urls = obs.urls.Next()
-
-		deliverUntil := obs.deliverUntil
-		dropUntil := obs.dropUntil
-		secret := obs.listener.Config.Secret
-		accept := obs.listener.Config.ContentType
-		obs.mutex.RUnlock()
-
-		now := time.Now()
-
-		if now.Before(dropUntil) {
-			obs.droppedCutoffCounter.Add(1.0)
-			continue
-		}
-		if now.After(deliverUntil) {
-			obs.droppedExpiredCounter.Add(1.0)
-			continue
-		}
-		obs.workers.Acquire()
-		obs.currentWorkersGauge.Add(1.0)
-
-		go obs.send(urls, secret, accept, msg)
 	}
-
-	// Grab all the workers to make sure they are done.
 	for i := 0; i < obs.maxWorkers; i++ {
 		obs.workers.Acquire()
 	}
