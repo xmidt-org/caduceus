@@ -644,7 +644,6 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		errorLog = logging.Error(obs.logger)
 	)
 
-	// obs.queueEmpty = false
 	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
