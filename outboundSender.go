@@ -479,9 +479,6 @@ Loop:
 			}
 			obs.queueDepthGauge.Add(-1.0)
 			obs.mutex.RLock()
-			if !obs.queueEmpty {
-				obs.Empty()
-			}
 			urls = obs.urls
 			// Move to the next URL to try 1st the next time.
 			obs.urls = obs.urls.Next()
@@ -495,7 +492,8 @@ Loop:
 
 			if now.Before(dropUntil) {
 				obs.droppedCutoffCounter.Add(1.0)
-				continue
+				// continue
+				break Loop
 			}
 			if now.After(deliverUntil) {
 				obs.droppedExpiredCounter.Add(1.0)
@@ -631,13 +629,15 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		obs.mutex.Unlock()
 		return
 	}
-	obs.queueEmpty = false
+	// obs.queueEmpty = false
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
 	failureMsg := obs.failureMsg
 	failureURL := obs.listener.FailureURL
 	obs.mutex.Unlock()
+
+	obs.Empty()
 
 	var (
 		debugLog = logging.Debug(obs.logger)
