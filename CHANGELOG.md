@@ -5,8 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- fix emptying queue when received cutoff [#188](https://github.com/xmidt-org/caduceus/issues/188)
-- add queue full check to prevent push event into queue if already full [#189](https://github.com/xmidt-org/caduceus/issues/189)
+- reduced time from when cutoff is sent to when queue is emptied
 
 ## [v0.2.5]
 - fix emptying queue when received cutoff [#188](https://github.com/xmidt-org/caduceus/issues/188)
