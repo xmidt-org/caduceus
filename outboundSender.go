@@ -125,7 +125,6 @@ type CaduceusOutboundSender struct {
 	events                           []*regexp.Regexp
 	matcher                          []*regexp.Regexp
 	queueSize                        int
-	queue                            chan *wrp.Message
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
 	deliveryCounter                  metrics.Counter
@@ -155,7 +154,7 @@ type CaduceusOutboundSender struct {
 	logger                           log.Logger
 	mutex                            sync.RWMutex
 	queueEmpty                       bool
-	newQueue                         atomic.Value
+	queue                            atomic.Value
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -205,7 +204,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
-	caduceusOutboundSender.newQueue.Store(make(chan *wrp.Message, osf.QueueSize))
+	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
@@ -331,7 +330,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	close(obs.newQueue.Load().(chan *wrp.Message))
+	close(obs.queue.Load().(chan *wrp.Message))
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
@@ -415,7 +414,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		*/
 		if matchDevice {
 			select {
-			case obs.newQueue.Load().(chan *wrp.Message) <- msg:
+			case obs.queue.Load().(chan *wrp.Message) <- msg:
 				obs.queueDepthGauge.Add(1.0)
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 			default:
@@ -448,7 +447,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 
 func (obs *CaduceusOutboundSender) Empty() {
 
-	obs.newQueue.Store(make(chan *wrp.Message, obs.queueSize))
+	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	obs.queueDepthGauge.Set(0.0)
 	obs.queueEmpty = true
 
@@ -466,7 +465,7 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 
 Loop:
 	for {
-		msgQueue := obs.newQueue.Load().(chan *wrp.Message)
+		msgQueue := obs.queue.Load().(chan *wrp.Message)
 		select {
 		case msg, ok = <-msgQueue:
 			if !ok {

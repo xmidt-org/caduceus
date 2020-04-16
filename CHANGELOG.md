@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.2.6]
 - reduced time from when cutoff is sent to when queue is emptied
 
 ## [v0.2.5]
@@ -80,7 +82,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.6...HEAD
+[v0.2.6]: https://github.com/Comcast/caduceus/compare/v0.2.5...v0.2.6
 [v0.2.5]: https://github.com/Comcast/caduceus/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/Comcast/caduceus/compare/v0.2.3...v0.2.4
 [v0.2.3]: https://github.com/Comcast/caduceus/compare/v0.2.2...v0.2.3
