@@ -155,11 +155,7 @@ type CaduceusOutboundSender struct {
 	logger                           log.Logger
 	mutex                            sync.RWMutex
 	queueEmpty                       bool
-	newQueue                         Queue
-}
-
-type Queue struct {
-	v atomic.Value
+	newQueue                         atomic.Value
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -209,8 +205,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
-	// Give us some head room so that we don't block when we get near the
-	caduceusOutboundSender.newQueue.v.Store(make(chan *wrp.Message, osf.QueueSize))
+	caduceusOutboundSender.newQueue.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
@@ -336,7 +331,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	close(obs.newQueue.v.Load().(chan *wrp.Message))
+	close(obs.newQueue.Load().(chan *wrp.Message))
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
@@ -420,7 +415,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		*/
 		if matchDevice {
 			select {
-			case obs.newQueue.v.Load().(chan *wrp.Message) <- msg:
+			case obs.newQueue.Load().(chan *wrp.Message) <- msg:
 				obs.queueDepthGauge.Add(1.0)
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 			default:
@@ -453,7 +448,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 
 func (obs *CaduceusOutboundSender) Empty() {
 
-	obs.newQueue.v.Store(make(chan *wrp.Message, obs.queueSize))
+	obs.newQueue.Store(make(chan *wrp.Message, obs.queueSize))
 	obs.queueDepthGauge.Set(0.0)
 	obs.queueEmpty = true
 
@@ -462,14 +457,16 @@ func (obs *CaduceusOutboundSender) Empty() {
 
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
+	var (
+		msg            *wrp.Message
+		urls           *ring.Ring
+		secret, accept string
+		ok             bool
+	)
+
 Loop:
 	for {
-		msgQueue := obs.newQueue.v.Load().(chan *wrp.Message)
-		var msg *wrp.Message
-		var urls *ring.Ring
-		var secret, accept string
-		var ok bool
-
+		msgQueue := obs.newQueue.Load().(chan *wrp.Message)
 		select {
 		case msg, ok = <-msgQueue:
 			if !ok {
