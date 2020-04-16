@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -124,7 +125,6 @@ type CaduceusOutboundSender struct {
 	events                           []*regexp.Regexp
 	matcher                          []*regexp.Regexp
 	queueSize                        int
-	queue                            chan *wrp.Message
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
 	deliveryCounter                  metrics.Counter
@@ -154,6 +154,7 @@ type CaduceusOutboundSender struct {
 	logger                           log.Logger
 	mutex                            sync.RWMutex
 	queueEmpty                       bool
+	queue                            atomic.Value
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -203,9 +204,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
-	// Give us some head room so that we don't block when we get near the
-	// completely full point.
-	caduceusOutboundSender.queue = make(chan *wrp.Message, osf.QueueSize)
+	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
@@ -331,8 +330,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	close(obs.queue)
-
+	close(obs.queue.Load().(chan *wrp.Message))
 	obs.mutex.Lock()
 	if false == gentle {
 		obs.deliverUntil = time.Time{}
@@ -353,7 +351,6 @@ func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	obs.mutex.RUnlock()
-
 	return deliverUntil
 }
 
@@ -417,7 +414,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		*/
 		if matchDevice {
 			select {
-			case obs.queue <- msg:
+			case obs.queue.Load().(chan *wrp.Message) <- msg:
 				obs.queueDepthGauge.Add(1.0)
 				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 			default:
@@ -449,54 +446,58 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 }
 
 func (obs *CaduceusOutboundSender) Empty() {
-	for !obs.queueEmpty {
-		select {
-		case <-obs.queue:
-			obs.queueDepthGauge.Add(-1.0)
-		default:
-			obs.queueEmpty = true
-		}
-	}
+
+	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
+	obs.queueDepthGauge.Set(0.0)
+	obs.queueEmpty = true
+
 	return
 }
 
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
+	var (
+		msg            *wrp.Message
+		urls           *ring.Ring
+		secret, accept string
+		ok             bool
+	)
 
-	for msg := range obs.queue {
-		obs.queueDepthGauge.Add(-1.0)
-		obs.mutex.RLock()
-		if !obs.queueEmpty {
-			obs.Empty()
+Loop:
+	for {
+		msgQueue := obs.queue.Load().(chan *wrp.Message)
+		select {
+		case msg, ok = <-msgQueue:
+			if !ok {
+				break Loop
+			}
+			obs.queueDepthGauge.Add(-1.0)
+			obs.mutex.RLock()
+			urls = obs.urls
+			// Move to the next URL to try 1st the next time.
+			obs.urls = obs.urls.Next()
+			deliverUntil := obs.deliverUntil
+			dropUntil := obs.dropUntil
+			secret = obs.listener.Config.Secret
+			accept = obs.listener.Config.ContentType
+			obs.mutex.RUnlock()
+
+			now := time.Now()
+
+			if now.Before(dropUntil) {
+				obs.droppedCutoffCounter.Add(1.0)
+				break Loop
+			}
+			if now.After(deliverUntil) {
+				obs.droppedExpiredCounter.Add(1.0)
+				continue
+			}
+			obs.workers.Acquire()
+			obs.currentWorkersGauge.Add(1.0)
+
+			go obs.send(urls, secret, accept, msg)
 		}
-		urls := obs.urls
-		// Move to the next URL to try 1st the next time.
-		obs.urls = obs.urls.Next()
-
-		deliverUntil := obs.deliverUntil
-		dropUntil := obs.dropUntil
-		secret := obs.listener.Config.Secret
-		accept := obs.listener.Config.ContentType
-		obs.mutex.RUnlock()
-
-		now := time.Now()
-
-		if now.Before(dropUntil) {
-			obs.droppedCutoffCounter.Add(1.0)
-			continue
-		}
-		if now.After(deliverUntil) {
-
-			obs.droppedExpiredCounter.Add(1.0)
-			continue
-		}
-		obs.workers.Acquire()
-		obs.currentWorkersGauge.Add(1.0)
-
-		go obs.send(urls, secret, accept, msg)
 	}
-
-	// Grab all the workers to make sure they are done.
 	for i := 0; i < obs.maxWorkers; i++ {
 		obs.workers.Acquire()
 	}
@@ -621,6 +622,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		obs.mutex.Unlock()
 		return
 	}
+	obs.queueEmpty = false
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
@@ -633,9 +635,10 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		errorLog = logging.Error(obs.logger)
 	)
 
-	obs.queueEmpty = false
 	obs.cutOffCounter.Add(1.0)
 	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
+
+	obs.Empty()
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
