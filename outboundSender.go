@@ -38,6 +38,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -267,7 +268,7 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	for i := 0; i < urlCount; i++ {
 		_, err = url.Parse(wh.Config.AlternativeURLs[i])
 		if err != nil {
-			logging.Error(obs.logger).Log(logging.MessageKey(), "failed to update url",
+			obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to update url",
 				"url", wh.Config.AlternativeURLs[i], logging.ErrorKey(), err)
 			return
 		}
@@ -501,7 +502,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	defer func() {
 		if r := recover(); nil != r {
 			obs.droppedPanic.Add(1.0)
-			logging.Error(obs.logger).Log(logging.MessageKey(), "goroutine send() panicked",
+			obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "goroutine send() panicked",
 				"id", obs.id, "panic", r)
 		}
 		obs.workers.Release()
@@ -532,7 +533,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	if nil != err {
 		// Report drop
 		obs.droppedInvalidConfig.Add(1.0)
-		logging.Error(obs.logger).Log(logging.MessageKey(), "Invalid URL",
+		obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Invalid URL",
 			"url", urls.Value.(string), "id", obs.id, logging.ErrorKey(), err)
 		return
 	}
@@ -580,7 +581,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
-			logging.Error(obs.logger).Log(logging.MessageKey(), "failed to update url",
+			obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to update url",
 				"url", urls.Value.(string), logging.ErrorKey(), err)
 			return
 		}
@@ -623,7 +624,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Unlock()
 
 	var (
-		errorLog = logging.Error(obs.logger)
+		errorLog = log.WithPrefix(obs.logger, level.Key(), level.ErrorValue())
 	)
 
 	obs.cutOffCounter.Add(1.0)
@@ -632,7 +633,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
-		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshall failed", "failureMessage", obs.failureMsg,
+		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshal failed", "failureMessage", obs.failureMsg,
 			"for", obs.id, logging.ErrorKey(), err)
 		return
 	}

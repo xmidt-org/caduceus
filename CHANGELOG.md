@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 - pared down logging, especially debugging logs [#196](https://github.com/xmidt-org/caduceus/pull/196)
 - added dropped events to metric [#195](https://github.com/xmidt-org/caduceus/issues/195)
+- removed all calls to logging.Debug(), logging.Info(), and logging.Error() [#199](https://github.com/xmidt-org/caduceus/pull/199)
 
 ## [v0.2.6]
 - reduced time from when cutoff is sent to when queue is emptied

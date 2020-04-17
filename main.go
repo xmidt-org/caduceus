@@ -28,6 +28,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
 
@@ -68,9 +69,9 @@ func caduceus(arguments []string) int {
 		// if we're done, we're exiting no matter what
 		if parseErr != nil {
 			friendlyError := fmt.Sprintf("failed to parse arguments. detailed error: %s", parseErr)
-			logging.Error(logger).Log(
-				logging.ErrorKey(),
-				friendlyError)
+			logger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.ErrorKey(), friendlyError)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -82,9 +83,9 @@ func caduceus(arguments []string) int {
 	}
 
 	var (
-		infoLog  = logging.Info(logger)
-		errorLog = logging.Error(logger)
-		debugLog = logging.Debug(logger)
+		infoLog  = log.WithPrefix(logger, level.Key(), level.InfoValue())
+		errorLog = log.WithPrefix(logger, level.Key(), level.ErrorValue())
+		debugLog = log.WithPrefix(logger, level.Key(), level.DebugValue())
 	)
 
 	infoLog.Log("configurationFile", v.ConfigFileUsed())
