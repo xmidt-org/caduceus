@@ -437,7 +437,6 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 }
 
 func (obs *CaduceusOutboundSender) Empty() {
-
 	cutoffMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	obs.droppedCutoffCounter.Add(float64(len(cutoffMsgs)))
