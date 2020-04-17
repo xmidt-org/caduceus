@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Comcast Cable Communications Management, LLC
+ * Copyright 2020 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -447,7 +447,9 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 
 func (obs *CaduceusOutboundSender) Empty() {
 
+	cutoffMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
+	obs.droppedCutoffCounter.Add(float64(len(cutoffMsgs)))
 	obs.queueDepthGauge.Set(0.0)
 	obs.queueEmpty = true
 
