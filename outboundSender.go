@@ -367,17 +367,13 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 
 	now := time.Now()
 
-	var debugLog = logging.Debug(obs.logger)
 	if false == obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
 		return
 	}
 
 	for _, eventRegex := range events {
 		if false == eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-			debugLog.Log(logging.MessageKey(),
-				fmt.Sprintf("Regex did not match. got != expected: '%s' != '%s'\n",
-					msg.Destination, eventRegex.String()))
-
+			// regex didn't match; don't do anything
 			continue
 		}
 
@@ -416,7 +412,6 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			select {
 			case obs.queue.Load().(chan *wrp.Message) <- msg:
 				obs.queueDepthGauge.Add(1.0)
-				debugLog.Log(logging.MessageKey(), "WRP Sent to obs queue", "url", obs.id)
 			default:
 				obs.queueOverflow()
 				obs.droppedQueueFullCounter.Add(1.0)
@@ -426,18 +421,14 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 }
 
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
-	var debugLog = logging.Debug(obs.logger)
-
 	if false == now.After(dropUntil) || !obs.queueEmpty {
-		debugLog.Log(logging.MessageKey(), "Client has been cut off",
-			"now", now, "before", deliverUntil, "after", dropUntil)
+		// client was cut off
 		obs.droppedCutoffCounter.Add(1.0)
 		return false
 	}
 
 	if false == now.Before(deliverUntil) {
-		debugLog.Log(logging.MessageKey(), "Outside delivery window",
-			"now", now, "before", deliverUntil, "after", dropUntil)
+		// outside delivery window
 		obs.droppedExpiredBeforeQueueCounter.Add(1.0)
 		return false
 	}
@@ -631,12 +622,10 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Unlock()
 
 	var (
-		debugLog = logging.Debug(obs.logger)
 		errorLog = logging.Error(obs.logger)
 	)
 
 	obs.cutOffCounter.Add(1.0)
-	debugLog.Log(logging.MessageKey(), "Queue overflowed", "url", obs.id)
 
 	obs.Empty()
 
@@ -646,14 +635,13 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			"for", obs.id, logging.ErrorKey(), err)
 		return
 	}
-	errorLog.Log(logging.MessageKey(), "Cut-off notification", "failureMessage", msg, "for", obs.id)
 
-	// Send a "you've been cut off" warning message
+	// if no URL to send cut off notification to, do nothing
 	if "" == failureURL {
-		errorLog.Log(logging.MessageKey(), "No cut-off notification URL specified", "for", obs.id)
 		return
 	}
 
+	// Send a "you've been cut off" warning message
 	payload := bytes.NewReader(msg)
 	req, err := http.NewRequest("POST", failureURL, payload)
 	if nil != err {
@@ -689,6 +677,4 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 
 	// Success
-	logging.Info(obs.logger).Log("Able to send cut-off notification", "url", failureURL,
-		"status", resp.Status)
 }
