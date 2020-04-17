@@ -23,6 +23,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/wrp-go/v2"
 
@@ -123,7 +124,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired_before_queueing"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "invalid_config"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("Add", 1.0).Return()
+	fakeDroppedSlow.On("Add", mock.Anything).Return()
 
 	// IncomingContentType cases
 	fakeContentType := new(mockCounter)
