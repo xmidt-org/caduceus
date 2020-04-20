@@ -5,10 +5,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.2.7]
 - pared down logging, especially debugging logs [#196](https://github.com/xmidt-org/caduceus/pull/196)
 - added dropped events to metric [#195](https://github.com/xmidt-org/caduceus/issues/195)
 - removed all calls to logging.Debug(), logging.Info(), and logging.Error() [#199](https://github.com/xmidt-org/caduceus/pull/199)
 - bumped webpa-common version to use a webhooks page without those logging calls [#199](https://github.com/xmidt-org/caduceus/pull/199)
+- bumped webpa-common version includes a fix to authorization logging issue [#192](https://github.com/xmidt-org/caduceus/issues/192)
 
 ## [v0.2.6]
 - reduced time from when cutoff is sent to when queue is emptied
@@ -86,7 +89,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.6...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.7...HEAD
+[v0.2.7]: https://github.com/Comcast/caduceus/compare/v0.2.6...v0.2.7
 [v0.2.6]: https://github.com/Comcast/caduceus/compare/v0.2.5...v0.2.6
 [v0.2.5]: https://github.com/Comcast/caduceus/compare/v0.2.4...v0.2.5
 [v0.2.4]: https://github.com/Comcast/caduceus/compare/v0.2.3...v0.2.4
