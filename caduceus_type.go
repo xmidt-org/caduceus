@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/wrp-go/v2"
@@ -62,7 +63,7 @@ type CaduceusHandler struct {
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
-	logging.Info(ch).Log("workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
+	ch.Log(level.Key(), level.InfoValue(), "workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
 		" to sender")
 
 	ch.senderWrapper.Queue(msg)

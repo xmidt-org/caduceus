@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	uuid "github.com/satori/go.uuid"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -41,9 +42,9 @@ type ServerHandler struct {
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	debugLog := logging.Debug(sh.Logger)
-	infoLog := logging.Info(sh.Logger)
-	errorLog := logging.Error(sh.Logger)
+	debugLog := log.WithPrefix(sh.Logger, level.Key(), level.DebugValue())
+	infoLog := log.WithPrefix(sh.Logger, level.Key(), level.InfoValue())
+	errorLog := log.WithPrefix(sh.Logger, level.Key(), level.ErrorValue())
 	messageKey := logging.MessageKey()
 	errorKey := logging.ErrorKey()
 
