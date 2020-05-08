@@ -17,6 +17,7 @@
 package main
 
 import (
+	"github.com/xmidt-org/argus/webhookclient"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -34,6 +35,8 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
+	CacheConfig      webhookclient.CacheConfig
+	ArgusConfig      webhookclient.ArgusConfig
 }
 
 type SenderConfig struct {

@@ -13,7 +13,6 @@ import (
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/secure"
 	"github.com/xmidt-org/webpa-common/secure/handler"
-	"github.com/xmidt-org/webpa-common/webhook"
 )
 
 func TestNewPrimaryHandler(t *testing.T) {
@@ -21,7 +20,7 @@ func TestNewPrimaryHandler(t *testing.T) {
 		l                  = logging.New(nil)
 		viper              = viper.New()
 		sw                 = &ServerHandler{}
-		reg                = &webhook.Registry{}
+		reg                = &Registry{}
 		expectedAuthHeader = []string{"Basic xxxxxxx"}
 	)
 
@@ -92,7 +91,7 @@ func TestMuxServerConfig(t *testing.T) {
 	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, &webhook.Registry{})
+	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, &Registry{})
 
 	t.Run("TestMuxResponseCorrectMSP", func(t *testing.T) {
 		req := exampleRequest("1234", "application/msgpack", "/api/v3/notify")

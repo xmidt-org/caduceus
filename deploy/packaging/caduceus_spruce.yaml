@@ -235,64 +235,31 @@ jwtValidators:
 # as authorization
 # (Optional)
 authHeader:
-  - (( grab $AUTH_HEADER || "YXV0aEhlYWRlcg==" ))
-
-########################################
-#   Startup Related Configuration
-########################################
-
-# start contains configuration for the logic by which Tr1d1um can
-# fetch the current WebPA webhooks without having to wait for SNS
-# It does so by pinging the rest of the cluter at the specified apiPath
-# More details at https://godoc.org/github.com/xmidt-org/webpa-common/webhook#StartConfig
-start:
-  # duration is the max amount of time allowed to wait for webhooks data to be retrieved
-  duration: "20s"
-
-  # path used to query the existing webhooks
-  apiPath: http://localhost:6100/hooks
-
-# waitForDns TBD
-waitForDns: 0
-
-# soa is a way for the caduceus machine to check to see if it's DNS name is
-# present before it tries to use it's DNS name to register with services like
-# AWS Route53.  This check goes directly to the SOA record authority and
-# bypasses the various caching servers that could cache the non-existence
-# record which generally have VERY long TTLs.  Ultimately this way caduceus
-# can restart much faster.
-# (Optional)
-soa:
-  provider: "example.awsdns-19.com:53"
+  - (( grab $AUTH_HEADER || "dXNlcjpwYXNz" ))
 
 ########################################
 #   Webhook Related Configuration
 ########################################
 
-# aws provides the AWS SNS configurations the webhooks library needs
-aws:
-  #AWS access key
-  accessKey: (( grab $AWS_ACCESS_KEY || "" ))
+  # cacheConfig configures the in memory storage of the webhooks. aka how long webhooks should live etc.
+  cacheConfig:
+    # ttl is how long a webhook registration will last.
+    # (Optional) defaults to 5m
+    ttl: 5m
 
-  #AWS secret key
-  secretKey: (( grab $AWS_SECRET_KEY || "" ))
+    # checkInterval is how long the internal crapper will check if the inMemory webhook should be removed.
+    # (Optional) defaults to 1m
+    checkInterval: 10s
 
-  env: (( grab $AWS_WEBHOOK_ENV || "local-dev" ))
-
-  sns:
-    # awsEndpoint is the AWS endpoint
-    # this must be left out in produ
-    awsEndpoint: (( grab $AWS_ENDPOINT || "http://goaws:4100" ))
-
-    #region is the AWS SNS region
-    region: (( grab $AWS_REGION || "us-east-1" ))
-
-    # topicArn describes the SNS topic this server needs to subscribe to
-    topicArn: (( grab $AWS_SNS_ARN || "arn:aws:sns:us-east-1:000000000000:xmidt-local-caduceus"))
-
-    #urlPath is the URL path SNS will use to confirm a subscription with this server
-    urlPath: "/api/v2/aws/sns"
-
+  # Yggdrasil Config for storing the webhook information
+  argusConfig:
+    bucket: "webhooks-caduceus"
+    address:  (( grab $ARGUS_HOST || "argus:6600" ))
+    pullInterval: "2s"
+    filters:
+      stage: "dev"
+    auth:
+      basic: (( grab $AUTH_HEADER || "dXNlcjpwYXNz" ))
 ########################################
 #   Delivery Pipeline Related Configuration
 ########################################
