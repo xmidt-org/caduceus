@@ -336,6 +336,9 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	if false == gentle {
+		// need to close the channel we're going to replace, in case it doesn't
+		// have any events in it.
+		close(obs.queue.Load().(chan *wrp.Message))
 		obs.Empty(obs.droppedExpiredCounter)
 	}
 	close(obs.queue.Load().(chan *wrp.Message))
