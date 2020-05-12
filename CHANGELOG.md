@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- cleaned up shutdown logic for outbound sender [#205](https://github.com/xmidt-org/caduceus/pull/205)
+- added resetting queue depth and current workers gauges to outbound sender [#205](https://github.com/xmidt-org/caduceus/pull/205)
 
 ## [v0.2.7]
 - pared down logging, especially debugging logs [#196](https://github.com/xmidt-org/caduceus/pull/196)
