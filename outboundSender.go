@@ -205,6 +205,10 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
 
+	// update queue depth and current workers gauge to make sure they start at 0
+	caduceusOutboundSender.queueDepthGauge.Set(0)
+	caduceusOutboundSender.currentWorkersGauge.Set(0)
+
 	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
@@ -327,22 +331,23 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	return
 }
 
-// Shutdown causes the CaduceusOutboundSender to stop it's activities either gently or
+// Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	close(obs.queue.Load().(chan *wrp.Message))
-	obs.mutex.Lock()
 	if false == gentle {
-		obs.deliverUntil = time.Time{}
-		obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+		// need to close the channel we're going to replace, in case it doesn't
+		// have any events in it.
+		close(obs.queue.Load().(chan *wrp.Message))
+		obs.Empty(obs.droppedExpiredCounter)
 	}
-	obs.mutex.Unlock()
+	close(obs.queue.Load().(chan *wrp.Message))
 	obs.wg.Wait()
 
 	obs.mutex.Lock()
 	obs.deliverUntil = time.Time{}
 	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+	obs.queueDepthGauge.Set(0) //just in case
 	obs.mutex.Unlock()
 }
 
@@ -437,10 +442,10 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 	return true
 }
 
-func (obs *CaduceusOutboundSender) Empty() {
-	cutoffMsgs := obs.queue.Load().(chan *wrp.Message)
+func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
+	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
-	obs.droppedCutoffCounter.Add(float64(len(cutoffMsgs)))
+	droppedCounter.Add(float64(len(droppedMsgs)))
 	obs.queueDepthGauge.Set(0.0)
 	obs.queueEmpty = true
 
@@ -629,7 +634,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	obs.cutOffCounter.Add(1.0)
 
-	obs.Empty()
+	obs.Empty(obs.droppedCutoffCounter)
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
