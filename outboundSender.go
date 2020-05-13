@@ -154,7 +154,6 @@ type CaduceusOutboundSender struct {
 	failureMsg                       FailureMessage
 	logger                           log.Logger
 	mutex                            sync.RWMutex
-	queueEmpty                       bool
 	queue                            atomic.Value
 }
 
@@ -197,7 +196,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
-		queueEmpty: true,
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -427,7 +425,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 }
 
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
-	if false == now.After(dropUntil) || !obs.queueEmpty {
+	if false == now.After(dropUntil) {
 		// client was cut off
 		obs.droppedCutoffCounter.Add(1.0)
 		return false
@@ -447,8 +445,6 @@ func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
 	obs.queueDepthGauge.Set(0.0)
-	obs.queueEmpty = true
-
 	return
 }
 
@@ -620,7 +616,6 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		obs.mutex.Unlock()
 		return
 	}
-	obs.queueEmpty = false
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
