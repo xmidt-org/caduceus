@@ -480,7 +480,7 @@ Loop:
 
 			if now.Before(dropUntil) {
 				obs.droppedCutoffCounter.Add(1.0)
-				break Loop
+				continue
 			}
 			if now.After(deliverUntil) {
 				obs.droppedExpiredCounter.Add(1.0)
