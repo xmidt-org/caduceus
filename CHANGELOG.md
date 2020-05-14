@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - cleaned up shutdown logic for outbound sender [#205](https://github.com/xmidt-org/caduceus/pull/205)
 - added resetting queue depth and current workers gauges to outbound sender [#205](https://github.com/xmidt-org/caduceus/pull/205)
 - removed queueEmpty variable from outbound sender [#209](https://github.com/xmidt-org/caduceus/pull/209)
+- fixed outbound sender's long running dispatcher() goroutine to not exit when a cutoff occurs [#210](https://github.com/xmidt-org/caduceus/pull/210)
 
 ## [v0.2.7]
 - pared down logging, especially debugging logs [#196](https://github.com/xmidt-org/caduceus/pull/196)
