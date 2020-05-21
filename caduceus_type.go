@@ -46,6 +46,7 @@ type SenderConfig struct {
 	IdleConnTimeout       time.Duration
 	DeliveryRetries       int
 	DeliveryInterval      time.Duration
+	RetryCodes            []int
 }
 
 type CaduceusMetricsRegistry interface {
