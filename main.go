@@ -135,6 +135,7 @@ func caduceus(arguments []string) int {
 		emptyRequests:            metricsRegistry.NewCounter(EmptyRequestBodyCounter),
 		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
+		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
 	}
 

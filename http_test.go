@@ -118,12 +118,22 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeQueueDepth := new(mockGauge)
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
 
+	fakeIncomingContentTypeCount := new(mockCounter)
+	fakeIncomingContentTypeCount.On("With", []string{"content_type", "application/msgpack"}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("With", []string{"content_type", ""}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
+
+	fakeModifiedWRPCount := new(mockCounter)
+	fakeModifiedWRPCount.On("With", []string{"reason", bothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
+	fakeModifiedWRPCount.On("Add", 1.0).Return().Once()
+
 	serverWrapper := &ServerHandler{
 		Logger:                   logger,
 		caduceusHandler:          fakeHandler,
 		errorRequests:            fakeErrorRequests,
 		emptyRequests:            fakeEmptyRequests,
 		invalidCount:             fakeInvalidCount,
+		modifiedWRPCount:         fakeModifiedWRPCount,
 		incomingQueueDepthMetric: fakeQueueDepth,
 		maxOutstanding:           1,
 	}

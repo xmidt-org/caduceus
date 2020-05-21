@@ -7,6 +7,7 @@ import (
 const (
 	ErrorRequestBodyCounter         = "error_request_body_count"
 	EmptyRequestBodyCounter         = "empty_request_body_count"
+	ModifiedWRPCounter              = "modified_wrp_count"
 	DeliveryCounter                 = "delivery_count"
 	DeliveryRetryCounter            = "delivery_retry_count"
 	DeliveryRetryMaxGauge           = "delivery_retry_max"
@@ -22,6 +23,12 @@ const (
 	ConsumerDropUntilGauge          = "consumer_drop_until"
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
+)
+
+const (
+	emptyContentTypeReason = "empty_content_type"
+	emptyUUIDReason        = "empty_uuid"
+	bothEmptyReason        = "empty_uuid_and_content_type"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -45,6 +52,18 @@ func Metrics() []xmetrics.Metric {
 			Name: DropsDueToInvalidPayload,
 			Help: "Dropped messages due to invalid payloads.",
 			Type: "counter",
+		},
+		{
+			Name:       ModifiedWRPCounter,
+			Help:       "Number of times a WRP was modified by Caduceus",
+			Type:       "counter",
+			LabelNames: []string{"reason"},
+		},
+		{
+			Name:       IncomingContentTypeCounter,
+			Help:       "Count of the content type processed.",
+			Type:       "counter",
+			LabelNames: []string{"content_type"},
 		},
 		{
 			Name:       DeliveryRetryCounter,
