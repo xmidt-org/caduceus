@@ -45,6 +45,9 @@ type SenderWrapperFactory struct {
 	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
+	// The HTTP status codes to retry on.
+	RetryCodes []int
+
 	// The amount of time to let expired OutboundSenders linger before
 	// shutting them down and cleaning up the resources associated with them.
 	Linger time.Duration
@@ -77,6 +80,7 @@ type CaduceusSenderWrapper struct {
 	queueSizePerSender  int
 	deliveryRetries     int
 	deliveryInterval    time.Duration
+	retryCodes          []int
 	cutOffPeriod        time.Duration
 	linger              time.Duration
 	logger              log.Logger
@@ -97,6 +101,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		queueSizePerSender:  swf.QueueSizePerSender,
 		deliveryRetries:     swf.DeliveryRetries,
 		deliveryInterval:    swf.DeliveryInterval,
+		retryCodes:          swf.RetryCodes,
 		cutOffPeriod:        swf.CutOffPeriod,
 		linger:              swf.Linger,
 		logger:              swf.Logger,
@@ -134,6 +139,7 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 		MetricsRegistry:  sw.metricsRegistry,
 		DeliveryRetries:  sw.deliveryRetries,
 		DeliveryInterval: sw.deliveryInterval,
+		RetryCodes:       sw.retryCodes,
 		Logger:           sw.logger,
 	}
 

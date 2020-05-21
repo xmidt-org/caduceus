@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - removed contentTypeCounter [#218](https://github.com/xmidt-org/caduceus/pull/218)
+- added configuration for which http codes Caduceus should retry on [#219](https://github.com/xmidt-org/caduceus/pull/219)
 
 ## [v0.2.8]
 ### Changed
