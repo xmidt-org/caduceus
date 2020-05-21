@@ -13,7 +13,6 @@ const (
 	SlowConsumerDroppedMsgCounter   = "slow_consumer_dropped_message_count"
 	SlowConsumerCounter             = "slow_consumer_cut_off_count"
 	IncomingQueueDepth              = "incoming_queue_depth"
-	IncomingContentTypeCounter      = "incoming_content_type_count"
 	IncomingEventTypeCounter        = "incoming_event_type_count"
 	DropsDueToInvalidPayload        = "drops_due_to_invalid_payload"
 	OutgoingQueueDepth              = "outgoing_queue_depths"
@@ -46,12 +45,6 @@ func Metrics() []xmetrics.Metric {
 			Name: DropsDueToInvalidPayload,
 			Help: "Dropped messages due to invalid payloads.",
 			Type: "counter",
-		},
-		{
-			Name:       IncomingContentTypeCounter,
-			Help:       "Count of the content type processed.",
-			Type:       "counter",
-			LabelNames: []string{"content_type"},
 		},
 		{
 			Name:       DeliveryRetryCounter,
@@ -148,7 +141,6 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "network_err")
 	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
 	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
-	c.contentTypeCounter = m.NewCounter(IncomingContentTypeCounter)
 	c.renewalTimeGauge = m.NewGauge(ConsumerRenewalTimeGauge).With("url", c.id)
 	c.deliverUntilGauge = m.NewGauge(ConsumerDeliverUntilGauge).With("url", c.id)
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)

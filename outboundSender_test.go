@@ -154,7 +154,6 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeDC)
 	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
 	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
-	fakeRegistry.On("NewCounter", IncomingContentTypeCounter).Return(fakeContentType)
 	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakePanicDrop)
 	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeQdepth)
