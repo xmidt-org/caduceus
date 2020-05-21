@@ -37,6 +37,7 @@ type ServerHandler struct {
 	emptyRequests            metrics.Counter
 	invalidCount             metrics.Counter
 	incomingQueueDepthMetric metrics.Gauge
+	modifiedWRPCount         metrics.Counter
 	incomingQueueDepth       int64
 	maxOutstanding           int64
 }
@@ -91,7 +92,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
-	sh.caduceusHandler.HandleRequest(0, fixWrp(msg))
+	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
@@ -99,18 +100,29 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	debugLog.Log(messageKey, "Request placed on to queue.")
 }
 
-func fixWrp(msg *wrp.Message) *wrp.Message {
+func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	// "Fix" the WRP if needed.
+	var reason string
 
 	// Default to "application/json" if there is no content type, otherwise
 	// use the one the source specified.
 	if "" == msg.ContentType {
 		msg.ContentType = "application/json"
+		reason = emptyContentTypeReason
 	}
 
 	// Ensure there is a transaction id even if we make one up
 	if "" == msg.TransactionUUID {
 		msg.TransactionUUID = uuid.NewV4().String()
+		if reason == "" {
+			reason = emptyUUIDReason
+		} else {
+			reason = bothEmptyReason
+		}
+	}
+
+	if reason != "" {
+		sh.modifiedWRPCount.With("reason", reason).Add(1.0)
 	}
 
 	return msg
