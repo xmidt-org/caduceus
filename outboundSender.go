@@ -101,6 +101,9 @@ type OutboundSenderFactory struct {
 	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
+	// The HTTP status codes to retry on.
+	RetryCodes []int
+
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
@@ -128,6 +131,7 @@ type CaduceusOutboundSender struct {
 	queueSize                        int
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
+	retryCodes                       []int
 	deliveryCounter                  metrics.Counter
 	deliveryRetryCounter             metrics.Counter
 	droppedQueueFullCounter          metrics.Counter
@@ -138,7 +142,6 @@ type CaduceusOutboundSender struct {
 	droppedInvalidConfig             metrics.Counter
 	droppedPanic                     metrics.Counter
 	cutOffCounter                    metrics.Counter
-	contentTypeCounter               metrics.Counter
 	queueDepthGauge                  metrics.Gauge
 	renewalTimeGauge                 metrics.Gauge
 	deliverUntilGauge                metrics.Gauge
@@ -188,6 +191,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		logger:           osf.Logger,
 		deliveryRetries:  osf.DeliveryRetries,
 		deliveryInterval: osf.DeliveryInterval,
+		retryCodes:       osf.RetryCodes,
 		maxWorkers:       osf.NumWorkers,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
@@ -542,8 +546,6 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	body := payload
 	var payloadReader *bytes.Reader
 
-	obs.contentTypeCounter.With("content_type", strings.TrimLeft(msg.ContentType, "application/")).Add(1.0)
-
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
 	switch acceptType {
@@ -601,7 +603,12 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		// Always retry on failures up to the max count.
 		ShouldRetry: func(error) bool { return true },
 		ShouldRetryStatus: func(code int) bool {
-			return code < 200 || code > 299
+			for _, c := range obs.retryCodes {
+				if code == c {
+					return true
+				}
+			}
+			return false
 		},
 	}
 
@@ -693,8 +700,6 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
-	//  record content type, json.
-	obs.contentTypeCounter.With("content_type", "json").Add(1.0)
 	resp, err := obs.sender(req)
 	if nil != err {
 		// Failure

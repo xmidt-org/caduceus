@@ -337,6 +337,12 @@
     # and marking the delivery a failure
     responseHeaderTimeout: 10s
 
+    # retryCodes provides a list of http status codes for caduceus to match 
+    # against.  If the response code given by a webhook matches a code in this 
+    # list, Caduceus will try to send the event again.
+    retryCodes: 
+      - 429
+
   # (Deprecated)
   # profilerFrequency: 15
   # profilerDuration: 15
