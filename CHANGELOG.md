@@ -4,9 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+# Notes
+- The next release needs to be v0.3.0 because #217 & #219.
+
 ## [Unreleased]
+- Made outgoing hostname validation configurable [#217](https://github.com/xmidt-org/caduceus/pull/217)
+  - **Note:** To be backwards compatable, the configuration value of `allowInsecureTLS: true` will need to be defined, otherwise hostname validation is enabled by default.
 - removed contentTypeCounter [#218](https://github.com/xmidt-org/caduceus/pull/218)
 - added configuration for which http codes Caduceus should retry on [#219](https://github.com/xmidt-org/caduceus/pull/219)
+  - **Note:** This configuration change causes the existing retry logic to change.
+
 
 ## [v0.2.8]
 ### Changed

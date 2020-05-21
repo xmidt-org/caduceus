@@ -292,6 +292,11 @@
   # numWorkerThreads: 3000
   # jobQueueSize: 6000
 
+  # allowInsecureTLS provides a way to enable insecure TLS connections when  
+  # sending events to webhooks.
+  # (Optional) defaults to false
+  allowInsecureTLS: true 
+
   # sender provides the details for each "sender" that services the unique
   # webhook url endpoint
   sender:
