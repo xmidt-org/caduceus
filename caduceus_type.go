@@ -34,6 +34,7 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
+	AllowInsecureTLS bool
 }
 
 type SenderConfig struct {
