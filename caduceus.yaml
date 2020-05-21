@@ -284,6 +284,11 @@
       topicArn: "arn:aws:sns:us-east-1:000000000000:xmidt-prod"
       urlPath: "/api/v2/aws/sns"
 
+  # allowInsecureTLS provides a way to enable insecure TLS connections when  
+  # sending events to webhooks.
+  # (Optional) defaults to false
+  allowInsecureTLS: true 
+
 ########################################
 #   Delivery Pipeline Related Configuration
 ########################################
