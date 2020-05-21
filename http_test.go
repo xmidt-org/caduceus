@@ -123,12 +123,17 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeIncomingContentTypeCount.On("With", []string{"content_type", ""}).Return(fakeIncomingContentTypeCount)
 	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
 
+	fakeModifiedWRPCount := new(mockCounter)
+	fakeModifiedWRPCount.On("With", []string{"reason", bothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
+	fakeModifiedWRPCount.On("Add", 1.0).Return().Once()
+
 	serverWrapper := &ServerHandler{
 		Logger:                   logger,
 		caduceusHandler:          fakeHandler,
 		errorRequests:            fakeErrorRequests,
 		emptyRequests:            fakeEmptyRequests,
 		invalidCount:             fakeInvalidCount,
+		modifiedWRPCount:         fakeModifiedWRPCount,
 		incomingQueueDepthMetric: fakeQueueDepth,
 		maxOutstanding:           1,
 	}
