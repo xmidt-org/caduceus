@@ -240,26 +240,13 @@ authHeader:
 ########################################
 #   Webhook Related Configuration
 ########################################
-
-  # cacheConfig configures the in memory storage of the webhooks. aka how long webhooks should live etc.
-  cacheConfig:
-    # ttl is how long a webhook registration will last.
-    # (Optional) defaults to 5m
-    ttl: 5m
-
-    # checkInterval is how long the internal crapper will check if the inMemory webhook should be removed.
-    # (Optional) defaults to 1m
-    checkInterval: 10s
-
-  # Yggdrasil Config for storing the webhook information
-  argusConfig:
-    bucket: "webhooks-caduceus"
-    address:  (( grab $ARGUS_HOST || "argus:6600" ))
-    pullInterval: "2s"
-    filters:
-      stage: "dev"
-    auth:
-      basic: (( grab $AUTH_HEADER || "dXNlcjpwYXNz" ))
+# Argus Config for storing the webhook information
+argusConfig:
+  bucket: "webhooks-caduceus"
+  address:  (( grab $ARGUS_HOST || "argus:6600" ))
+  pullInterval: "2s"
+  auth:
+    basic: (( grab $AUTH_HEADER || "dXNlcjpwYXNz" ))
 ########################################
 #   Delivery Pipeline Related Configuration
 ########################################

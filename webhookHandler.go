@@ -13,31 +13,28 @@ import (
 )
 
 type Registry struct {
-	hookStore *webhookclient.Cache
+	hookStore *webhookclient.Client
 	config    RegistryConfig
 }
 
 type RegistryConfig struct {
 	Logger      log.Logger
 	Listener    webhookclient.ListenerFunc
-	CacheConfig webhookclient.CacheConfig
-	ArgusConfig webhookclient.ArgusConfig
+	ArgusConfig webhookclient.ClientConfig
 }
 
 func NewRegistry(config RegistryConfig, listener webhookclient.Listener) (*Registry, error) {
-	yggdrasilStore, err := webhookclient.CreateArgusStore(config.ArgusConfig, webhookclient.WithLogger(config.Logger))
+	argus, err := webhookclient.CreateClient(config.ArgusConfig, webhookclient.WithLogger(config.Logger))
 	if err != nil {
 		return nil, err
 	}
-	hookStorage := webhookclient.CreateCacheStore(config.CacheConfig, webhookclient.WithLogger(config.Logger), webhookclient.WithStorage(yggdrasilStore))
-	yggdrasilStore.SetListener(hookStorage)
 	if listener != nil {
-		hookStorage.SetListener(listener)
+		argus.SetListener(listener)
 	}
 
 	return &Registry{
 		config:    config,
-		hookStore: hookStorage,
+		hookStore: argus,
 	}, nil
 }
 
@@ -51,7 +48,7 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 // get is an api call to return all the registered listeners
 func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	logging.Info(r.config.Logger).Log(logging.MessageKey(), "get registry")
-	items, err := r.hookStore.GetWebhook()
+	items, err := r.hookStore.GetWebhook("")
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 	}
@@ -100,7 +97,7 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = r.hookStore.Push(*w)
+	err = r.hookStore.Push(*w, "")
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return

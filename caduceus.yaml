@@ -235,38 +235,40 @@
 ########################################
 #   Webhook Related Configuration
 ########################################
-# cacheConfig configures the in memory storage of the webhooks. aka how long webhooks should live etc.
-  cacheConfig:
-    # ttl is how long a webhook registration will last.
-    # (Optional) defaults to 5m
-    ttl: 5m
-
-    # checkInterval is how long the internal crapper will check if the inMemory webhook should be removed.
-    # (Optional) defaults to 1m
-    checkInterval: 10s
-
-  # Yggdrasil Config for storing the webhook information
+  # Argus Config for storing the webhook information
   argusConfig:
-    bucket: "webhooks-caduceus"
-    address: "http://argus:6600"
-    pullInterval: "2s"
-    filters:
-      stage: "dev"
-#    auth:
-#      basic: ""
-  # aws provides the details needed to subscribe to the SNS topic that sends
-  # webhook registration events out to all listeners
-  #
-  # TBD add details
-#  aws:
-#    accessKey: "xxxxxxxxxxxxxxxxxxxx"
-#    secretKey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-#    env: "xmidt-prod"
-#    sns:
-#      region: "us-east-1"
-#      topicArn: "arn:aws:sns:us-east-1:000000000000:xmidt-prod"
-#      urlPath: "/api/v2/aws/sns"
 
+    # bucket to store and retrieve webhooks.
+    bucket: "webhooks-caduceus"
+
+    # address it the the location to talk to argus.
+    address: "http://argus:6600"
+
+    # pullInterval is how often to call argus to update the webhook structure.
+    pullInterval: "2s"
+#
+#    # auth the authentication method for argus.
+#    auth:
+#      # basic configures basic authentication for argus.
+#      # Must be of form: 'Basic xyz=='
+#      basic: ""
+#
+#      # jwt configures jwt style authentication for argus.
+#      JWT:
+#        # requestHeaders are added to the request for the token.
+#        # (Optional)
+#        # requestHeaders:
+#        #   "": ""
+#
+#        # authURL is the URL to access for the token.
+#        authURL: ""
+#
+#        # timeout is how long the request to get the token will take before
+#        # timing out.
+#        timeout: "1m"
+#
+#        # buffer is the length of time before a token expires to get a new token.
+#        buffer: "2m"
 
 
 ########################################

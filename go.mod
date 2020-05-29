@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
-	github.com/aws/aws-sdk-go v1.23.11 // indirect
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-kit/kit v0.9.0
@@ -16,7 +15,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
-	github.com/xmidt-org/argus v0.1.2-0.20200508175044-8486ca622384
+	github.com/xmidt-org/argus v0.2.1
 	github.com/xmidt-org/webpa-common v1.10.0
 	github.com/xmidt-org/wrp-go/v2 v2.0.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect

@@ -138,7 +138,6 @@ func caduceus(arguments []string) int {
 	webhookRegistry, err := NewRegistry(RegistryConfig{
 		Logger:      logger,
 		Listener:    caduceusSenderWrapper.Update,
-		CacheConfig: caduceusConfig.CacheConfig,
 		ArgusConfig: caduceusConfig.ArgusConfig,
 	}, updateListSizeMetric)
 

@@ -35,8 +35,7 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
-	CacheConfig      webhookclient.CacheConfig
-	ArgusConfig      webhookclient.ArgusConfig
+	ArgusConfig      webhookclient.ClientConfig
 }
 
 type SenderConfig struct {
