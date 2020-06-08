@@ -236,7 +236,7 @@
 #   Webhook Related Configuration
 ########################################
   # Argus Config for storing the webhook information
-  argusConfig:
+  webhookConfig:
 
     # bucket to store and retrieve webhooks.
     bucket: "webhooks-caduceus"
@@ -246,12 +246,12 @@
 
     # pullInterval is how often to call argus to update the webhook structure.
     pullInterval: "2s"
-#
-#    # auth the authentication method for argus.
-#    auth:
-#      # basic configures basic authentication for argus.
-#      # Must be of form: 'Basic xyz=='
-#      basic: ""
+
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: "Basic dXNlcjpwYXNz"
 #
 #      # jwt configures jwt style authentication for argus.
 #      JWT:

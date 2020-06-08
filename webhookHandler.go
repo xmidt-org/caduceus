@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/argus/webhookclient"
+	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"io/ioutil"
@@ -13,18 +14,18 @@ import (
 )
 
 type Registry struct {
-	hookStore *webhookclient.Client
+	hookStore *chrysom.Client
 	config    RegistryConfig
 }
 
 type RegistryConfig struct {
-	Logger      log.Logger
-	Listener    webhookclient.ListenerFunc
-	ArgusConfig webhookclient.ClientConfig
+	Logger   log.Logger
+	Listener chrysom.ListenerFunc
+	Config   chrysom.ClientConfig
 }
 
-func NewRegistry(config RegistryConfig, listener webhookclient.Listener) (*Registry, error) {
-	argus, err := webhookclient.CreateClient(config.ArgusConfig, webhookclient.WithLogger(config.Logger))
+func NewRegistry(config RegistryConfig, listener chrysom.Listener) (*Registry, error) {
+	argus, err := chrysom.CreateClient(config.Config, chrysom.WithLogger(config.Logger))
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +49,10 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 // get is an api call to return all the registered listeners
 func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	logging.Info(r.config.Logger).Log(logging.MessageKey(), "get registry")
-	items, err := r.hookStore.GetWebhook("")
+	items, err := r.hookStore.GetItems("")
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
+		return
 	}
 	data := []struct {
 		URL         string   `json:"url"`
@@ -63,7 +65,12 @@ func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 		Until            time.Time `json:"until"`
 		LastRegistration string    `json:"registered_from_address"`
 	}{}
-	for _, hook := range items {
+	for _, item := range items {
+		hook, err := convertItemToWebhook(item)
+		if err != nil {
+			continue
+		}
+
 		data = append(data, struct {
 			URL         string   `json:"url"`
 			ContentType string   `json:"content_type"`
@@ -86,18 +93,32 @@ func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// update is an api call to processes a listenener registration for adding and updating
+// update is an api call to processes a listener registration for adding and updating
 func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	payload, err := ioutil.ReadAll(req.Body)
-	req.Body.Close()
 
 	w, err := webhook.NewW(payload, req.RemoteAddr)
 	if err != nil {
 		jsonResponse(rw, http.StatusBadRequest, err.Error())
 		return
 	}
+	webhook := map[string]interface{}{}
+	data, err := json.Marshal(&w)
+	if err != nil {
+		jsonResponse(rw, http.StatusBadRequest, err.Error())
+		return
+	}
+	err = json.Unmarshal(data, &webhook)
+	if err != nil {
+		jsonResponse(rw, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	err = r.hookStore.Push(*w, "")
+	_, err = r.hookStore.Push(model.Item{
+		Identifier: w.ID(),
+		Data:       webhook,
+		TTL:        r.config.Config.DefaultTTL,
+	}, "")
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
@@ -105,3 +126,17 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 
 	jsonResponse(rw, http.StatusOK, "Success")
 }
+
+func convertItemToWebhook(item model.Item) (webhook.W, error) {
+	hook := webhook.W{}
+	tempBytes, err := json.Marshal(&item.Data)
+	if err != nil {
+		return hook, err
+	}
+	err = json.Unmarshal(tempBytes, &hook)
+	if err != nil {
+		return hook, err
+	}
+	return hook, nil
+}
+

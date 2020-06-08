@@ -19,7 +19,9 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/xmidt-org/argus/webhookclient"
+	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webpa-common/webhook"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
@@ -36,7 +38,6 @@ import (
 	"github.com/xmidt-org/webpa-common/concurrent"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/server"
-	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/webpa-common/webhook/aws"
 )
 
@@ -131,14 +132,25 @@ func caduceus(arguments []string) int {
 	}
 	measures := NewMeasures(metricsRegistry)
 
-	var updateListSizeMetric webhookclient.ListenerFunc
-	updateListSizeMetric = func(hooks []webhook.W) {
-		measures.WebhookListSize.Set(float64(len(hooks)))
+	var updateListSizeMetric chrysom.ListenerFunc
+	updateListSizeMetric = func(items []model.Item) {
+		measures.WebhookListSize.Set(float64(len(items)))
 	}
 	webhookRegistry, err := NewRegistry(RegistryConfig{
-		Logger:      logger,
-		Listener:    caduceusSenderWrapper.Update,
-		ArgusConfig: caduceusConfig.ArgusConfig,
+		Logger: logger,
+		Listener: func(items []model.Item) {
+			hooks := make([]webhook.W, len(items))
+			for index, item := range items {
+				hook, err := convertItemToWebhook(item)
+				if err != nil {
+					continue
+				}
+				hooks[index] = hook
+			}
+			caduceusSenderWrapper.Update(hooks)
+
+		},
+		Config: caduceusConfig.WebhookConfig,
 	}, updateListSizeMetric)
 
 	if err != nil {

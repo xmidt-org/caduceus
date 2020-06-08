@@ -241,12 +241,12 @@ authHeader:
 #   Webhook Related Configuration
 ########################################
 # Argus Config for storing the webhook information
-argusConfig:
+webhookConfig:
   bucket: "webhooks-caduceus"
   address:  (( grab $ARGUS_HOST || "argus:6600" ))
   pullInterval: "2s"
   auth:
-    basic: (( grab $AUTH_HEADER || "dXNlcjpwYXNz" ))
+    basic: (( grab $AUTH_HEADER || "Basic dXNlcjpwYXNz" ))
 ########################################
 #   Delivery Pipeline Related Configuration
 ########################################
