@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 - switch webhook configuration from sns to argus
 
+## [v0.3.0]
+- added metric for counting when caduceus re-encodes the wrp [#216](https://github.com/xmidt-org/caduceus/pull/216)
+- Made outgoing hostname validation configurable [#217](https://github.com/xmidt-org/caduceus/pull/217)
+  - **Note:** To be backwards compatable, the configuration value of `allowInsecureTLS: true` will need to be defined, otherwise hostname validation is enabled by default.
+- removed contentTypeCounter [#218](https://github.com/xmidt-org/caduceus/pull/218)
+- added configuration for which http codes Caduceus should retry on [#219](https://github.com/xmidt-org/caduceus/pull/219)
+  - **Note:** This configuration change causes the existing retry logic to change.
+
+## [v0.2.8]
+### Changed
+- cleaned up shutdown logic for outbound sender [#205](https://github.com/xmidt-org/caduceus/pull/205)
+- added resetting queue depth and current workers gauges to outbound sender [#205](https://github.com/xmidt-org/caduceus/pull/205)
+- removed queueEmpty variable from outbound sender [#209](https://github.com/xmidt-org/caduceus/pull/209)
+- fixed outbound sender's long running dispatcher() goroutine to not exit when a cutoff occurs [#210](https://github.com/xmidt-org/caduceus/pull/210)
+- register for specific OS signals [#211](https://github.com/xmidt-org/caduceus/pull/211)
+
 ## [v0.2.7]
 - pared down logging, especially debugging logs [#196](https://github.com/xmidt-org/caduceus/pull/196)
 - added dropped events to metric [#195](https://github.com/xmidt-org/caduceus/issues/195)
@@ -90,7 +106,9 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/Comcast/caduceus/compare/v0.2.8...v0.3.0
+[v0.2.8]: https://github.com/Comcast/caduceus/compare/v0.2.7...v0.2.8
 [v0.2.7]: https://github.com/Comcast/caduceus/compare/v0.2.6...v0.2.7
 [v0.2.6]: https://github.com/Comcast/caduceus/compare/v0.2.5...v0.2.6
 [v0.2.5]: https://github.com/Comcast/caduceus/compare/v0.2.4...v0.2.5

@@ -9,13 +9,13 @@ import (
 const (
 	ErrorRequestBodyCounter         = "error_request_body_count"
 	EmptyRequestBodyCounter         = "empty_request_body_count"
+	ModifiedWRPCounter              = "modified_wrp_count"
 	DeliveryCounter                 = "delivery_count"
 	DeliveryRetryCounter            = "delivery_retry_count"
 	DeliveryRetryMaxGauge           = "delivery_retry_max"
 	SlowConsumerDroppedMsgCounter   = "slow_consumer_dropped_message_count"
 	SlowConsumerCounter             = "slow_consumer_cut_off_count"
 	IncomingQueueDepth              = "incoming_queue_depth"
-	IncomingContentTypeCounter      = "incoming_content_type_count"
 	IncomingEventTypeCounter        = "incoming_event_type_count"
 	DropsDueToInvalidPayload        = "drops_due_to_invalid_payload"
 	OutgoingQueueDepth              = "outgoing_queue_depths"
@@ -26,6 +26,12 @@ const (
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
 	ListSize                        = "webhook_list_size_value"
+)
+
+const (
+	emptyContentTypeReason = "empty_content_type"
+	emptyUUIDReason        = "empty_uuid"
+	bothEmptyReason        = "empty_uuid_and_content_type"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -51,10 +57,10 @@ func Metrics() []xmetrics.Metric {
 			Type: "counter",
 		},
 		{
-			Name:       IncomingContentTypeCounter,
-			Help:       "Count of the content type processed.",
+			Name:       ModifiedWRPCounter,
+			Help:       "Number of times a WRP was modified by Caduceus",
 			Type:       "counter",
-			LabelNames: []string{"content_type"},
+			LabelNames: []string{"reason"},
 		},
 		{
 			Name:       DeliveryRetryCounter,
@@ -156,7 +162,6 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "network_err")
 	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
 	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
-	c.contentTypeCounter = m.NewCounter(IncomingContentTypeCounter)
 	c.renewalTimeGauge = m.NewGauge(ConsumerRenewalTimeGauge).With("url", c.id)
 	c.deliverUntilGauge = m.NewGauge(ConsumerDeliverUntilGauge).With("url", c.id)
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)

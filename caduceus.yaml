@@ -279,6 +279,11 @@
   # numWorkerThreads: 3000
   # jobQueueSize: 6000
 
+  # allowInsecureTLS provides a way to enable insecure TLS connections when  
+  # sending events to webhooks.
+  # (Optional) defaults to false
+  allowInsecureTLS: true 
+
   # sender provides the details for each "sender" that services the unique
   # webhook url endpoint
   sender:
@@ -318,6 +323,12 @@
     # responseHeaderTimeout is the time to wait for a response before giving up
     # and marking the delivery a failure
     responseHeaderTimeout: 10s
+
+    # retryCodes provides a list of http status codes for caduceus to match 
+    # against.  If the response code given by a webhook matches a code in this 
+    # list, Caduceus will try to send the event again.
+    retryCodes: 
+      - 429
 
   # (Deprecated)
   # profilerFrequency: 15

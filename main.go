@@ -92,7 +92,7 @@ func caduceus(arguments []string) int {
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.AllowInsecureTLS},
 		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
 		ResponseHeaderTimeout: caduceusConfig.Sender.ResponseHeaderTimeout,
 		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
@@ -105,6 +105,7 @@ func caduceus(arguments []string) int {
 		Linger:              caduceusConfig.Sender.Linger,
 		DeliveryRetries:     caduceusConfig.Sender.DeliveryRetries,
 		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
+		RetryCodes:          caduceusConfig.Sender.RetryCodes,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
 		Sender: (&http.Client{
@@ -128,6 +129,7 @@ func caduceus(arguments []string) int {
 		emptyRequests:            metricsRegistry.NewCounter(EmptyRequestBodyCounter),
 		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
+		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
 	}
 	measures := NewMeasures(metricsRegistry)
@@ -192,16 +194,12 @@ func caduceus(arguments []string) int {
 	logging.Info(logger).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
 	signals := make(chan os.Signal, 10)
-	signal.Notify(signals)
+	signal.Notify(signals, os.Kill, os.Interrupt)
 	for exit := false; !exit; {
 		select {
 		case s := <-signals:
-			if s != os.Kill && s != os.Interrupt {
-				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring signal", "signal", s)
-			} else {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "exiting due to signal", "signal", s)
-				exit = true
-			}
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "exiting due to signal", "signal", s)
+			exit = true
 		case <-done:
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "one or more servers exited")
 			exit = true

@@ -101,6 +101,9 @@ type OutboundSenderFactory struct {
 	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
+	// The HTTP status codes to retry on.
+	RetryCodes []int
+
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
@@ -128,6 +131,7 @@ type CaduceusOutboundSender struct {
 	queueSize                        int
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
+	retryCodes                       []int
 	deliveryCounter                  metrics.Counter
 	deliveryRetryCounter             metrics.Counter
 	droppedQueueFullCounter          metrics.Counter
@@ -138,7 +142,6 @@ type CaduceusOutboundSender struct {
 	droppedInvalidConfig             metrics.Counter
 	droppedPanic                     metrics.Counter
 	cutOffCounter                    metrics.Counter
-	contentTypeCounter               metrics.Counter
 	queueDepthGauge                  metrics.Gauge
 	renewalTimeGauge                 metrics.Gauge
 	deliverUntilGauge                metrics.Gauge
@@ -154,7 +157,6 @@ type CaduceusOutboundSender struct {
 	failureMsg                       FailureMessage
 	logger                           log.Logger
 	mutex                            sync.RWMutex
-	queueEmpty                       bool
 	queue                            atomic.Value
 }
 
@@ -189,6 +191,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		logger:           osf.Logger,
 		deliveryRetries:  osf.DeliveryRetries,
 		deliveryInterval: osf.DeliveryInterval,
+		retryCodes:       osf.RetryCodes,
 		maxWorkers:       osf.NumWorkers,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
@@ -197,13 +200,16 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
-		queueEmpty: true,
 	}
 
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Config.Secret = "XxxxxX"
 
 	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
+
+	// update queue depth and current workers gauge to make sure they start at 0
+	caduceusOutboundSender.queueDepthGauge.Set(0)
+	caduceusOutboundSender.currentWorkersGauge.Set(0)
 
 	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
 
@@ -327,22 +333,23 @@ func (obs *CaduceusOutboundSender) Update(wh webhook.W) (err error) {
 	return
 }
 
-// Shutdown causes the CaduceusOutboundSender to stop it's activities either gently or
+// Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	close(obs.queue.Load().(chan *wrp.Message))
-	obs.mutex.Lock()
 	if false == gentle {
-		obs.deliverUntil = time.Time{}
-		obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+		// need to close the channel we're going to replace, in case it doesn't
+		// have any events in it.
+		close(obs.queue.Load().(chan *wrp.Message))
+		obs.Empty(obs.droppedExpiredCounter)
 	}
-	obs.mutex.Unlock()
+	close(obs.queue.Load().(chan *wrp.Message))
 	obs.wg.Wait()
 
 	obs.mutex.Lock()
 	obs.deliverUntil = time.Time{}
 	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+	obs.queueDepthGauge.Set(0) //just in case
 	obs.mutex.Unlock()
 }
 
@@ -422,7 +429,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 }
 
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
-	if false == now.After(dropUntil) || !obs.queueEmpty {
+	if false == now.After(dropUntil) {
 		// client was cut off
 		obs.droppedCutoffCounter.Add(1.0)
 		return false
@@ -437,13 +444,15 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 	return true
 }
 
-func (obs *CaduceusOutboundSender) Empty() {
-	cutoffMsgs := obs.queue.Load().(chan *wrp.Message)
+// Empty is called on cutoff or shutdown and swaps out the current queue for
+// a fresh one, counting any current messages in the queue as dropped.
+// It should never close a queue, as a queue not referenced anywhere will be
+// cleaned up by the garbage collector without needing to be closed.
+func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
+	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
-	obs.droppedCutoffCounter.Add(float64(len(cutoffMsgs)))
+	droppedCounter.Add(float64(len(droppedMsgs)))
 	obs.queueDepthGauge.Set(0.0)
-	obs.queueEmpty = true
-
 	return
 }
 
@@ -458,9 +467,31 @@ func (obs *CaduceusOutboundSender) dispatcher() {
 
 Loop:
 	for {
+		// Always pull a new queue in case we have been cutoff or are shutting
+		// down.
 		msgQueue := obs.queue.Load().(chan *wrp.Message)
 		select {
+		// The dispatcher cannot get stuck blocking here forever (caused by an
+		// empty queue that is replaced and then Queue() starts adding to the
+		// new queue) because:
+		// 	- queue is only replaced on cutoff and shutdown
+		//  - on cutoff, the first queue is always full so we will definitely
+		//    get a message, drop it because we're cut off, then get the new
+		//    queue and block until the cut off ends and Queue() starts queueing
+		//    messages again.
+		//  - on graceful shutdown, the queue is closed and then the dispatcher
+		//    will send all messages, then break the loop, gather workers, and
+		//    exit.
+		//  - on non graceful shutdown, the queue is closed and then replaced
+		//    with a new, empty queue that is also closed.
+		//      - If the first queue is empty, we immediately break the loop,
+		//        gather workers, and exit.
+		//      - If the first queue has messages, we drop a message as expired
+		//        pull in the new queue which is empty and closed, break the
+		//        loop, gather workers, and exit.
 		case msg, ok = <-msgQueue:
+			// This is only true when a queue is empty and closed, which for us
+			// only happens on Shutdown().
 			if !ok {
 				break Loop
 			}
@@ -468,6 +499,8 @@ Loop:
 			obs.mutex.RLock()
 			urls = obs.urls
 			// Move to the next URL to try 1st the next time.
+			// This is okay because we run a single dispatcher and it's the
+			// only one updating this field.
 			obs.urls = obs.urls.Next()
 			deliverUntil := obs.deliverUntil
 			dropUntil := obs.dropUntil
@@ -479,7 +512,7 @@ Loop:
 
 			if now.Before(dropUntil) {
 				obs.droppedCutoffCounter.Add(1.0)
-				break Loop
+				continue
 			}
 			if now.After(deliverUntil) {
 				obs.droppedExpiredCounter.Add(1.0)
@@ -512,8 +545,6 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	payload := msg.Payload
 	body := payload
 	var payloadReader *bytes.Reader
-
-	obs.contentTypeCounter.With("content_type", strings.TrimLeft(msg.ContentType, "application/")).Add(1.0)
 
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
@@ -572,7 +603,12 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		// Always retry on failures up to the max count.
 		ShouldRetry: func(error) bool { return true },
 		ShouldRetryStatus: func(code int) bool {
-			return code < 200 || code > 299
+			for _, c := range obs.retryCodes {
+				if code == c {
+					return true
+				}
+			}
+			return false
 		},
 	}
 
@@ -608,14 +644,15 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
 }
 
-// queueOverflow handles the logic of what to do when a queue overflows
+// queueOverflow handles the logic of what to do when a queue overflows:
+// cutting off the webhook for a time and sending a cut off notification
+// to the failure URL.
 func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.mutex.Lock()
 	if time.Now().Before(obs.dropUntil) {
 		obs.mutex.Unlock()
 		return
 	}
-	obs.queueEmpty = false
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
 	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Config.Secret
@@ -629,7 +666,9 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	obs.cutOffCounter.Add(1.0)
 
-	obs.Empty()
+	// We empty the queue but don't close the channel, because we're not
+	// shutting down.
+	obs.Empty(obs.droppedCutoffCounter)
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
@@ -661,8 +700,6 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
-	//  record content type, json.
-	obs.contentTypeCounter.With("content_type", "json").Add(1.0)
 	resp, err := obs.sender(req)
 	if nil != err {
 		// Failure

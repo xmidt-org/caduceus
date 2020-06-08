@@ -36,6 +36,7 @@ type CaduceusConfig struct {
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
 	WebhookConfig      chrysom.ClientConfig
+	AllowInsecureTLS bool
 }
 
 type SenderConfig struct {
@@ -48,6 +49,7 @@ type SenderConfig struct {
 	IdleConnTimeout       time.Duration
 	DeliveryRetries       int
 	DeliveryInterval      time.Duration
+	RetryCodes            []int
 }
 
 type CaduceusMetricsRegistry interface {
