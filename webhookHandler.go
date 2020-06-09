@@ -139,4 +139,3 @@ func convertItemToWebhook(item model.Item) (webhook.W, error) {
 	}
 	return hook, nil
 }
-

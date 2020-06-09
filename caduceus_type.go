@@ -35,7 +35,7 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
-	WebhookConfig      chrysom.ClientConfig
+	WebhookConfig    chrysom.ClientConfig
 	AllowInsecureTLS bool
 }
 

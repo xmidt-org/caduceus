@@ -15,7 +15,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
-	github.com/xmidt-org/argus v0.2.2-0.20200608214055-aa6df7dba0b2
+	github.com/xmidt-org/argus v0.3.0
 	github.com/xmidt-org/webpa-common v1.10.2-0.20200604164000-f07406b4eb63
 	github.com/xmidt-org/wrp-go/v2 v2.0.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect

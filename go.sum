@@ -233,6 +233,8 @@ github.com/xmidt-org/argus v0.2.1 h1:hUCUhaeXGcpWfYW8celhYqZIdLXbNIXYHeZTvuqwr0U
 github.com/xmidt-org/argus v0.2.1/go.mod h1:qht7TTAWRyIJcYpMia7tuIbtIysCTsCUQ+AiQ+Cg6AA=
 github.com/xmidt-org/argus v0.2.2-0.20200608214055-aa6df7dba0b2 h1:oVZPaFMZF5NDGSdbEdzzKeaCfRWbwAYbELMEJKFX/hI=
 github.com/xmidt-org/argus v0.2.2-0.20200608214055-aa6df7dba0b2/go.mod h1:msivo9vrE9z5xVh8/ahJ6v/DGMIvR1DDq0+jEGTa1TA=
+github.com/xmidt-org/argus v0.3.0 h1:3P22/9vKN+VXTnPIr3wPJvfTDBhf+K82ZS9mYYatJGE=
+github.com/xmidt-org/argus v0.3.0/go.mod h1:msivo9vrE9z5xVh8/ahJ6v/DGMIvR1DDq0+jEGTa1TA=
 github.com/xmidt-org/bascule v0.8.0 h1:xk/c8zqqNjoSW4b4oSrUwemm786Bs5DabmX7AgUgNPw=
 github.com/xmidt-org/bascule v0.8.0/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
 github.com/xmidt-org/bascule v0.8.1 h1:8EWPhNf2GzLS70ttjUiJOPK0sw1NX8NFeOd/ckQKbp4=
