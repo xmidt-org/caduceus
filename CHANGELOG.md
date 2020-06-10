@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - switch webhook configuration from sns to argus
+- removed `/hooks` endpoint
 
 ## [v0.3.0]
 - added metric for counting when caduceus re-encodes the wrp [#216](https://github.com/xmidt-org/caduceus/pull/216)

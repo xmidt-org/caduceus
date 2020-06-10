@@ -6,11 +6,9 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"io/ioutil"
 	"net/http"
-	"time"
 )
 
 type Registry struct {
@@ -44,53 +42,6 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(code)
 	rw.Write([]byte(fmt.Sprintf(`{"message":"%s"}`, msg)))
-}
-
-// get is an api call to return all the registered listeners
-func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
-	logging.Info(r.config.Logger).Log(logging.MessageKey(), "get registry")
-	items, err := r.hookStore.GetItems("")
-	if err != nil {
-		jsonResponse(rw, http.StatusInternalServerError, err.Error())
-		return
-	}
-	data := []struct {
-		URL         string   `json:"url"`
-		ContentType string   `json:"content_type"`
-		FailureURL  string   `json:"failure_url"`
-		Events      []string `json:"events"`
-		Matcher     struct {
-			DeviceId []string `json:"device_id"`
-		} `json:"matcher,omitempty"`
-		Until            time.Time `json:"until"`
-		LastRegistration string    `json:"registered_from_address"`
-	}{}
-	for _, item := range items {
-		hook, err := convertItemToWebhook(item)
-		if err != nil {
-			continue
-		}
-
-		data = append(data, struct {
-			URL         string   `json:"url"`
-			ContentType string   `json:"content_type"`
-			FailureURL  string   `json:"failure_url"`
-			Events      []string `json:"events"`
-			Matcher     struct {
-				DeviceId []string `json:"device_id"`
-			} `json:"matcher,omitempty"`
-			Until time.Time `json:"until"`
-
-			LastRegistration string `json:"registered_from_address"`
-		}{URL: hook.Config.URL, ContentType: hook.Config.ContentType, FailureURL: hook.FailureURL, Events: hook.Events, Matcher: hook.Matcher, Until: hook.Until, LastRegistration: hook.Address})
-	}
-
-	if msg, err := json.Marshal(data); err != nil {
-		jsonResponse(rw, http.StatusInternalServerError, err.Error())
-	} else {
-		rw.Header().Set("Content-Type", "application/json")
-		rw.Write(msg)
-	}
 }
 
 // update is an api call to processes a listener registration for adding and updating

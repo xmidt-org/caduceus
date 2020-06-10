@@ -59,7 +59,6 @@ func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWr
 
 	// register webhook end points
 	router.Handle("/hook", primaryHandler.ThenFunc(webhookRegistry.UpdateRegistry)).Methods("POST")
-	router.Handle("/hooks", primaryHandler.ThenFunc(webhookRegistry.GetRegistry)).Methods("GET")
 
 	return router
 }
