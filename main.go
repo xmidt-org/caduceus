@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/webhook"
@@ -82,7 +83,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	logging.Info(logger).Log("configurationFile", v.ConfigFileUsed())
+	log.WithPrefix(logger, level.Key(), level.InfoValue()).Log("configurationFile", v.ConfigFileUsed())
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -141,18 +142,19 @@ func caduceus(arguments []string) int {
 	webhookRegistry, err := NewRegistry(RegistryConfig{
 		Logger: logger,
 		Listener: func(items []model.Item) {
-			hooks := make([]webhook.W, len(items))
-			for index, item := range items {
+			hooks := []webhook.W{}
+			for _, item := range items {
 				hook, err := convertItemToWebhook(item)
 				if err != nil {
+					log.WithPrefix(logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to convert Item to Webhook", "item", item)
 					continue
 				}
-				hooks[index] = hook
+				hooks = append(hooks, hook)
 			}
 			caduceusSenderWrapper.Update(hooks)
 
 		},
-		Config: caduceusConfig.WebhookConfig,
+		Config: caduceusConfig.WebhookStore,
 	}, updateListSizeMetric)
 
 	if err != nil {
@@ -191,7 +193,7 @@ func caduceus(arguments []string) int {
 		e.Register()
 	}
 
-	logging.Info(logger).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
+	log.WithPrefix(logger, level.Key(), level.InfoValue()).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
 	signals := make(chan os.Signal, 10)
 	signal.Notify(signals, os.Kill, os.Interrupt)
