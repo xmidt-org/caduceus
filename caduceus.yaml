@@ -235,8 +235,9 @@
 ########################################
 #   Webhook Related Configuration
 ########################################
-  # Argus Config for storing the webhook information
-  webhookConfig:
+  # webhookStore provides configuration for storing and obtaining webhook 
+  # information using argus.
+  webhookStore:
 
     # bucket to store and retrieve webhooks.
     bucket: "webhooks-caduceus"
@@ -342,3 +343,4 @@
   #   - 100
   #   - 1000
   #   - 10000
+  

@@ -241,7 +241,7 @@ authHeader:
 #   Webhook Related Configuration
 ########################################
 # Argus Config for storing the webhook information
-webhookConfig:
+webhookStore:
   bucket: "webhooks-caduceus"
   address:  (( grab $ARGUS_HOST || "argus:6600" ))
   pullInterval: "2s"
