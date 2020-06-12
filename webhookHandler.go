@@ -12,7 +12,7 @@ import (
 )
 
 type Registry struct {
-	hookStore *chrysom.Client
+	hookStore chrysom.Pusher
 	config    RegistryConfig
 }
 
@@ -56,12 +56,14 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	webhook := map[string]interface{}{}
 	data, err := json.Marshal(&w)
 	if err != nil {
-		jsonResponse(rw, http.StatusBadRequest, err.Error())
+		// this should never happen
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
 	err = json.Unmarshal(data, &webhook)
 	if err != nil {
-		jsonResponse(rw, http.StatusBadRequest, err.Error())
+		// this should never happen
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
 
