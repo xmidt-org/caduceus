@@ -98,7 +98,7 @@ func caduceus(arguments []string) int {
 	}
 
 	tr := &http.Transport{
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.AllowInsecureTLS},
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.Sender.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
 		ResponseHeaderTimeout: caduceusConfig.Sender.ResponseHeaderTimeout,
 		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
