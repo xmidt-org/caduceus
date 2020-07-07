@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - switch webhook configuration from sns to argus [#202](https://github.com/xmidt-org/caduceus/pull/202)
 - removed `/hooks` endpoint [#202](https://github.com/xmidt-org/caduceus/pull/202)
 
+## [v0.4.0]
+- Moved and renamed configuration variable for outgoing hostname validation [#223](https://github.com/xmidt-org/caduceus/pull/223)
+
 ## [v0.3.0]
 - added metric for counting when caduceus re-encodes the wrp [#216](https://github.com/xmidt-org/caduceus/pull/216)
 - Made outgoing hostname validation configurable [#217](https://github.com/xmidt-org/caduceus/pull/217)

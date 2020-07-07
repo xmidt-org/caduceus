@@ -280,11 +280,6 @@
   # numWorkerThreads: 3000
   # jobQueueSize: 6000
 
-  # allowInsecureTLS provides a way to enable insecure TLS connections when  
-  # sending events to webhooks.
-  # (Optional) defaults to false
-  allowInsecureTLS: true 
-
   # sender provides the details for each "sender" that services the unique
   # webhook url endpoint
   sender:
@@ -312,6 +307,13 @@
 
     # (Deprecated)
     # clientTimeout: 60s
+
+    # disableClientHostnameValidation provides a way to bypass TLS validation 
+    # failures on HTTPS requests when sending events to webhooks.
+    # NOTE: Setting this to true allows for a potential man-in-the-middle 
+    # scenario between caduceus and a webhook. 
+    # (Optional) defaults to false
+    disableClientHostnameValidation: false
 
     # deliveryRetries is the maximum number of delivery attempts caduceus will
     # make before dropping an event

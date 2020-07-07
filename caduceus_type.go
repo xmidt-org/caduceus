@@ -40,16 +40,17 @@ type CaduceusConfig struct {
 }
 
 type SenderConfig struct {
-	NumWorkersPerSender   int
-	QueueSizePerSender    int
-	CutOffPeriod          time.Duration
-	Linger                time.Duration
-	ClientTimeout         time.Duration
-	ResponseHeaderTimeout time.Duration
-	IdleConnTimeout       time.Duration
-	DeliveryRetries       int
-	DeliveryInterval      time.Duration
-	RetryCodes            []int
+	NumWorkersPerSender             int
+	QueueSizePerSender              int
+	CutOffPeriod                    time.Duration
+	Linger                          time.Duration
+	ClientTimeout                   time.Duration
+	DisableClientHostnameValidation bool
+	ResponseHeaderTimeout           time.Duration
+	IdleConnTimeout                 time.Duration
+	DeliveryRetries                 int
+	DeliveryInterval                time.Duration
+	RetryCodes                      []int
 }
 
 type CaduceusMetricsRegistry interface {
