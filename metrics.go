@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
@@ -23,6 +25,7 @@ const (
 	ConsumerDropUntilGauge          = "consumer_drop_until"
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
+	ListSize                        = "webhook_list_size_value"
 )
 
 const (
@@ -137,6 +140,11 @@ func Metrics() []xmetrics.Metric {
 			Type:       "gauge",
 			LabelNames: []string{"url"},
 		},
+		{
+			Name: ListSize,
+			Help: "Amount of current listeners",
+			Type: "gauge",
+		},
 	}
 }
 
@@ -159,4 +167,15 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
+}
+
+type GenericMetrics struct {
+	WebhookListSize metrics.Gauge
+}
+
+// NewMeasures constructs a Measures given a go-kit metrics Provider
+func NewMeasures(p provider.Provider) *GenericMetrics {
+	return &GenericMetrics{
+		WebhookListSize: p.NewGauge(ListSize),
+	}
 }

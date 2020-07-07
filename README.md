@@ -88,11 +88,6 @@ The following is an example request. Note: this is not a valid json because of t
 }
 ```
 
-#### Get Webhooks - `/hooks` endpoint
-To speed up caduceus start up time and test the registration of webhooks, the
-`/hooks` endpoint was created. This is a simple `GET` request which will return
-all the webhooks and their configuration.
-
 ## Usage
 Once everything is up and running you can start sending requests. Bellow are
 a few examples.

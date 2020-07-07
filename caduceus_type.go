@@ -17,6 +17,7 @@
 package main
 
 import (
+	"github.com/xmidt-org/argus/chrysom"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -34,6 +35,8 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
+	WebhookStore     chrysom.ClientConfig
+	AllowInsecureTLS bool
 }
 
 type SenderConfig struct {

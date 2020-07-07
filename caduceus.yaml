@@ -186,11 +186,11 @@
     # file is the name of the most recent log file.  If set to "stdout" this
     # will log to os.Stdout.
     # (Optional) defaults to os.TempDir()
-    file: "/var/log/caduceus/caduceus.log"
+    file: "stdout"
 
     # level is the logging level to use - INFO, DEBUG, WARN, ERROR
     # (Optional) defaults to ERROR
-    level: "ERROR"
+    level: "DEBUG"
 
     # maxsize is the maximum file size in MB
     # (Optional) defaults to max 100MB
@@ -230,59 +230,47 @@
   # authHeader provides the list of basic auth headers that caduceus will accept
   # as authorization
   # (Optional)
-  authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=","xxxxxxxxxxxxxxxxxxxxxx=="]
-
-########################################
-#   Startup Related Configuration
-########################################
-
-  # start is a way to bypass the need to wait for the duration before accepting
-  # events.  The wait is needed to ensure caduceus knows all the hooks it needs
-  # to deliver events to.  Presently the only 2 ways to do that for an SNS
-  # backed service is to:
-  #
-  #     1. Wait until all the hooks have timed out and re-registered (duration)
-  #     2. Ask some server that has the entire list to share it (apiPath)
-  #
-  # TBD add details
-  start:
-    duration: 60000000000
-    apiPath: "https://tr1d1um.example.com:443/api/v2/hooks"
-    sat:
-      path: "https://jwt.example.com/get"
-      id: "magic-id"
-      secret: "xxx"
-      capabilities: "webpa:api:.*:all"
-
-  # waitForDns TBD
-  waitForDns: 0
-
-  # soa is a way for the caduceus machine to check to see if it's DNS name is
-  # present before it tries to use it's DNS name to register with services like
-  # AWS Route53.  This check goes directly to the SOA record authority and
-  # bypasses the various caching servers that could cache the non-existence
-  # record which generally have VERY long TTLs.  Ultimately this way caduceus
-  # can restart much faster.
-  # (Optional)
-  soa:
-    provider: "example.awsdns-19.com:53"
+  authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=","dXNlcjpwYXNz"]
 
 ########################################
 #   Webhook Related Configuration
 ########################################
+  # webhookStore provides configuration for storing and obtaining webhook 
+  # information using argus.
+  webhookStore:
 
-  # aws provides the details needed to subscribe to the SNS topic that sends
-  # webhook registration events out to all listeners
-  #
-  # TBD add details
-  aws:
-    accessKey: "xxxxxxxxxxxxxxxxxxxx"
-    secretKey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    env: "xmidt-prod"
-    sns:
-      region: "us-east-1"
-      topicArn: "arn:aws:sns:us-east-1:000000000000:xmidt-prod"
-      urlPath: "/api/v2/aws/sns"
+    # bucket to store and retrieve webhooks.
+    bucket: "webhooks-caduceus"
+
+    # address it the the location to talk to argus.
+    address: "http://argus:6600"
+
+    # pullInterval is how often to call argus to update the webhook structure.
+    pullInterval: "2s"
+
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: "Basic dXNlcjpwYXNz"
+#
+#      # jwt configures jwt style authentication for argus.
+#      JWT:
+#        # requestHeaders are added to the request for the token.
+#        # (Optional)
+#        # requestHeaders:
+#        #   "": ""
+#
+#        # authURL is the URL to access for the token.
+#        authURL: ""
+#
+#        # timeout is how long the request to get the token will take before
+#        # timing out.
+#        timeout: "1m"
+#
+#        # buffer is the length of time before a token expires to get a new token.
+#        buffer: "2m"
+
 
 ########################################
 #   Delivery Pipeline Related Configuration
@@ -357,3 +345,4 @@
   #   - 100
   #   - 1000
   #   - 10000
+  

@@ -12,7 +12,6 @@ import (
 	"github.com/xmidt-org/webpa-common/secure"
 	"github.com/xmidt-org/webpa-common/secure/handler"
 	"github.com/xmidt-org/webpa-common/secure/key"
-	"github.com/xmidt-org/webpa-common/webhook"
 )
 
 const (
@@ -29,7 +28,7 @@ type JWTValidator struct {
 	Custom secure.JWTValidatorFactory
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, reg *webhook.Registry) (*mux.Router, error) {
+func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, reg *Registry) (*mux.Router, error) {
 	var (
 		router = mux.NewRouter()
 	)
@@ -51,16 +50,15 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, reg *web
 	return configServerRouter(router, authorizationDecorator, sw, reg), nil
 }
 
-func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookRegistry *webhook.Registry) *mux.Router {
+func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookRegistry *Registry) *mux.Router {
 	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
-		return len(r.Header["Content-Type"]) == 1 //require single specification for Content-Type Header
+		return len(r.Header["Content-Type"]) == 1 // require single specification for Content-Type Header
 	}
 
 	router.Handle("/"+fmt.Sprintf("%s/%s", baseURI, version)+"/notify", primaryHandler.Then(serverWrapper)).Methods("POST").HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
 
 	// register webhook end points
 	router.Handle("/hook", primaryHandler.ThenFunc(webhookRegistry.UpdateRegistry)).Methods("POST")
-	router.Handle("/hooks", primaryHandler.ThenFunc(webhookRegistry.GetRegistry)).Methods("GET")
 
 	return router
 }

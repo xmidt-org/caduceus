@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- switch webhook configuration from sns to argus [#202](https://github.com/xmidt-org/caduceus/pull/202)
+- removed `/hooks` endpoint [#202](https://github.com/xmidt-org/caduceus/pull/202)
 
 ## [v0.4.0]
 - Moved and renamed configuration variable for outgoing hostname validation [#223](https://github.com/xmidt-org/caduceus/pull/223)

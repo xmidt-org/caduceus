@@ -19,16 +19,18 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webpa-common/webhook"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"os"
 	"os/signal"
 	"runtime"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
 
@@ -37,7 +39,6 @@ import (
 	"github.com/xmidt-org/webpa-common/concurrent"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/server"
-	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/webpa-common/webhook/aws"
 )
 
@@ -62,7 +63,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, webhook.Metrics, aws.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, aws.Metrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -82,13 +83,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	var (
-		infoLog  = log.WithPrefix(logger, level.Key(), level.InfoValue())
-		errorLog = log.WithPrefix(logger, level.Key(), level.ErrorValue())
-		debugLog = log.WithPrefix(logger, level.Key(), level.DebugValue())
-	)
-
-	infoLog.Log("configurationFile", v.ConfigFileUsed())
+	log.WithPrefix(logger, level.Key(), level.InfoValue()).Log("configurationFile", v.ConfigFileUsed())
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -138,32 +133,40 @@ func caduceus(arguments []string) int {
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
 	}
+	measures := NewMeasures(metricsRegistry)
 
-	webhookFactory, err := webhook.NewFactory(v)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating new webhook factory: %s\n", err)
-		return 1
+	var updateListSizeMetric chrysom.ListenerFunc
+	updateListSizeMetric = func(items []model.Item) {
+		measures.WebhookListSize.Set(float64(len(items)))
 	}
-	webhookRegistry, webhookHandler := webhookFactory.NewRegistryAndHandler(metricsRegistry)
-	webhookFactory.SetExternalUpdate(caduceusSenderWrapper.Update)
+	webhookRegistry, err := NewRegistry(RegistryConfig{
+		Logger: logger,
+		Listener: func(items []model.Item) {
+			hooks := []webhook.W{}
+			for _, item := range items {
+				hook, err := convertItemToWebhook(item)
+				if err != nil {
+					log.WithPrefix(logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to convert Item to Webhook", "item", item)
+					continue
+				}
+				hooks = append(hooks, hook)
+			}
+			caduceusSenderWrapper.Update(hooks)
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, &webhookRegistry)
+		},
+		Config: caduceusConfig.WebhookStore,
+	}, updateListSizeMetric)
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
 		return 1
 	}
 
-	scheme := v.GetString("scheme")
-	if len(scheme) < 1 {
-		scheme = "https"
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, webhookRegistry)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
+		return 1
 	}
-
-	selfURL := &url.URL{
-		Scheme: scheme,
-		Host:   v.GetString("fqdn") + v.GetString("primary.address"),
-	}
-
-	webhookFactory.Initialize(primaryHandler, selfURL, v.GetString("soa.provider"), webhookHandler, logger, metricsRegistry, nil)
 
 	_, runnable, done := webPA.Prepare(logger, nil, metricsRegistry, primaryHandler)
 
@@ -171,19 +174,6 @@ func caduceus(arguments []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to start device manager: %s\n", err)
 		return 1
-	}
-
-	var messageKey = logging.MessageKey()
-
-	if webhookFactory != nil {
-		// wait for DNS to propagate before subscribing to SNS
-		if err = webhookFactory.DnsReady(); err == nil {
-			debugLog.Log(messageKey, "Calling webhookFactory.PrepareAndStart. Server is ready to take on subscription confirmations")
-			webhookFactory.PrepareAndStart()
-		} else {
-			errorLog.Log(messageKey, "Server was not ready within a time constraint. SNS confirmation could not happen",
-				logging.ErrorKey(), err)
-		}
 	}
 
 	//
@@ -203,23 +193,7 @@ func caduceus(arguments []string) int {
 		e.Register()
 	}
 
-	// Attempt to obtain the current listener list from current system without having to wait for listener reregistration.
-	debugLog.Log(messageKey, "Attempting to obtain current listener list from source", "source",
-		v.GetString("start.apiPath"))
-	beginObtainList := time.Now()
-	startChan := make(chan webhook.Result, 1)
-	webhookFactory.Start.GetCurrentSystemsHooks(startChan)
-	var webhookStartResults webhook.Result = <-startChan
-	if webhookStartResults.Error != nil {
-		errorLog.Log(logging.ErrorKey(), webhookStartResults.Error)
-	} else {
-		// todo: add message
-		webhookFactory.SetList(webhook.NewList(webhookStartResults.Hooks))
-		caduceusSenderWrapper.Update(webhookStartResults.Hooks)
-	}
-
-	debugLog.Log(messageKey, "Current listener retrieval.", "elapsedTime", time.Since(beginObtainList))
-	infoLog.Log(messageKey, "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
+	log.WithPrefix(logger, level.Key(), level.InfoValue()).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
 	signals := make(chan os.Signal, 10)
 	signal.Notify(signals, os.Kill, os.Interrupt)
