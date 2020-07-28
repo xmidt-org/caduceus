@@ -8,6 +8,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-kit/kit v0.9.0
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/justinas/alice v1.2.0
 	github.com/samuel/go-zookeeper v0.0.0-20190810000440-0ceca61e4d75 // indirect
 	github.com/satori/go.uuid v1.2.0
@@ -17,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/xmidt-org/argus v0.3.3
 	github.com/xmidt-org/webpa-common v1.10.2
-	github.com/xmidt-org/wrp-go/v2 v2.0.0
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect
-	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
+	github.com/xmidt-org/wrp-go/v3 v3.0.1
+	github.com/xmidt-org/wrp-listener v0.2.1
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 )

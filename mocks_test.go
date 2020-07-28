@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/health"
 	"github.com/xmidt-org/webpa-common/webhook"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // mockHandler only needs to mock the `HandleRequest` method

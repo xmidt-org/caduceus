@@ -333,6 +333,46 @@
     retryCodes: 
       - 429
 
+    # deviceIDParsers provide instructions to Caduceus on how to find the 
+    # device id for different events.  If an event matched the regex on the 
+    # field given, the device ID is found based on the location instructions 
+    # for that label.
+    deviceIDParsers:
+      # state is the name we are giving this set of device location instructions 
+      # so that debugging will be easier.  It can be named anything.
+      # (Optional)
+      state:
+        # field provides the field to use to determine if an event should be 
+        # labelled a State event.
+        # (Optional) default is Source
+        field: "Destination"
+      
+        # regex provides the regular expression to be used to determine if an event 
+        # should be labelled a State event.
+        regex: "device-status/.*/(on|off)line$"
+
+        # deviceLocation is where to find the device id for an event of this label.
+        # If a valid regex and regexLabel aren't provided, the whole value in the 
+        # field given is used.
+        deviceLocation:
+          # field can either be Destination or Source.
+          # (Optional) default is Source
+          field: "Destination"
+
+          # regex must include the label provided.  This is where the device id will 
+          # be found.
+          regex: "device-status/(?P<device>.*)/(on|off)line$"
+          regexLabel: "device"
+  
+      # default provides the default way to find the device ID.  Default doesn't 
+      # match against any regular expressions, because it is the bucket for 
+      # anything not matched to a label above.
+      # (Optional)
+      default:
+        # (Optional) default is Source with no regex used
+        deviceLocation:
+          field: "Source"
+
   # (Deprecated)
   # profilerFrequency: 15
   # profilerDuration: 15

@@ -25,7 +25,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/webhook"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-listener/wrpparser"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
@@ -65,12 +66,19 @@ type SenderWrapperFactory struct {
 
 	// The http client Do() function to share with OutboundSenders.
 	Sender func(*http.Request) (*http.Response, error)
+
+	// Information on how to parse device ID from an event.
+	DeviceIDParsers map[string]ParserConfig
 }
 
 type SenderWrapper interface {
 	Update([]webhook.W)
 	Queue(*wrp.Message)
 	Shutdown(bool)
+}
+
+type DeviceIDParser interface {
+	Parse(*wrp.Message) (string, error)
 }
 
 // CaduceusSenderWrapper contains no external parameters.
@@ -86,6 +94,7 @@ type CaduceusSenderWrapper struct {
 	logger              log.Logger
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
+	deviceIDParser      DeviceIDParser
 	metricsRegistry     CaduceusMetricsRegistry
 	eventType           metrics.Counter
 	wg                  sync.WaitGroup
@@ -110,6 +119,68 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 
 	if swf.Linger <= 0 {
 		err = errors.New("Linger must be positive.")
+		sw = nil
+		return
+	}
+
+	cs := []wrpparser.Classifier{}
+	os := []wrpparser.ParserOption{}
+	var defaultFinder wrpparser.DeviceFinder
+	var classifier wrpparser.Classifier
+	for k, v := range swf.DeviceIDParsers {
+		if k == "default" {
+			var finder wrpparser.DeviceFinder
+			finder = wrpparser.FieldFinder{Field: wrpparser.GetField(v.DeviceLocation.Field)}
+			if v.DeviceLocation.Regex != "" && v.DeviceLocation.RegexLabel != "" {
+				finder, err = wrpparser.NewRegexpFinderFromStr(
+					wrpparser.GetField(v.DeviceLocation.Field),
+					v.DeviceLocation.Regex,
+					v.DeviceLocation.RegexLabel)
+				if err != nil {
+					// log error
+					finder = wrpparser.FieldFinder{Field: wrpparser.GetField(v.DeviceLocation.Field)}
+				}
+			}
+			defaultFinder = finder
+		} else {
+			c, err := wrpparser.NewRegexpClassifierFromStr(k, v.Regex, wrpparser.GetField(v.Field))
+			if err != nil {
+				// log error
+			} else {
+				cs = append(cs, c)
+			}
+
+			var f wrpparser.DeviceFinder
+			field := wrpparser.GetField(v.DeviceLocation.Field)
+			f = wrpparser.FieldFinder{Field: field}
+			if v.DeviceLocation.Regex != "" && v.DeviceLocation.RegexLabel != "" {
+				f, err = wrpparser.NewRegexpFinderFromStr(
+					field,
+					v.DeviceLocation.Regex,
+					v.DeviceLocation.RegexLabel)
+				if err != nil {
+					// log error
+					f = wrpparser.FieldFinder{Field: field}
+				}
+			}
+			os = append(os, wrpparser.WithDeviceFinder(k, f))
+		}
+	}
+
+	classifier, err = wrpparser.NewMultClassifier(cs...)
+	if err != nil {
+		// this will force the parser to always use the default finder
+		classifier = wrpparser.NewConstClassifier("", false)
+	}
+
+	// make sure we have a default finder set
+	if defaultFinder == nil {
+		defaultFinder = wrpparser.FieldFinder{Field: wrpparser.Source}
+	}
+
+	caduceusSenderWrapper.deviceIDParser, err = wrpparser.NewStrParser(classifier, defaultFinder, os...)
+	if err != nil {
+		err = errors.New("some error")
 		sw = nil
 		return
 	}
@@ -176,8 +247,13 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 
 	sw.eventType.With("event", msg.FindEventStringSubMatch())
 
+	deviceID, err := sw.deviceIDParser.Parse(msg)
+	if err != nil {
+		// do something - log? metric?
+	}
+
 	for _, v := range sw.senders {
-		v.Queue(msg)
+		v.Queue(deviceID, msg)
 	}
 	sw.mutex.RUnlock()
 }

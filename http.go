@@ -26,7 +26,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	uuid "github.com/satori/go.uuid"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // Below is the struct that will implement our ServeHTTP method

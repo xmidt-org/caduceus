@@ -113,6 +113,7 @@ func caduceus(arguments []string) int {
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do,
+		DeviceIDParsers: caduceusConfig.Sender.DeviceIDParsers,
 	}.New()
 
 	if err != nil {

@@ -45,8 +45,8 @@ import (
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/wrp-go/v2"
-	"github.com/xmidt-org/wrp-go/v2/wrphttp"
+	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
 
 // failureText is human readable text for the failure message
@@ -115,7 +115,12 @@ type OutboundSender interface {
 	Update(webhook.W) error
 	Shutdown(bool)
 	RetiredSince() time.Time
-	Queue(*wrp.Message)
+	Queue(string, *wrp.Message)
+}
+
+type eventWithID struct {
+	deviceID string
+	msg      *wrp.Message
 }
 
 // CaduceusOutboundSender is the outbound sender object.
@@ -211,7 +216,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	caduceusOutboundSender.queueDepthGauge.Set(0)
 	caduceusOutboundSender.currentWorkersGauge.Set(0)
 
-	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
+	caduceusOutboundSender.queue.Store(make(chan eventWithID, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
 		return
@@ -340,10 +345,10 @@ func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 	if false == gentle {
 		// need to close the channel we're going to replace, in case it doesn't
 		// have any events in it.
-		close(obs.queue.Load().(chan *wrp.Message))
+		close(obs.queue.Load().(chan eventWithID))
 		obs.Empty(obs.droppedExpiredCounter)
 	}
-	close(obs.queue.Load().(chan *wrp.Message))
+	close(obs.queue.Load().(chan eventWithID))
 	obs.wg.Wait()
 
 	obs.mutex.Lock()
@@ -365,7 +370,7 @@ func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 // Queue is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
+func (obs *CaduceusOutboundSender) Queue(deviceID string, msg *wrp.Message) {
 	obs.mutex.RLock()
 	deliverUntil := obs.deliverUntil
 	dropUntil := obs.dropUntil
@@ -388,7 +393,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		matchDevice := (nil == matcher)
 		if nil != matcher {
 			for _, deviceRegex := range matcher {
-				if deviceRegex.MatchString(msg.Source) {
+				if deviceRegex.MatchString(deviceID) {
 					matchDevice = true
 					break
 				}
@@ -417,8 +422,12 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			 }
 		*/
 		if matchDevice {
+			e := eventWithID{
+				deviceID: deviceID,
+				msg:      msg,
+			}
 			select {
-			case obs.queue.Load().(chan *wrp.Message) <- msg:
+			case obs.queue.Load().(chan eventWithID) <- e:
 				obs.queueDepthGauge.Add(1.0)
 			default:
 				obs.queueOverflow()
@@ -449,8 +458,8 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
 func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
-	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
-	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
+	droppedMsgs := obs.queue.Load().(chan eventWithID)
+	obs.queue.Store(make(chan eventWithID, obs.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
 	obs.queueDepthGauge.Set(0.0)
 	return
@@ -459,7 +468,7 @@ func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
 	var (
-		msg            *wrp.Message
+		e              eventWithID
 		urls           *ring.Ring
 		secret, accept string
 		ok             bool
@@ -469,7 +478,7 @@ Loop:
 	for {
 		// Always pull a new queue in case we have been cutoff or are shutting
 		// down.
-		msgQueue := obs.queue.Load().(chan *wrp.Message)
+		msgQueue := obs.queue.Load().(chan eventWithID)
 		select {
 		// The dispatcher cannot get stuck blocking here forever (caused by an
 		// empty queue that is replaced and then Queue() starts adding to the
@@ -489,7 +498,7 @@ Loop:
 		//      - If the first queue has messages, we drop a message as expired
 		//        pull in the new queue which is empty and closed, break the
 		//        loop, gather workers, and exit.
-		case msg, ok = <-msgQueue:
+		case e, ok = <-msgQueue:
 			// This is only true when a queue is empty and closed, which for us
 			// only happens on Shutdown().
 			if !ok {
@@ -521,7 +530,7 @@ Loop:
 			obs.workers.Acquire()
 			obs.currentWorkersGauge.Add(1.0)
 
-			go obs.send(urls, secret, accept, msg)
+			go obs.send(urls, secret, accept, e.deviceID, e.msg)
 		}
 	}
 	for i := 0; i < obs.maxWorkers; i++ {
@@ -531,7 +540,7 @@ Loop:
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
+func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, deviceID string, msg *wrp.Message) {
 	defer func() {
 		if r := recover(); nil != r {
 			obs.droppedPanic.Add(1.0)
@@ -579,7 +588,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
 
 	// Add the device id without the trailing service
-	id, _ := device.ParseID(msg.Source)
+	id, _ := device.ParseID(deviceID)
 	req.Header.Set("X-Webpa-Device-Id", string(id))
 	req.Header.Set("X-Webpa-Device-Name", string(id))
 

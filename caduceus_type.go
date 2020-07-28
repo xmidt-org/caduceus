@@ -17,14 +17,15 @@
 package main
 
 import (
-	"github.com/xmidt-org/argus/chrysom"
 	"time"
+
+	"github.com/xmidt-org/argus/chrysom"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // Below is the struct we're using to contain the data from a provided config file
@@ -51,6 +52,19 @@ type SenderConfig struct {
 	DeliveryRetries                 int
 	DeliveryInterval                time.Duration
 	RetryCodes                      []int
+	DeviceIDParsers                 map[string]ParserConfig
+}
+
+type ParserConfig struct {
+	Field          string
+	Regex          string
+	DeviceLocation FinderConfig
+}
+
+type FinderConfig struct {
+	Field      string
+	Regex      string
+	RegexLabel string
 }
 
 type CaduceusMetricsRegistry interface {
