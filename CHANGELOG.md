@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - switch webhook configuration from sns to argus [#202](https://github.com/xmidt-org/caduceus/pull/202)
 - removed `/hooks` endpoint [#202](https://github.com/xmidt-org/caduceus/pull/202)
 - Updated references to the main branch [#227](https://github.com/xmidt-org/caduceus/pull/227)
+- Added configurable device id parsing [#228](https://github.com/xmidt-org/caduceus/pull/228)
 
 ## [v0.4.0]
 - Moved and renamed configuration variable for outgoing hostname validation [#223](https://github.com/xmidt-org/caduceus/pull/223)

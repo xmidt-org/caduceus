@@ -300,8 +300,8 @@ github.com/xmidt-org/webpa-common v1.10.2 h1:XOykCu8sc6sVs8vlR4CS/dAk+Z6rVqSyUlB
 github.com/xmidt-org/webpa-common v1.10.2/go.mod h1:Fmt3wIxBzwJY0KeRHX6RaLZx2xpKTbXCLEA3Xtd6kq8=
 github.com/xmidt-org/wrp-go/v3 v3.0.1 h1:E1FrFwWi21pFDL3c6M4ufqA4ykXWPops9BMnadChUH8=
 github.com/xmidt-org/wrp-go/v3 v3.0.1/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
-github.com/xmidt-org/wrp-listener v0.2.1-0.20200728212606-57b24657b55f h1:3OzDO8R+9/URPjGaRuTDuFPIF8uKqemRdBLA62Zhf9w=
-github.com/xmidt-org/wrp-listener v0.2.1-0.20200728212606-57b24657b55f/go.mod h1:J2LSvobMfchnZfOdahf8tIzb0ZDno699IFHk5OulX+Y=
+github.com/xmidt-org/wrp-listener v0.2.1 h1:1ZwoigVui4RWn6FAqV+6oPMpC6gHzOJUz2l1KTXHhe0=
+github.com/xmidt-org/wrp-listener v0.2.1/go.mod h1:J2LSvobMfchnZfOdahf8tIzb0ZDno699IFHk5OulX+Y=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=

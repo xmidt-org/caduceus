@@ -149,3 +149,13 @@ func (m *mockCaduceusMetricsRegistry) NewGauge(name string) metrics.Gauge {
 	args := m.Called(name)
 	return args.Get(0).(metrics.Gauge)
 }
+
+// mockParser provides the mock implementation of the DeviceIDParser object.
+type mockDeviceIDParser struct {
+	mock.Mock
+}
+
+func (p *mockDeviceIDParser) Parse(msg *wrp.Message) (string, error) {
+	args := p.Called(msg)
+	return args.String(0), args.Error(1)
+}

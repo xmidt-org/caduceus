@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Comcast Cable Communications Management, LLC
+ * Copyright 2020 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/webpa-common/webhook"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
@@ -30,6 +26,11 @@ import (
 	"os/signal"
 	"runtime"
 	"time"
+
+	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webpa-common/webhook"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
@@ -92,6 +93,13 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
+	// set up parser for getting the device ID.  It shouldn't be possible for this to fail.
+	parser, err := setupParser(caduceusConfig.Sender.DeviceIDParsers, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to set up device id parser: %s\n", err)
+		return 1
+	}
+
 	tr := &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.Sender.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
@@ -113,7 +121,7 @@ func caduceus(arguments []string) int {
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do,
-		DeviceIDParsers: caduceusConfig.Sender.DeviceIDParsers,
+		DeviceIDParser: parser,
 	}.New()
 
 	if err != nil {

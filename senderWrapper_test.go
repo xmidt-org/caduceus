@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Comcast Cable Communications Management, LLC
+ * Copyright 2020 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -25,6 +26,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -121,6 +123,8 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
 
+	fakeParser := new(mockDeviceIDParser)
+
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
@@ -128,6 +132,7 @@ func getFakeFactory() *SenderWrapperFactory {
 		Logger:              logging.DefaultLogger(),
 		Linger:              0 * time.Second,
 		MetricsRegistry:     fakeRegistry,
+		DeviceIDParser:      fakeParser,
 	}
 }
 
@@ -137,15 +142,19 @@ func TestInvalidLinger(t *testing.T) {
 
 	assert := assert.New(t)
 	assert.Nil(sw)
-	assert.NotNil(err)
+	assert.Equal(errNonPositiveLinger, err)
 }
 
-// Commenting this test out is accumulating technical debt.
-// The reason this code doesn't work now is because the timeout in webpa-common
-// is hard coded to 5min at this point.  The ways to address this are:
-// 1. Remove the limitation of 5min as the only timeout
-// -or-
-// 2. Add a mock for the webhook implementation
+func TestInvalidParser(t *testing.T) {
+	swf := getFakeFactory()
+	swf.Linger = 5
+	swf.DeviceIDParser = nil
+	sw, err := swf.New()
+
+	assert := assert.New(t)
+	assert.Nil(sw)
+	assert.Equal(errNilParser, err)
+}
 
 func TestSwSimple(t *testing.T) {
 	assert := assert.New(t)
@@ -161,10 +170,18 @@ func TestSwSimple(t *testing.T) {
 	err := encoder.Encode(&wrpMessage)
 	assert.Nil(err)
 
-	iot := simpleRequest()
+	iotID, iot := simpleRequest()
 	iot.Destination = "mac:112233445566/event/iot"
-	test := simpleRequest()
+	testID, test := simpleRequest()
 	test.Destination = "mac:112233445566/event/test/extra-stuff"
+
+	// set up mock parsers
+	iotParser := new(mockDeviceIDParser)
+	iotParser.On("Parse", mock.Anything).Return(iotID, nil).Times(5)
+	testParser := new(mockDeviceIDParser)
+	testParser.On("Parse", mock.Anything).Return(testID, nil).Times(2)
+	badParser := new(mockDeviceIDParser)
+	badParser.On("Parse", mock.Anything).Return("", errors.New("test error")).Once()
 
 	trans := &swTransport{}
 
@@ -173,11 +190,17 @@ func TestSwSimple(t *testing.T) {
 
 	swf.Linger = 1 * time.Second
 	sw, err := swf.New()
-
 	assert.Nil(err)
 	assert.NotNil(sw)
 
+	// verify this implements the interface expected
+	var something interface{}
+	something = sw
+	_, ok := something.(SenderWrapper)
+	assert.True(ok)
+
 	// No listeners
+	sw.deviceIDParser = iotParser
 	sw.Queue(iot)
 	sw.Queue(iot)
 	sw.Queue(iot)
@@ -204,14 +227,19 @@ func TestSwSimple(t *testing.T) {
 
 	// Add 2 listeners
 	list := []webhook.W{w1, w2}
-
 	sw.Update(list)
 
-	// Send iot message
+	// test bad parser
+	sw.deviceIDParser = badParser
+	sw.Queue(iot)
+	assert.Equal(int32(0), trans.i)
 
+	// Send iot message
+	sw.deviceIDParser = iotParser
 	sw.Queue(iot)
 
 	// Send test message
+	sw.deviceIDParser = testParser
 	sw.Queue(test)
 
 	// Send it again
@@ -229,8 +257,13 @@ func TestSwSimple(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Send iot
+	sw.deviceIDParser = iotParser
 	sw.Queue(iot)
 
 	sw.Shutdown(true)
 	//assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
+
+	iotParser.AssertExpectations(t)
+	testParser.AssertExpectations(t)
+	badParser.AssertExpectations(t)
 }

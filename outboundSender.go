@@ -56,16 +56,6 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 	`capacity to handle notifications, or reduce the number of notifications ` +
 	`you have requested.`
 
-// outboundRequest stores the outgoing request and assorted data that has been
-// collected so far (to save on processing the information again).
-type outboundRequest struct {
-	msg         *wrp.Message
-	event       string
-	transID     string
-	deviceID    string
-	contentType string
-}
-
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {

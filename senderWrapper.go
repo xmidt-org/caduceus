@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Comcast Cable Communications Management, LLC
+ * Copyright 2020 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,16 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"github.com/xmidt-org/wrp-go/v3"
-	"github.com/xmidt-org/wrp-listener/wrpparser"
+)
+
+var (
+	errNonPositiveLinger = errors.New("linger must be positive")
+	errNilParser         = errors.New("device ID Parser cannot be nil")
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
@@ -67,8 +73,8 @@ type SenderWrapperFactory struct {
 	// The http client Do() function to share with OutboundSenders.
 	Sender func(*http.Request) (*http.Response, error)
 
-	// Information on how to parse device ID from an event.
-	DeviceIDParsers map[string]ParserConfig
+	// Parser determines the device ID from an event.
+	DeviceIDParser DeviceIDParser
 }
 
 type SenderWrapper interface {
@@ -103,7 +109,7 @@ type CaduceusSenderWrapper struct {
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
 // based on the factory configuration.
-func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
+func (swf SenderWrapperFactory) New() (*CaduceusSenderWrapper, error) {
 	caduceusSenderWrapper := &CaduceusSenderWrapper{
 		sender:              swf.Sender,
 		numWorkersPerSender: swf.NumWorkersPerSender,
@@ -115,74 +121,15 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		linger:              swf.Linger,
 		logger:              swf.Logger,
 		metricsRegistry:     swf.MetricsRegistry,
+		deviceIDParser:      swf.DeviceIDParser,
 	}
 
 	if swf.Linger <= 0 {
-		err = errors.New("Linger must be positive.")
-		sw = nil
-		return
+		return nil, errNonPositiveLinger
 	}
 
-	cs := []wrpparser.Classifier{}
-	os := []wrpparser.ParserOption{}
-	var defaultFinder wrpparser.DeviceFinder
-	var classifier wrpparser.Classifier
-	for k, v := range swf.DeviceIDParsers {
-		if k == "default" {
-			var finder wrpparser.DeviceFinder
-			finder = wrpparser.FieldFinder{Field: wrpparser.GetField(v.DeviceLocation.Field)}
-			if v.DeviceLocation.Regex != "" && v.DeviceLocation.RegexLabel != "" {
-				finder, err = wrpparser.NewRegexpFinderFromStr(
-					wrpparser.GetField(v.DeviceLocation.Field),
-					v.DeviceLocation.Regex,
-					v.DeviceLocation.RegexLabel)
-				if err != nil {
-					// log error
-					finder = wrpparser.FieldFinder{Field: wrpparser.GetField(v.DeviceLocation.Field)}
-				}
-			}
-			defaultFinder = finder
-		} else {
-			c, err := wrpparser.NewRegexpClassifierFromStr(k, v.Regex, wrpparser.GetField(v.Field))
-			if err != nil {
-				// log error
-			} else {
-				cs = append(cs, c)
-			}
-
-			var f wrpparser.DeviceFinder
-			field := wrpparser.GetField(v.DeviceLocation.Field)
-			f = wrpparser.FieldFinder{Field: field}
-			if v.DeviceLocation.Regex != "" && v.DeviceLocation.RegexLabel != "" {
-				f, err = wrpparser.NewRegexpFinderFromStr(
-					field,
-					v.DeviceLocation.Regex,
-					v.DeviceLocation.RegexLabel)
-				if err != nil {
-					// log error
-					f = wrpparser.FieldFinder{Field: field}
-				}
-			}
-			os = append(os, wrpparser.WithDeviceFinder(k, f))
-		}
-	}
-
-	classifier, err = wrpparser.NewMultClassifier(cs...)
-	if err != nil {
-		// this will force the parser to always use the default finder
-		classifier = wrpparser.NewConstClassifier("", false)
-	}
-
-	// make sure we have a default finder set
-	if defaultFinder == nil {
-		defaultFinder = wrpparser.FieldFinder{Field: wrpparser.Source}
-	}
-
-	caduceusSenderWrapper.deviceIDParser, err = wrpparser.NewStrParser(classifier, defaultFinder, os...)
-	if err != nil {
-		err = errors.New("some error")
-		sw = nil
-		return
+	if swf.DeviceIDParser == nil {
+		return nil, errNilParser
 	}
 
 	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
@@ -193,8 +140,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 	caduceusSenderWrapper.wg.Add(1)
 	go undertaker(caduceusSenderWrapper)
 
-	sw = caduceusSenderWrapper
-	return
+	return caduceusSenderWrapper, nil
 }
 
 // Update is called when we get changes to our webhook listeners with either
@@ -249,7 +195,10 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 
 	deviceID, err := sw.deviceIDParser.Parse(msg)
 	if err != nil {
-		// do something - log? metric?
+		sw.logger.Log(level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "Failed to parse device ID from message - falling back to message Source field",
+			logging.ErrorKey(), err)
+		deviceID = msg.Source
 	}
 
 	for _, v := range sw.senders {

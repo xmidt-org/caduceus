@@ -176,8 +176,8 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	}
 }
 
-func simpleRequest() *wrp.Message {
-	return &wrp.Message{
+func simpleRequest() (string, *wrp.Message) {
+	return "mac:112233445566", &wrp.Message{
 		Source:          "mac:112233445566/lmlite",
 		TransactionUUID: "1234",
 		ContentType:     "application/msgpack",
@@ -200,37 +200,37 @@ func TestSimpleWrp(t *testing.T) {
 	assert.Nil(err)
 
 	// queue case 1
-	req := simpleRequest()
+	id, req := simpleRequest()
 	req.Destination = "event:iot"
 	fmt.Printf("Queue case 1:\n %v\n", spew.Sprint(req))
-	obs.Queue(req)
+	obs.Queue(id, req)
 
-	req = simpleRequest()
+	id, req = simpleRequest()
 	req.Destination = "event:test"
 	fmt.Printf("\nQueue case 2:\n %v\n", spew.Sprint(req))
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	// queue case 3
-	req = simpleRequest()
+	id, req = simpleRequest()
 	req.Destination = "event:no-match"
 	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(req))
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	// queue case 4
-	req = simpleRequest()
+	id, req = simpleRequest()
 	req.ContentType = "application/json"
 	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(req))
-	obs.Queue(req)
+	obs.Queue(id, req)
 
-	req = simpleRequest()
+	id, req = simpleRequest()
 	req.ContentType = "application/http"
 	fmt.Printf("\nQueue case 4:\n %v\n", spew.Sprint(req))
-	obs.Queue(req)
+	obs.Queue(id, req)
 
-	req = simpleRequest()
+	id, req = simpleRequest()
 	req.ContentType = "unknown"
 	fmt.Printf("\nQueue case 4:\n %v\n", spew.Sprint(req))
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	obs.Shutdown(true)
 
@@ -251,11 +251,11 @@ func TestSimpleRetry(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	id, req := simpleRequest()
 	req.Source = "mac:112233445566"
 	req.TransactionUUID = "1234"
 	req.Destination = "event:iot"
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	obs.Shutdown(true)
 
@@ -276,11 +276,11 @@ func Test429Retry(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	id, req := simpleRequest()
 	req.Source = "mac:112233445566"
 	req.TransactionUUID = "1234"
 	req.Destination = "event:iot"
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	obs.Shutdown(true)
 
@@ -321,11 +321,11 @@ func TestAltURL(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	id, req := simpleRequest()
 	req.Source = "mac:112233445566"
 	req.TransactionUUID = "1234"
 	req.Destination = "event:iot"
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	obs.Shutdown(true)
 
@@ -346,29 +346,32 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	id, req := simpleRequest()
 	req.TransactionUUID = "1234"
 	req.Source = "mac:112233445566"
 	req.Destination = "event:iot"
-	obs.Queue(req)
+	obs.Queue(id, req)
 
-	r2 := simpleRequest()
+	_, r2 := simpleRequest()
 	r2.TransactionUUID = "1234"
 	r2.Source = "mac:112233445565"
+	id2 := r2.Source
 	r2.Destination = "event:test"
-	obs.Queue(r2)
+	obs.Queue(id2, r2)
 
-	r3 := simpleRequest()
+	_, r3 := simpleRequest()
 	r3.TransactionUUID = "1234"
 	r3.Source = "mac:112233445560"
+	id3 := r3.Source
 	r3.Destination = "event:iot"
-	obs.Queue(r3)
+	obs.Queue(id3, r3)
 
-	r4 := simpleRequest()
+	_, r4 := simpleRequest()
 	r4.TransactionUUID = "1234"
 	r4.Source = "mac:112233445560"
+	id4 := r4.Source
 	r4.Destination = "event:test"
-	obs.Queue(r4)
+	obs.Queue(id4, r4)
 
 	obs.Shutdown(true)
 
@@ -387,36 +390,36 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	id, req := simpleRequest()
 	req.TransactionUUID = "1234"
 	req.Source = "mac:112233445566"
 	req.Destination = "event:iot"
-	obs.Queue(req)
+	obs.Queue(id, req)
 
-	r2 := simpleRequest()
+	id2, r2 := simpleRequest()
 	r2.TransactionUUID = "1234"
 	r2.Source = "mac:112233445565"
 	r2.Destination = "event:test"
-	obs.Queue(r2)
+	obs.Queue(id2, r2)
 
-	r3 := simpleRequest()
+	id3, r3 := simpleRequest()
 	r3.TransactionUUID = "1234"
 	r3.Source = "mac:112233445560"
 	r3.Destination = "event:iot"
-	obs.Queue(r3)
+	obs.Queue(id3, r3)
 
-	r4 := simpleRequest()
+	id4, r4 := simpleRequest()
 	r4.TransactionUUID = "1234"
 	r4.Source = "mac:112233445560"
 	r4.Destination = "event:test"
-	obs.Queue(r4)
+	obs.Queue(id4, r4)
 
 	/* This will panic. */
-	r5 := simpleRequest()
+	id5, r5 := simpleRequest()
 	r5.TransactionUUID = "1234"
 	r5.Source = "mac:112233445560"
 	r5.Destination = "event:test\xedoops"
-	obs.Queue(r5)
+	obs.Queue(id5, r5)
 
 	obs.Shutdown(true)
 
@@ -897,22 +900,22 @@ func TestOverflow(t *testing.T) {
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	req := simpleRequest()
+	id, req := simpleRequest()
 
 	req.TransactionUUID = "01234"
-	obs.Queue(req)
+	obs.Queue(id, req)
 	req.TransactionUUID = "01235"
-	obs.Queue(req)
+	obs.Queue(id, req)
 
 	// give the worker a chance to pick up one from the queue
 	time.Sleep(1 * time.Second)
 
 	req.TransactionUUID = "01236"
-	obs.Queue(req)
+	obs.Queue(id, req)
 	req.TransactionUUID = "01237"
-	obs.Queue(req)
+	obs.Queue(id, req)
 	req.TransactionUUID = "01238"
-	obs.Queue(req)
+	obs.Queue(id, req)
 	atomic.AddInt32(&block, 1)
 	obs.Shutdown(false)
 
