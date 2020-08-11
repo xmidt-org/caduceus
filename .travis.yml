@@ -23,7 +23,7 @@ addons:
 
 script:
   - make style codecov
-  - sonar-scanner -Dsonar.projectKey=xmidt-org_caduceus
+  - sonar-scanner -Dproject.settings=./.sonar-project.properties
 
 jobs:
   fast_finish: true
