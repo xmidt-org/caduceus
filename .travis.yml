@@ -15,8 +15,15 @@ branches:
     - main
     - /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
+addons:
+  sonarcloud:
+    organization: "xmidt-org"
+    token:
+      secure: "Zqk1ZXwZHj96HwlG84ypDbvMascfyableIfBkZJowwXR2UEA18iuqdzdgLKM82BA5Q7WDwz2fH2VUXfIlbGm1W8MVvnoE6koC9e72DoSE3D30hr7CUV0Cbe/8aFAYJJuKrqbshDx680nt0Caq266s62h2eckEkuYA6LZiTloLeMF6+dmYFz86b7e57DW07f85lZTErhsjinMn2e3mGEvdW9gShSW+PGABDRyocQwz2/U7x5+zYxGw0LdrKAvyFAF6r863LtlN7qIavGXaWJzGjnjIh25QiPELQO54Mxy9U11JdHb0+lHTBDHrBOpwmNkGPGzgDhVtNRKGosvjTkHrvVoWf257ljOfqXp9SPh6RWU3dfl0knku1477YPq6yhvkVFZg2VXxe6xtWm2LIIca5lTgbKGVtEsOFwiWb3rw3uqWh/xHeynRNVTDGxkhHxV3jTazdTQ5qsoLb2p1AnYKTYw7VN3NVTeo8k+AdIHM6gIzfflFzl8pew8XPsHPsQPxnchq6qtkfaUeDLSUA+SldUuREjx4Qfzs2iaHfrKP6skwPZCty5WK+uYH+8IZ5VobAPT2aOzpZDD6mBmsBvXFvUPehQm3eRSMMxOMe9xkuE71OepXTBXu7Z0VnhM/QPQTYDD7Bn5E2qxZjE9yMfLRJhl25PLnPhhc/FxyRmi6d8="
+
 script:
   - make style codecov
+  - sonar-scanner -Dproject.settings=./.sonar-project.properties
 
 jobs:
   fast_finish: true
