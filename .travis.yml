@@ -23,6 +23,8 @@ addons:
 
 script:
   - make style codecov
+
+after_success:
   - sonar-scanner -Dproject.settings=./.sonar-project.properties
 
 jobs:
@@ -48,6 +50,8 @@ jobs:
         - export TODAY=`date +'%m/%d/%Y'`
         - export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$ENV{TODAY}\n\n$1\n" if /.*## \[$ENV{TAG}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
         - if [[ "$TAG" != "" && "$TAG" != "$OLD_VERSION" ]]; then git tag -a "$TAG" -m "$NOTES"; git push origin --tags; echo $?; fi
+      after_success: skip
+
     - stage: release
       name: "Make a Release"
       if: branch != main
@@ -62,7 +66,6 @@ jobs:
         api_key: "$GH_TOKEN"
         file_glob: true
         file: ./.ignore/*
-        skip_cleanup: true
     - stage: docker-release
       name: "Make Docker Release"
       if: branch != main

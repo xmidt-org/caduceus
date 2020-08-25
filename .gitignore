@@ -24,6 +24,7 @@ _obj
 _test
 vendor
 coverage*
+report.json
 
 # Architecture specific extensions/prefixes
 *.[568vq]
