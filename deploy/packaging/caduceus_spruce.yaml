@@ -100,7 +100,7 @@ metric:
   # was chosen because it does not conflict with any of the other prometheus
   # metrics or other machines in the xmidt cluster.  You may use any port you
   # wish.
-  address: ":9389"
+  address: ":6003"
 
   # metricsOptions provides the details needed to configure the prometheus
   # metric data.  Metrics generally have the form:
@@ -173,7 +173,7 @@ service:
           - (( concat "flavor=" flavor))
         address: (( concat "http://" server ))
         scheme: "http"
-        port: 6001
+        port: 6000
         checks:
           -
             checkID: (( concat server ":http" ))
@@ -242,9 +242,10 @@ authHeader:
 ########################################
 # Argus Config for storing the webhook information
 webhookStore:
-  bucket: "webhooks-caduceus"
+  bucket: (( grab $ARGUS_BUCKET || "webhooks-caduceus" ))
   address:  (( grab $ARGUS_HOST || "argus:6600" ))
-  pullInterval: "2s"
+  pullInterval: (( grab $ARGUS_PULL_INTERVAL|| "2s" ))
+  defaultTTL: (( grab $ARGUS_DEFAULT_TTL || "300" ))
   auth:
     basic: (( grab $AUTH_HEADER || "Basic dXNlcjpwYXNz" ))
 ########################################

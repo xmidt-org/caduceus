@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/webhook"
@@ -12,28 +12,24 @@ import (
 )
 
 type Registry struct {
-	hookStore chrysom.Pusher
-	config    RegistryConfig
+	hookStore *chrysom.Client
+	config    chrysom.ClientConfig
 }
 
-type RegistryConfig struct {
-	Logger   log.Logger
-	Listener chrysom.ListenerFunc
-	Config   chrysom.ClientConfig
-}
-
-func NewRegistry(config RegistryConfig, listener chrysom.Listener) (*Registry, error) {
-	argus, err := chrysom.CreateClient(config.Config, chrysom.WithLogger(config.Logger))
+func NewRegistry(config chrysom.ClientConfig) (*Registry, error) {
+	argus, err := chrysom.CreateClient(config)
+	fmt.Println(config)
 	if err != nil {
 		return nil, err
 	}
-	if listener != nil {
-		argus.SetListener(listener)
+	err = argus.Start(context.Background())
+	if err != nil {
+		return nil, err
 	}
 
 	return &Registry{
-		config:    config,
 		hookStore: argus,
+		config:    config,
 	}, nil
 }
 
@@ -70,7 +66,7 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	_, err = r.hookStore.Push(model.Item{
 		Identifier: w.ID(),
 		Data:       webhook,
-		TTL:        r.config.Config.DefaultTTL,
+		TTL:        r.config.DefaultTTL,
 	}, "")
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
@@ -78,6 +74,10 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	jsonResponse(rw, http.StatusOK, "Success")
+}
+
+func (r *Registry) Stop(ctx context.Context) error {
+	return r.hookStore.Stop(ctx)
 }
 
 func convertItemToWebhook(item model.Item) (webhook.W, error) {
