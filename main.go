@@ -17,11 +17,11 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"io"
 	"net/http"
@@ -63,7 +63,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, aws.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, aws.Metrics, chrysom.Metrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -135,27 +135,12 @@ func caduceus(arguments []string) int {
 	}
 	measures := NewMeasures(metricsRegistry)
 
-	var updateListSizeMetric chrysom.ListenerFunc
-	updateListSizeMetric = func(items []model.Item) {
-		measures.WebhookListSize.Set(float64(len(items)))
-	}
-	webhookRegistry, err := NewRegistry(RegistryConfig{
-		Logger: logger,
-		Listener: func(items []model.Item) {
-			hooks := []webhook.W{}
-			for _, item := range items {
-				hook, err := convertItemToWebhook(item)
-				if err != nil {
-					log.WithPrefix(logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to convert Item to Webhook", "item", item)
-					continue
-				}
-				hooks = append(hooks, hook)
-			}
-			caduceusSenderWrapper.Update(hooks)
+	caduceusConfig.WebhookStore.Logger = logger
+	caduceusConfig.WebhookStore.HTTPClient = http.DefaultClient
+	caduceusConfig.WebhookStore.Listener = updateListeners(logger, caduceusSenderWrapper.Update, func(hooks []webhook.W) { measures.WebhookListSize.Set(float64(len(hooks))) })
+	caduceusConfig.WebhookStore.MetricsProvider = metricsRegistry
 
-		},
-		Config: caduceusConfig.WebhookStore,
-	}, updateListSizeMetric)
+	webhookRegistry, err := NewRegistry(caduceusConfig.WebhookStore)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
@@ -213,6 +198,7 @@ func caduceus(arguments []string) int {
 
 	// shutdown the sender wrapper gently so that all queued messages get serviced
 	caduceusSenderWrapper.Shutdown(true)
+	webhookRegistry.Stop(context.Background())
 	return 0
 }
 

@@ -1,39 +1,40 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"io/ioutil"
 	"net/http"
 )
 
 type Registry struct {
+	client    *chrysom.Client
 	hookStore chrysom.Pusher
-	config    RegistryConfig
+	config    chrysom.ClientConfig
 }
 
-type RegistryConfig struct {
-	Logger   log.Logger
-	Listener chrysom.ListenerFunc
-	Config   chrysom.ClientConfig
-}
-
-func NewRegistry(config RegistryConfig, listener chrysom.Listener) (*Registry, error) {
-	argus, err := chrysom.CreateClient(config.Config, chrysom.WithLogger(config.Logger))
+func NewRegistry(config chrysom.ClientConfig) (*Registry, error) {
+	argus, err := chrysom.CreateClient(config)
+	fmt.Println(config)
 	if err != nil {
 		return nil, err
 	}
-	if listener != nil {
-		argus.SetListener(listener)
+	err = argus.Start(context.Background())
+	if err != nil {
+		return nil, err
 	}
 
 	return &Registry{
-		config:    config,
+		client:    argus,
 		hookStore: argus,
+		config:    config,
 	}, nil
 }
 
@@ -42,6 +43,27 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(code)
 	rw.Write([]byte(fmt.Sprintf(`{"message":"%s"}`, msg)))
+}
+
+func updateListeners(logger log.Logger, listeners ...func([]webhook.W)) chrysom.ListenerFunc {
+	return func(items []model.Item) {
+		hooks := []webhook.W{}
+		for _, item := range items {
+			hook, err := convertItemToWebhook(item)
+			if err != nil {
+				if logger != nil {
+					log.WithPrefix(logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to convert Item to Webhook", "item", item)
+				}
+				continue
+			}
+			hooks = append(hooks, hook)
+		}
+		for _, listener := range listeners {
+			if listener != nil {
+				listener(hooks)
+			}
+		}
+	}
 }
 
 // update is an api call to processes a listener registration for adding and updating
@@ -70,7 +92,7 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	_, err = r.hookStore.Push(model.Item{
 		Identifier: w.ID(),
 		Data:       webhook,
-		TTL:        r.config.Config.DefaultTTL,
+		TTL:        r.config.DefaultTTL,
 	}, "")
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
@@ -78,6 +100,10 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	jsonResponse(rw, http.StatusOK, "Success")
+}
+
+func (r *Registry) Stop(ctx context.Context) error {
+	return r.client.Stop(ctx)
 }
 
 func convertItemToWebhook(item model.Item) (webhook.W, error) {
