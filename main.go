@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"io"
 	"net/http"
@@ -138,21 +137,7 @@ func caduceus(arguments []string) int {
 
 	caduceusConfig.WebhookStore.Logger = logger
 	caduceusConfig.WebhookStore.HTTPClient = http.DefaultClient
-	var webhookListener chrysom.ListenerFunc = func(items []model.Item) {
-		hooks := []webhook.W{}
-		for _, item := range items {
-			hook, err := convertItemToWebhook(item)
-			if err != nil {
-				log.WithPrefix(logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to convert Item to Webhook", "item", item)
-				continue
-			}
-			hooks = append(hooks, hook)
-		}
-		caduceusSenderWrapper.Update(hooks)
-		// Updated webhook list size metric for legacy metrics
-		measures.WebhookListSize.Set(float64(len(items)))
-	}
-	caduceusConfig.WebhookStore.Listener = webhookListener
+	caduceusConfig.WebhookStore.Listener = updateSender(caduceusSenderWrapper, logger, func(hooks []webhook.W) { measures.WebhookListSize.Set(float64(len(hooks))) })
 	caduceusConfig.WebhookStore.MetricsProvider = metricsRegistry
 
 	webhookRegistry, err := NewRegistry(caduceusConfig.WebhookStore)
