@@ -45,7 +45,7 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 	rw.Write([]byte(fmt.Sprintf(`{"message":"%s"}`, msg)))
 }
 
-func updateSender(wrapper SenderWrapper, logger log.Logger, listeners ...func([]webhook.W)) chrysom.ListenerFunc {
+func updateListeners(logger log.Logger, listeners ...func([]webhook.W)) chrysom.ListenerFunc {
 	return func(items []model.Item) {
 		hooks := []webhook.W{}
 		for _, item := range items {
@@ -57,9 +57,6 @@ func updateSender(wrapper SenderWrapper, logger log.Logger, listeners ...func([]
 				continue
 			}
 			hooks = append(hooks, hook)
-		}
-		if wrapper != nil {
-			wrapper.Update(hooks)
 		}
 		for _, listener := range listeners {
 			if listener != nil {

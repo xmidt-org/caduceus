@@ -181,7 +181,7 @@ func TestUpdateSender(t *testing.T) {
 		t.Run(tc.title, func(t *testing.T) {
 			assert := assert.New(t)
 			wrapper := &testWrapper{}
-			listener := updateSender(wrapper, logging.NewTestLogger(nil, t), tc.listener)
+			listener := updateListeners(logging.NewTestLogger(nil, t), wrapper.Update, tc.listener)
 
 			webhookPayload := map[string]interface{}{}
 			data, err := json.Marshal(&goodHook)

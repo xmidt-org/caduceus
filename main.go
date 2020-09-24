@@ -137,7 +137,7 @@ func caduceus(arguments []string) int {
 
 	caduceusConfig.WebhookStore.Logger = logger
 	caduceusConfig.WebhookStore.HTTPClient = http.DefaultClient
-	caduceusConfig.WebhookStore.Listener = updateSender(caduceusSenderWrapper, logger, func(hooks []webhook.W) { measures.WebhookListSize.Set(float64(len(hooks))) })
+	caduceusConfig.WebhookStore.Listener = updateListeners(logger, caduceusSenderWrapper.Update, func(hooks []webhook.W) { measures.WebhookListSize.Set(float64(len(hooks))) })
 	caduceusConfig.WebhookStore.MetricsProvider = metricsRegistry
 
 	webhookRegistry, err := NewRegistry(caduceusConfig.WebhookStore)
