@@ -921,7 +921,6 @@ func TestOverflow(t *testing.T) {
 }
 
 func TestDispatcherEmptyQueue(t *testing.T) {
-	fmt.Printf("\n\nTestingDispatcherEmptyQueue:\n\n")
 
 	assert := assert.New(t)
 
@@ -957,15 +956,14 @@ func TestDispatcherEmptyQueue(t *testing.T) {
 
 	caduceusSender := obs.(*CaduceusOutboundSender)
 
-	req := simpleRequest()
-	req.Destination = "event:iot"
-
 	numRequests := 10
 	index := 0
 	prefix := "0123"
 
 	queue := caduceusSender.queue.Load().(chan *wrp.Message)
 	for index < numRequests && index < obsf.QueueSize {
+		req := simpleRequest()
+		req.Destination = "event:iot"
 		req.TransactionUUID = prefix + strconv.Itoa(index)
 		obs.Queue(req)
 		index++
