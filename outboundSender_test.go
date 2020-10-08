@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
@@ -918,70 +917,4 @@ func TestOverflow(t *testing.T) {
 	obs.Shutdown(false)
 
 	assert.NotNil(output.String())
-}
-
-func TestDispatcherEmptyQueue(t *testing.T) {
-
-	assert := assert.New(t)
-
-	trans := &transport{}
-	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
-		resp = &http.Response{Status: "200 OK",
-			StatusCode: 200,
-		}
-		return
-	}
-
-	w := webhook.W{
-		Until:      time.Now().Add(10 * time.Minute),
-		FailureURL: "http://localhost:12345/bar",
-		Events:     []string{"iot", "test"},
-	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = "application/json"
-
-	obsf := simpleFactorySetup(trans, 4*time.Second, nil)
-	obsf.NumWorkers = 1
-	obsf.Listener = w
-	obs, err := obsf.New()
-	assert.Nil(err)
-
-	caduceusSender := obs.(*CaduceusOutboundSender)
-
-	numRequests := 10
-	index := 0
-	prefix := "0123"
-
-	queue := caduceusSender.queue.Load().(chan *wrp.Message)
-
-	for index < numRequests && index < obsf.QueueSize {
-		req := simpleRequest()
-		req.Destination = "event:iot"
-		req.TransactionUUID = prefix + strconv.Itoa(index)
-		obs.Queue(req)
-		index++
-	}
-
-	//make sure that the channel is still the same
-	assert.Equal(queue, caduceusSender.queue.Load().(chan *wrp.Message))
-
-	//change the deliverUntil of the outbound sender to a time in the past
-	caduceusSender.mutex.Lock()
-	caduceusSender.deliverUntil = time.Now().Add(10 * time.Minute * -1)
-	caduceusSender.mutex.Unlock()
-
-	//configure so that after a certain time the wait group stops waiting and moves on.
-	//This is to catch if emptying the queue is never called so the test doesn't wait forever
-	waitUntil := time.Now().Add(30 * time.Second)
-
-	for {
-		if len(caduceusSender.queue.Load().(chan *wrp.Message)) == 0 || time.Now().After(waitUntil) {
-			break
-		}
-	}
-
-	//make sure that there is a new channel and that its length is 0
-	assert.NotEqual(queue, caduceusSender.queue.Load().(chan *wrp.Message))
-	assert.Equal(0, len(caduceusSender.queue.Load().(chan *wrp.Message)))
-
 }
