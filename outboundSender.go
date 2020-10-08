@@ -515,7 +515,7 @@ Loop:
 				continue
 			}
 			if now.After(deliverUntil) {
-				obs.droppedExpiredCounter.Add(1.0)
+				obs.Empty(obs.droppedExpiredCounter)
 				continue
 			}
 			obs.workers.Acquire()
