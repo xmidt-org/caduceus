@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-kit/kit/log"
@@ -925,8 +924,6 @@ func TestDispatcherEmptyQueue(t *testing.T) {
 
 	assert := assert.New(t)
 
-	var wg sync.WaitGroup
-
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		resp = &http.Response{Status: "200 OK",
@@ -956,6 +953,7 @@ func TestDispatcherEmptyQueue(t *testing.T) {
 	prefix := "0123"
 
 	queue := caduceusSender.queue.Load().(chan *wrp.Message)
+
 	for index < numRequests && index < obsf.QueueSize {
 		req := simpleRequest()
 		req.Destination = "event:iot"
@@ -967,6 +965,7 @@ func TestDispatcherEmptyQueue(t *testing.T) {
 	//make sure that the channel is still the same
 	assert.Equal(queue, caduceusSender.queue.Load().(chan *wrp.Message))
 
+	//change the deliverUntil of the outbound sender to a time in the past
 	caduceusSender.mutex.Lock()
 	caduceusSender.deliverUntil = time.Now().Add(10 * time.Minute * -1)
 	caduceusSender.mutex.Unlock()
@@ -975,8 +974,10 @@ func TestDispatcherEmptyQueue(t *testing.T) {
 	//This is to catch if emptying the queue is never called so the test doesn't wait forever
 	waitUntil := time.Now().Add(30 * time.Second)
 
-	for len(caduceusSender.queue.Load().(chan *wrp.Message)) > 0 && time.Now().Before(waitUntil) {
-		wg.Wait()
+	for {
+		if len(caduceusSender.queue.Load().(chan *wrp.Message)) == 0 || time.Now().After(waitUntil) {
+			break
+		}
 	}
 
 	//make sure that there is a new channel and that its length is 0
