@@ -16,7 +16,7 @@ vendor:
 	$(GO) mod vendor
 
 .PHONY: build
-build: vendor
+build:
 	CGO_ENABLED=0 $(GO) build $(GOBUILDFLAGS)
 
 .PHONY: version
@@ -56,7 +56,7 @@ docker:
 		-f ./deploy/Dockerfile -t $(DOCKER_ORG)/$(APP):$(PROGVER) .
 
 .PHONY: local-docker
-local-docker:
+local-docker: vendor
 	docker build \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg GITCOMMIT=$(GITCOMMIT) \
