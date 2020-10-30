@@ -24,7 +24,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/health"
-	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/webpa-common/xwebhook"
 	"github.com/xmidt-org/wrp-go/v2"
 )
 
@@ -78,7 +78,7 @@ type mockSenderWrapper struct {
 	mock.Mock
 }
 
-func (m *mockSenderWrapper) Update(list []webhook.W) {
+func (m *mockSenderWrapper) Update(list []xwebhook.Webhook) {
 	m.Called(list)
 }
 

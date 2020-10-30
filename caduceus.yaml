@@ -233,40 +233,41 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 ########################################
 #   Webhook Related Configuration
 ########################################
-# webhookStore provides configuration for storing and obtaining webhook
+# webhook provides configuration for storing and obtaining webhook
 # information using argus.
-webhookStore:
-  # bucket to store and retrieve webhooks.
-  bucket: "webhooks-caduceus"
+webhook:
+  argus:
+    # bucket to store and retrieve webhooks.
+    bucket: "webhooks"
 
-  # address it the the location to talk to argus.
-  address: "http://argus:6600"
+    # address it the the location to talk to argus.
+    address: "http://localhost:6600"
 
-  # pullInterval is how often to call argus to update the webhook structure.
-  pullInterval: "2s"
+    # pullInterval is how often to call argus to update the webhook structure.
+    pullInterval: "5s"
 
-  # auth the authentication method for argus.
-  auth:
-    # basic configures basic authentication for argus.
-    # Must be of form: 'Basic xyz=='
-    basic: "Basic dXNlcjpwYXNz"
-#
-#      # jwt configures jwt style authentication for argus.
-#      JWT:
-#        # requestHeaders are added to the request for the token.
-#        # (Optional)
-#        # requestHeaders:
-#        #   "": ""
-#
-#        # authURL is the URL to access for the token.
-#        authURL: ""
-#
-#        # timeout is how long the request to get the token will take before
-#        # timing out.
-#        timeout: "1m"
-#
-#        # buffer is the length of time before a token expires to get a new token.
-#        buffer: "2m"
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: "Basic dXNlcjpwYXNz"
+  #
+  #      # jwt configures jwt style authentication for argus.
+  #      JWT:
+  #        # requestHeaders are added to the request for the token.
+  #        # (Optional)
+  #        # requestHeaders:
+  #        #   "": ""
+  #
+  #        # authURL is the URL to access for the token.
+  #        authURL: ""
+  #
+  #        # timeout is how long the request to get the token will take before
+  #        # timing out.
+  #        timeout: "1m"
+  #
+  #        # buffer is the length of time before a token expires to get a new token.
+  #        buffer: "2m"
 
 ########################################
 #   Delivery Pipeline Related Configuration

@@ -20,12 +20,11 @@ func TestNewPrimaryHandler(t *testing.T) {
 		l                  = logging.New(nil)
 		viper              = viper.New()
 		sw                 = &ServerHandler{}
-		reg                = &Registry{}
 		expectedAuthHeader = []string{"Basic xxxxxxx"}
 	)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	if _, err := NewPrimaryHandler(l, viper, sw, reg); err != nil {
+	if _, err := NewPrimaryHandler(l, viper, sw, nil); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 
@@ -91,7 +90,7 @@ func TestMuxServerConfig(t *testing.T) {
 	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, &Registry{})
+	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, nil)
 
 	t.Run("TestMuxResponseCorrectMSP", func(t *testing.T) {
 		req := exampleRequest("1234", "application/msgpack", "/api/v3/notify")

@@ -24,7 +24,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/webpa-common/xwebhook"
 	"github.com/xmidt-org/wrp-go/v2"
 
 	//"github.com/stretchr/testify/mock"
@@ -85,14 +85,14 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		}
 	}
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{"iot", "test"},
 	}
 	w.Config.URL = "http://localhost:9999/foo"
 	w.Config.ContentType = "application/json"
 	w.Config.Secret = "123456"
-	w.Matcher.DeviceId = matcher
+	w.Matcher.DeviceID = matcher
 
 	// test dc metric
 	fakeDC := new(mockCounter)
@@ -292,7 +292,7 @@ func TestAltURL(t *testing.T) {
 
 	urls := map[string]int{}
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{".*"},
 	}
@@ -512,7 +512,7 @@ func TestInvalidEventRegex(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{"[[:123"},
 	}
@@ -536,7 +536,7 @@ func TestInvalidUrl(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{"iot"},
 	}
@@ -553,7 +553,7 @@ func TestInvalidUrl(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := webhook.W{
+	w2 := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{"iot"},
 	}
@@ -587,7 +587,7 @@ func TestInvalidSender(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{"iot"},
 	}
@@ -609,7 +609,7 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:      time.Now().Add(60 * time.Second),
 		FailureURL: "invalid",
 		Events:     []string{"iot"},
@@ -630,7 +630,7 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until: time.Now().Add(60 * time.Second),
 	}
 	w.Config.URL = "http://localhost:9999/foo"
@@ -645,7 +645,7 @@ func TestInvalidEvents(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := webhook.W{
+	w2 := xwebhook.Webhook{
 		Until:  time.Now().Add(60 * time.Second),
 		Events: []string{"iot(.*"},
 	}
@@ -667,7 +667,7 @@ func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
-	w1 := webhook.W{
+	w1 := xwebhook.Webhook{
 		Until:  now,
 		Events: []string{"iot", "test"},
 	}
@@ -675,7 +675,7 @@ func TestUpdate(t *testing.T) {
 	w1.Config.ContentType = "application/msgpack"
 
 	later := time.Now().Add(30 * time.Second)
-	w2 := webhook.W{
+	w2 := xwebhook.Webhook{
 		Until:  later,
 		Events: []string{"more", "messages"},
 	}
@@ -707,7 +707,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	var output bytes.Buffer
 	logger := getNewTestOutputLogger(&output)
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:  time.Now(),
 		Events: []string{"iot", "test"},
 	}
@@ -753,7 +753,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		return
 	}
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:      time.Now(),
 		FailureURL: "http://localhost:12345/bar",
 		Events:     []string{"iot", "test"},
@@ -797,7 +797,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		return
 	}
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:      time.Now(),
 		FailureURL: "http://localhost:12345/bar",
 		Events:     []string{"iot", "test"},
@@ -834,7 +834,7 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		return
 	}
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:      time.Now(),
 		FailureURL: "http://localhost:12345/bar",
 		Events:     []string{"iot", "test"},
@@ -882,7 +882,7 @@ func TestOverflow(t *testing.T) {
 		return
 	}
 
-	w := webhook.W{
+	w := xwebhook.Webhook{
 		Until:      time.Now().Add(30 * time.Second),
 		FailureURL: "http://localhost:12345/bar",
 		Events:     []string{"iot", "test"},

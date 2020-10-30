@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/webpa-common/xwebhook"
 	"github.com/xmidt-org/wrp-go/v2"
 )
 
@@ -184,26 +184,26 @@ func TestSwSimple(t *testing.T) {
 
 	assert.Equal(int32(0), trans.i)
 
-	w1 := webhook.W{
+	w1 := xwebhook.Webhook{
 		Duration: 6 * time.Second,
 		Until:    time.Now().Add(6 * time.Second),
 		Events:   []string{"iot"},
 	}
 	w1.Config.URL = "http://localhost:8888/foo"
 	w1.Config.ContentType = "application/json"
-	w1.Matcher.DeviceId = []string{"mac:112233445566"}
+	w1.Matcher.DeviceID = []string{"mac:112233445566"}
 
-	w2 := webhook.W{
+	w2 := xwebhook.Webhook{
 		Duration: 4 * time.Second,
 		Until:    time.Now().Add(4 * time.Second),
 		Events:   []string{"iot", "test/extra-stuff", "wrp"},
 	}
 	w2.Config.URL = "http://localhost:9999/foo"
 	w2.Config.ContentType = "application/json"
-	w2.Matcher.DeviceId = []string{"mac:112233445566"}
+	w2.Matcher.DeviceID = []string{"mac:112233445566"}
 
 	// Add 2 listeners
-	list := []webhook.W{w1, w2}
+	list := []xwebhook.Webhook{w1, w2}
 
 	sw.Update(list)
 
@@ -217,14 +217,14 @@ func TestSwSimple(t *testing.T) {
 	// Send it again
 	sw.Queue(test)
 
-	w3 := webhook.W{
+	w3 := xwebhook.Webhook{
 		Events: []string{"iot"},
 	}
 	w3.Config.URL = "http://localhost:9999/foo"
 	w3.Config.ContentType = "application/json"
 
 	// We get a registration
-	list2 := []webhook.W{w3}
+	list2 := []xwebhook.Webhook{w3}
 	sw.Update(list2)
 	time.Sleep(time.Second)
 
