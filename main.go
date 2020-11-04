@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/webpa-common/xwebhook"
 
 	"github.com/go-kit/kit/log/level"
@@ -62,7 +61,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, xwebhook.Metrics, chrysom.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, xwebhook.Metrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {

@@ -15,7 +15,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.5.1
-	github.com/xmidt-org/argus v0.3.6
-	github.com/xmidt-org/webpa-common v1.11.2-0.20201030190224-a005079f9c5a
+	github.com/xmidt-org/argus v0.3.9 // indirect
+	github.com/xmidt-org/webpa-common v1.11.2
 	github.com/xmidt-org/wrp-go/v2 v2.0.0
 )
