@@ -230,43 +230,47 @@ log:
 # (Optional)
 authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 
-########################################
-#   Webhook Related Configuration
-########################################
-# webhookStore provides configuration for storing and obtaining webhook
-# information using argus.
-webhookStore:
-  # bucket to store and retrieve webhooks.
-  bucket: "webhooks-caduceus"
+##############################################################################
+# Webhooks Related Configuration 
+##############################################################################
+# webhook provides configuration for storing and obtaining webhook
+# information using Argus.
+webhook:
+  argus: 
+    # bucket is the partition name for storing webhooks.
+    bucket: "webhooks"
 
-  # address it the the location to talk to argus.
-  address: "http://argus:6600"
+    # pullInterval provides how often the current webhooks list gets refreshed.
+    pullInterval: 5s
 
-  # pullInterval is how often to call argus to update the webhook structure.
-  pullInterval: "2s"
+    # address is Argus' network location.
+    address: "http://localhost:6600"
 
-  # auth the authentication method for argus.
-  auth:
-    # basic configures basic authentication for argus.
-    # Must be of form: 'Basic xyz=='
-    basic: "Basic dXNlcjpwYXNz"
-#
-#      # jwt configures jwt style authentication for argus.
-#      JWT:
-#        # requestHeaders are added to the request for the token.
-#        # (Optional)
-#        # requestHeaders:
-#        #   "": ""
-#
-#        # authURL is the URL to access for the token.
-#        authURL: ""
-#
-#        # timeout is how long the request to get the token will take before
-#        # timing out.
-#        timeout: "1m"
-#
-#        # buffer is the length of time before a token expires to get a new token.
-#        buffer: "2m"
+    # adminToken provides internal access to webhooks stored on behalf of users. 
+    adminToken: "Hzu1WpIe7S8G"
+
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: "Basic dXNlcjpwYXNz"
+  #
+  #    # jwt configures jwt style authentication for argus.
+  #    JWT:
+  #      # requestHeaders are added to the request for the token.
+  #      # (Optional)
+  #      # requestHeaders:
+  #      #   "": ""
+  #
+  #      # authURL is the URL to access the token.
+  #      authURL: ""
+  #
+  #      # timeout is how long the request to get the token will take before
+  #      # timing out.
+  #      timeout: "1m"
+  #
+  #      # buffer is the length of time before a token expires to get a new token.
+  #      buffer: "2m"
 
 ########################################
 #   Delivery Pipeline Related Configuration

@@ -17,12 +17,8 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/webpa-common/webhook"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
@@ -30,6 +26,9 @@ import (
 	"os/signal"
 	"runtime"
 	"time"
+
+	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/webpa-common/xwebhook"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
@@ -39,7 +38,6 @@ import (
 	"github.com/xmidt-org/webpa-common/concurrent"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/server"
-	"github.com/xmidt-org/webpa-common/webhook/aws"
 )
 
 const (
@@ -63,7 +61,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, aws.Metrics, chrysom.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, xwebhook.Metrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -133,21 +131,16 @@ func caduceus(arguments []string) int {
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
 	}
-	measures := NewMeasures(metricsRegistry)
-
-	caduceusConfig.WebhookStore.Logger = logger
-	caduceusConfig.WebhookStore.HTTPClient = http.DefaultClient
-	caduceusConfig.WebhookStore.Listener = updateListeners(logger, caduceusSenderWrapper.Update, func(hooks []webhook.W) { measures.WebhookListSize.Set(float64(len(hooks))) })
-	caduceusConfig.WebhookStore.MetricsProvider = metricsRegistry
-
-	webhookRegistry, err := NewRegistry(caduceusConfig.WebhookStore)
+	caduceusConfig.Webhook.Argus.Logger = logger
+	caduceusConfig.Webhook.Argus.MetricsProvider = metricsRegistry
+	svc, stopWatches, err := xwebhook.Initialize(&caduceusConfig.Webhook, caduceusSenderWrapper)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, webhookRegistry)
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
 		return 1
@@ -198,7 +191,7 @@ func caduceus(arguments []string) int {
 
 	// shutdown the sender wrapper gently so that all queued messages get serviced
 	caduceusSenderWrapper.Shutdown(true)
-	webhookRegistry.Stop(context.Background())
+	stopWatches()
 	return 0
 }
 

@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/xmidt-org/webpa-common/webhook"
+	"github.com/xmidt-org/webpa-common/xwebhook"
 	"github.com/xmidt-org/wrp-go/v2"
 )
 
@@ -68,7 +68,7 @@ type SenderWrapperFactory struct {
 }
 
 type SenderWrapper interface {
-	Update([]webhook.W)
+	Update([]xwebhook.Webhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -129,7 +129,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
+func (sw *CaduceusSenderWrapper) Update(list []xwebhook.Webhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Sender:           sw.sender,
@@ -144,13 +144,13 @@ func (sw *CaduceusSenderWrapper) Update(list []webhook.W) {
 	}
 
 	ids := make([]struct {
-		Listener webhook.W
+		Listener xwebhook.Webhook
 		ID       string
 	}, len(list))
 
 	for i, v := range list {
 		ids[i].Listener = v
-		ids[i].ID = v.ID()
+		ids[i].ID = v.Config.URL
 	}
 
 	sw.mutex.Lock()

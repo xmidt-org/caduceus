@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.4.1]
+- update argus integration [#239](https://github.com/xmidt-org/caduceus/pull/239)
 - switch webhook configuration from sns to argus [#202](https://github.com/xmidt-org/caduceus/pull/202)
 - removed `/hooks` endpoint [#202](https://github.com/xmidt-org/caduceus/pull/202)
 - Updated references to the main branch [#227](https://github.com/xmidt-org/caduceus/pull/227)
@@ -113,7 +116,9 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.1...HEAD
+[v0.4.1]: https://github.com/Comcast/caduceus/compare/v0.4.0...v0.4.1
+[v0.4.0]: https://github.com/Comcast/caduceus/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/Comcast/caduceus/compare/v0.2.8...v0.3.0
 [v0.2.8]: https://github.com/Comcast/caduceus/compare/v0.2.7...v0.2.8
 [v0.2.7]: https://github.com/Comcast/caduceus/compare/v0.2.6...v0.2.7

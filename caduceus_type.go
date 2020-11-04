@@ -17,13 +17,13 @@
 package main
 
 import (
-	"github.com/xmidt-org/argus/chrysom"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xwebhook"
 	"github.com/xmidt-org/wrp-go/v2"
 )
 
@@ -35,7 +35,7 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
-	WebhookStore     chrysom.ClientConfig
+	Webhook          xwebhook.Config
 	AllowInsecureTLS bool
 }
 
