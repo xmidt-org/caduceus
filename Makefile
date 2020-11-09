@@ -69,8 +69,7 @@ style: vendor
 
 .PHONY: test
 test: vendor
-	$(GO) test -v -race -coverprofile=coverage.txt ./...
-	$(GO) test -v -race -json ./... > report.json
+	$(GO) test -v -race -json -coverprofile=coverage.txt ./... > report.json
 
 .PHONY: test-cover
 test-cover: test
