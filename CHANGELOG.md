@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+
+## [v0.4.2]
+### Fixed
+- Bug in which only mTLS was allowed as valid config for a webpa server. [#242](https://github.com/xmidt-org/caduceus/pull/242) 
+
 ## [v0.4.1]
 - update argus integration [#239](https://github.com/xmidt-org/caduceus/pull/239)
 - switch webhook configuration from sns to argus [#202](https://github.com/xmidt-org/caduceus/pull/202)
@@ -116,7 +121,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.2...HEAD
+[v0.4.2]: https://github.com/Comcast/caduceus/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/Comcast/caduceus/compare/v0.4.0...v0.4.1
 [v0.4.0]: https://github.com/Comcast/caduceus/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/Comcast/caduceus/compare/v0.2.8...v0.3.0
