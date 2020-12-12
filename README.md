@@ -1,10 +1,8 @@
 # caduceus
 (pronounced "kuh-doo-see-us")
 
-[![Build Status](https://travis-ci.com/xmidt-org/caduceus.svg?branch=main)](https://travis-ci.com/xmidt-org/caduceus)
+[![Build Status](https://github.com/xmidt-org/caduceus/workflows/CI/badge.svg)](https://github.com/xmidt-org/caduceus/actions)
 [![codecov.io](http://codecov.io/github/xmidt-org/caduceus/coverage.svg?branch=main)](http://codecov.io/github/xmidt-org/caduceus?branch=main)
-[![Code Climate](https://codeclimate.com/github/xmidt-org/caduceus/badges/gpa.svg)](https://codeclimate.com/github/xmidt-org/caduceus)
-[![Issue Count](https://codeclimate.com/github/xmidt-org/caduceus/badges/issue_count.svg)](https://codeclimate.com/github/xmidt-org/caduceus)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/caduceus)](https://goreportcard.com/report/github.com/xmidt-org/caduceus)
 [![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/caduceus/blob/main/LICENSE)
 [![GitHub release](https://img.shields.io/github/release/xmidt-org/caduceus.svg)](CHANGELOG.md)
