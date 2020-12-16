@@ -2,8 +2,6 @@
 linters-settings:
   misspell:
     locale: US
-  goconst:
-    ignore-tests: true
 
 linters:
   enable:
