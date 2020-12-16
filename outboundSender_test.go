@@ -307,11 +307,7 @@ func TestAltURL(t *testing.T) {
 
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (*http.Response, error) {
-		if _, ok := urls[req.URL.Path]; ok {
-			urls[req.URL.Path]++
-		} else {
-			urls[req.URL.Path] = 1
-		}
+		urls[req.URL.Path] += 1
 		return &http.Response{StatusCode: 429}, nil
 	}
 
