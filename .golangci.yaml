@@ -17,3 +17,22 @@ linters:
   disable:
     - errcheck
     - ineffassign
+
+issues:
+  exclude-rules:
+    - path: main\.go
+      # Accept TLSClientConfig with InsecureSkipVerify
+      text: "G402:"
+
+    - path: main\.go
+      # Accept pprof is automatically exposed
+      text: "G108:"
+
+    - path: outboundSender\.go
+      # Accept sha1 for signature
+      text: "G505:"
+
+    - path: outboundSender_test\.go
+      # Accept sha1 for signature
+      linters:
+        - goconst
