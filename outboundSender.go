@@ -56,16 +56,6 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 	`capacity to handle notifications, or reduce the number of notifications ` +
 	`you have requested.`
 
-// outboundRequest stores the outgoing request and assorted data that has been
-// collected so far (to save on processing the information again).
-type outboundRequest struct {
-	msg         *wrp.Message
-	event       string
-	transID     string
-	deviceID    string
-	contentType string
-}
-
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
@@ -337,7 +327,7 @@ func (obs *CaduceusOutboundSender) Update(wh xwebhook.Webhook) (err error) {
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
-	if false == gentle {
+	if !gentle {
 		// need to close the channel we're going to replace, in case it doesn't
 		// have any events in it.
 		close(obs.queue.Load().(chan *wrp.Message))
@@ -375,12 +365,12 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 
 	now := time.Now()
 
-	if false == obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
+	if !obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
 		return
 	}
 
 	for _, eventRegex := range events {
-		if false == eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+		if !eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
 			// regex didn't match; don't do anything
 			continue
 		}
@@ -429,13 +419,13 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 }
 
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
-	if false == now.After(dropUntil) {
+	if !now.After(dropUntil) {
 		// client was cut off
 		obs.droppedCutoffCounter.Add(1.0)
 		return false
 	}
 
-	if false == now.Before(deliverUntil) {
+	if !now.Before(deliverUntil) {
 		// outside delivery window
 		obs.droppedExpiredBeforeQueueCounter.Add(1.0)
 		return false
@@ -453,7 +443,6 @@ func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
 	obs.queueDepthGauge.Set(0.0)
-	return
 }
 
 func (obs *CaduceusOutboundSender) dispatcher() {

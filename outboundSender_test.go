@@ -863,8 +863,7 @@ func TestOverflow(t *testing.T) {
 	var output bytes.Buffer
 	logger := getNewTestOutputLogger(&output)
 
-	var block int32
-	block = 0
+	block := int32(0)
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 		if req.URL.String() == "http://localhost:9999/foo" {

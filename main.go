@@ -16,6 +16,7 @@
  */
 package main
 
+//
 import (
 	"crypto/tls"
 	"fmt"
@@ -157,7 +158,7 @@ func caduceus(arguments []string) int {
 	//
 	// Now, initialize the service discovery infrastructure
 	//
-	if false == v.IsSet("service") {
+	if !v.IsSet("service") {
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "no service discovery configured")
 	} else {
 		e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
