@@ -19,6 +19,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -98,6 +100,10 @@ func TestServerHandler(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusAccepted, resp.StatusCode)
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		fakeHandler.AssertExpectations(t)
 	})
 }
@@ -145,6 +151,10 @@ func TestServerHandlerFixWrp(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusAccepted, resp.StatusCode)
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		fakeHandler.AssertExpectations(t)
 	})
 }
@@ -180,6 +190,10 @@ func TestServerHandlerFull(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 	})
 }
 
@@ -219,6 +233,10 @@ func TestServerEmptyPayload(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 	})
 }
 
@@ -260,6 +278,10 @@ func TestServerUnableToReadBody(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 	})
 }
 
@@ -301,5 +323,9 @@ func TestServerInvalidBody(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 	})
 }

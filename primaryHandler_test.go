@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -100,7 +102,10 @@ func TestMuxServerConfig(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 		resp := w.Result()
-
+		if nil != resp.Body {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+		}
 		assert.Equal(http.StatusAccepted, resp.StatusCode)
 	})
 }

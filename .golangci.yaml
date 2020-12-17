@@ -32,6 +32,15 @@ issues:
       # Accept sha1 for signature
       text: "G505:"
 
+    - path: outboundSender\.go
+      # Accept normal random function for determining a starting node
+      text: "G404:"
+
+    - path: outboundSender\.go
+      # The linter doesn't figure out that the closure below this code is valid.
+      source: ".*xhttp.RetryTransactor.*"
+      text: "response body must be closed"
+
     - path: outboundSender_test\.go
       # Accept sha1 for signature
       linters:

@@ -705,4 +705,9 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 
 	// Success
+
+	if nil != resp.Body {
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
 }
