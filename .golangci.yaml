@@ -38,6 +38,10 @@ issues:
       text: "G505:"
 
     - path: outboundSender\.go
+      # Acceptable case for the deprecated constant
+      text: "wrp.MimeTypeWrp is deprecated"
+
+    - path: outboundSender\.go
       # Accept normal random function for determining a starting node
       text: "G404:"
 

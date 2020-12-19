@@ -26,7 +26,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	uuid "github.com/satori/go.uuid"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // Below is the struct that will implement our ServeHTTP method
@@ -107,7 +107,7 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	// Default to "application/json" if there is no content type, otherwise
 	// use the one the source specified.
 	if "" == msg.ContentType {
-		msg.ContentType = "application/json"
+		msg.ContentType = wrp.MimeTypeJson
 		reason = emptyContentTypeReason
 	}
 

@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xwebhook"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 type result struct {
@@ -190,7 +190,7 @@ func TestSwSimple(t *testing.T) {
 		Events:   []string{"iot"},
 	}
 	w1.Config.URL = "http://localhost:8888/foo"
-	w1.Config.ContentType = "application/json"
+	w1.Config.ContentType = wrp.MimeTypeJson
 	w1.Matcher.DeviceID = []string{"mac:112233445566"}
 
 	w2 := xwebhook.Webhook{
@@ -199,7 +199,7 @@ func TestSwSimple(t *testing.T) {
 		Events:   []string{"iot", "test/extra-stuff", "wrp"},
 	}
 	w2.Config.URL = "http://localhost:9999/foo"
-	w2.Config.ContentType = "application/json"
+	w2.Config.ContentType = wrp.MimeTypeJson
 	w2.Matcher.DeviceID = []string{"mac:112233445566"}
 
 	// Add 2 listeners
@@ -221,7 +221,7 @@ func TestSwSimple(t *testing.T) {
 		Events: []string{"iot"},
 	}
 	w3.Config.URL = "http://localhost:9999/foo"
-	w3.Config.ContentType = "application/json"
+	w3.Config.ContentType = wrp.MimeTypeJson
 
 	// We get a registration
 	list2 := []xwebhook.Webhook{w3}
