@@ -46,6 +46,10 @@ issues:
       text: "G404:"
 
     - path: outboundSender\.go
+      # Ingore the ask to preallocate events
+      text: "Consider preallocating `events`"
+
+    - path: outboundSender\.go
       # The linter doesn't figure out that the closure below this code is valid.
       source: ".*xhttp.RetryTransactor.*"
       text: "response body must be closed"
@@ -54,3 +58,7 @@ issues:
       # Accept sha1 for signature
       linters:
         - goconst
+
+    - path: senderWrapper_test\.go
+      # Ignore unused fn member as it is used
+      text: "`fn` is unused"
