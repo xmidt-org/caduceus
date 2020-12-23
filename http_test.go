@@ -30,14 +30,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 func exampleRequest(list ...string) *http.Request {
 	var buffer bytes.Buffer
 
 	trans := "1234"
-	ct := "application/msgpack"
+	ct := wrp.MimeTypeMsgpack
 	url := "localhost:8080"
 
 	for i := range list {
@@ -62,7 +62,7 @@ func exampleRequest(list ...string) *http.Request {
 
 	r := bytes.NewReader(buffer.Bytes())
 	req := httptest.NewRequest("POST", url, r)
-	req.Header.Set("Content-Type", "application/msgpack")
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
 	return req
 }
@@ -125,7 +125,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
 
 	fakeIncomingContentTypeCount := new(mockCounter)
-	fakeIncomingContentTypeCount.On("With", []string{"content_type", "application/msgpack"}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("With", []string{"content_type", wrp.MimeTypeMsgpack}).Return(fakeIncomingContentTypeCount)
 	fakeIncomingContentTypeCount.On("With", []string{"content_type", ""}).Return(fakeIncomingContentTypeCount)
 	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
 
@@ -205,7 +205,7 @@ func TestServerEmptyPayload(t *testing.T) {
 	var buffer bytes.Buffer
 	r := bytes.NewReader(buffer.Bytes())
 	req := httptest.NewRequest("POST", "localhost:8080", r)
-	req.Header.Set("Content-Type", "application/msgpack")
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
 	logger := logging.DefaultLogger()
 	fakeHandler := new(mockHandler)
@@ -250,7 +250,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 
 	_, _ = r.Read(nil)
 	req := httptest.NewRequest("POST", "localhost:8080", r)
-	req.Header.Set("Content-Type", "application/msgpack")
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
 	logger := logging.DefaultLogger()
 	fakeHandler := new(mockHandler)
@@ -294,7 +294,7 @@ func TestServerInvalidBody(t *testing.T) {
 
 	_, _ = r.Read(nil)
 	req := httptest.NewRequest("POST", "localhost:8080", r)
-	req.Header.Set("Content-Type", "application/msgpack")
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
 	logger := logging.DefaultLogger()
 	fakeHandler := new(mockHandler)

@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 func TestCaduceusHandler(t *testing.T) {

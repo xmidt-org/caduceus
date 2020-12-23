@@ -45,8 +45,8 @@ import (
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/xmidt-org/webpa-common/xwebhook"
-	"github.com/xmidt-org/wrp-go/v2"
-	"github.com/xmidt-org/wrp-go/v2/wrphttp"
+	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
 
 // failureText is human readable text for the failure message
@@ -538,10 +538,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
 	switch acceptType {
-	case "wrp", "application/msgpack", "application/wrp":
+	case "wrp", wrp.MimeTypeMsgpack, wrp.MimeTypeWrp:
 		// WTS - We should pass the original, raw WRP event instead of
 		// re-encoding it.
-		contentType = "application/msgpack"
+		contentType = wrp.MimeTypeMsgpack
 		buffer := bytes.NewBuffer([]byte{})
 		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
 		encoder.Encode(msg)
@@ -680,7 +680,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 			failureURL, "for", obs.id, logging.ErrorKey(), err)
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", wrp.MimeTypeJson)
 
 	if "" != secret {
 		h := hmac.New(sha1.New, []byte(secret))
