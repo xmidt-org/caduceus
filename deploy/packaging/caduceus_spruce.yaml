@@ -242,9 +242,10 @@ authHeader:
 ########################################
 # Argus Config for storing the webhook information
 webhookStore:
-  bucket: (( grab $ARGUS_BUCKET || "webhooks-caduceus" ))
+  bucket: (( grab $ARGUS_BUCKET || "webhooks" ))
   address:  (( grab $ARGUS_HOST || "argus:6600" ))
-  pullInterval: (( grab $ARGUS_PULL_INTERVAL|| "2s" ))
+  pullInterval: (( grab $ARGUS_PULL_INTERVAL || "2s" ))
+  adminToken: (( grab $ARGUS_ADMIN_TOKEN || "Hzu1WpIe7S8G" ))
   defaultTTL: (( grab $ARGUS_DEFAULT_TTL || "300" ))
   auth:
     basic: (( grab $AUTH_HEADER || "Basic dXNlcjpwYXNz" ))

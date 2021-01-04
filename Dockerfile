@@ -26,7 +26,7 @@ FROM alpine:3.12.1
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /src/caduceus /src/caduceus.yaml /src/deploy/packaging/entrypoint.sh /go/bin/spruce /src/Dockerfile /src/NOTICE /src/LICENSE /src/CHANGELOG.md /
-COPY --from=builder /src/deploy/packaging/caduceus.yaml /tmp/caduceus.yaml
+COPY --from=builder /src/deploy/packaging/caduceus_spruce.yaml /tmp/caduceus_spruce.yaml
 
 RUN mkdir /etc/caduceus/ && touch /etc/caduceus/caduceus.yaml && chmod 666 /etc/caduceus/caduceus.yaml
 
