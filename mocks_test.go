@@ -17,15 +17,12 @@
 package main
 
 import (
-	"net/http"
-	"time"
 	"unicode/utf8"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/health"
 	"github.com/xmidt-org/webpa-common/xwebhook"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // mockHandler only needs to mock the `HandleRequest` method
@@ -35,42 +32,6 @@ type mockHandler struct {
 
 func (m *mockHandler) HandleRequest(workerID int, msg *wrp.Message) {
 	m.Called(workerID, msg)
-}
-
-// mockHealthTracker needs to mock things from both the `HealthTracker`
-// interface as well as the `health.Monitor` interface
-type mockHealthTracker struct {
-	mock.Mock
-}
-
-func (m *mockHealthTracker) SendEvent(healthFunc health.HealthFunc) {
-	m.Called(healthFunc)
-}
-
-func (m *mockHealthTracker) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	m.Called(response, request)
-}
-
-func (m *mockHealthTracker) IncrementBucket(inSize int) {
-	m.Called(inSize)
-}
-
-// mockOutboundSender needs to mock things that the `OutboundSender` does
-type mockOutboundSender struct {
-	mock.Mock
-}
-
-func (m *mockOutboundSender) Extend(until time.Time) {
-	m.Called(until)
-}
-
-func (m *mockOutboundSender) Shutdown(gentle bool) {
-	m.Called(gentle)
-}
-
-func (m *mockOutboundSender) RetiredSince() time.Time {
-	arguments := m.Called()
-	return arguments.Get(0).(time.Time)
 }
 
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fix a bug where the response bodies were not cleaned up when informing a client of a failure. [#250](https://github.com/xmidt-org/caduceus/pull/250)
 - Migrate to github actions, normalize analysis tools, Dockerfiles and Makefiles. [#246](https://github.com/xmidt-org/caduceus/pull/246)
 - Update buildtime format in Makefile to match RPM spec file. [#245](https://github.com/xmidt-org/caduceus/pull/245)
+- Update to use wrp-go v3 to be able to use the MIME constants. [#252](https://github.com/xmidt-org/caduceus/pull/252)
+- Remove some unused code. [#TBD](https://github.com/xmidt-org/caduceus/pull/TBD)
 
 ## [v0.4.2]
 ### Fixed

@@ -25,7 +25,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/xwebhook"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation

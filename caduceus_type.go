@@ -24,7 +24,7 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xwebhook"
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // Below is the struct we're using to contain the data from a provided config file

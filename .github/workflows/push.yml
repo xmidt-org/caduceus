@@ -37,6 +37,20 @@ jobs:
           curl -s https://codecov.io/bash | bash
           echo "codecov done"
 
+      # upload report as artifact
+      - name: Archive unit tests report
+        uses: actions/upload-artifact@v2
+        with:
+          name: report
+          path: report.json
+
+      # upload coverage as artifact
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage
+          path: coverage.txt
+
   lint:
     strategy:
       matrix:
@@ -68,12 +82,21 @@ jobs:
         uses: creekorful/goreportcard-action@v1.0
 
   sonarcloud:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
           # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
+      - name: Download unit tests report
+        uses: actions/download-artifact@v2
+        with:
+          name: report
+      - name: Download code coverage results
+        uses: actions/download-artifact@v2
+        with:
+          name: coverage
       - name: SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@master
         with:
