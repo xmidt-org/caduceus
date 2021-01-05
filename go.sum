@@ -628,8 +628,8 @@ github.com/vmware/govmomi v0.18.0/go.mod h1:URlwyTFZX72RmxtxuaFL2Uj3fD1JTvZdx59b
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xmidt-org/argus v0.3.9 h1:zmKDRq5e3Gy/hPxym3U4S1aba4ehNnTYGmmsJYIClKU=
 github.com/xmidt-org/argus v0.3.9/go.mod h1:mDFS44R704gl9Fif3gkfAyvnZa53SvMepmXjYWABPvk=
-github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764 h1:hGZmkySP1yIYBSSwsCaxPpA+l46sRomuqvtodUeNscc=
-github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
+github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498 h1:Hs6xX7RLCB1YHdwVSfutQw/xxfawOf/C1Mi93Cjo3dk=
+github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
 github.com/xmidt-org/arrange v0.1.9 h1:MgMCRH7uMg+LZWvuo3c+63UmEV73LRMyrYmm267E8oM=
 github.com/xmidt-org/arrange v0.1.9/go.mod h1:PRA8iEZ11L93NsEkDP56x1mZyfDcWxzDULgHj56TaEk=
 github.com/xmidt-org/bascule v0.8.0 h1:xk/c8zqqNjoSW4b4oSrUwemm786Bs5DabmX7AgUgNPw=
@@ -646,8 +646,8 @@ github.com/xmidt-org/webpa-common v1.10.2-0.20200604164000-f07406b4eb63 h1:nNNzT
 github.com/xmidt-org/webpa-common v1.10.2-0.20200604164000-f07406b4eb63/go.mod h1:Fmt3wIxBzwJY0KeRHX6RaLZx2xpKTbXCLEA3Xtd6kq8=
 github.com/xmidt-org/webpa-common v1.11.2 h1:m/7qmqcYZUUye5LIE1jEfXU+GqOc0ON3kwAKX04g1no=
 github.com/xmidt-org/webpa-common v1.11.2/go.mod h1:BaP0q1tlorm1Egq2qeLelon4Avy9n1eKJQAYhL3Zxg0=
-github.com/xmidt-org/webpa-common v1.11.4 h1:3wxqZJmxWVuSX7srtcYWh2r2elkvCYCTz5ZZwLEMk9Q=
-github.com/xmidt-org/webpa-common v1.11.4/go.mod h1:ffQHH+pCRnoxtdbyIkCbOSDVhV62X47UA64fugPyu30=
+github.com/xmidt-org/webpa-common v1.11.5-0.20210105175335-4574961a4c05 h1:6RCKGWnHV8YrC3ZQ5e1glyzXyVZZ48DZvHc8EvNiA4c=
+github.com/xmidt-org/webpa-common v1.11.5-0.20210105175335-4574961a4c05/go.mod h1:2/lWTv4njLgyHk2qFMB81pOz6J1xmqElTPHTdeR9EPs=
 github.com/xmidt-org/wrp-go/v3 v3.0.1/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
 github.com/xmidt-org/wrp-go/v3 v3.0.2 h1:Nm+73REf62gYccYpGx0EkLP0ojgA1DG1x4eRWVfQYcQ=
 github.com/xmidt-org/wrp-go/v3 v3.0.2/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
