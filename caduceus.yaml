@@ -244,7 +244,7 @@ webhook:
     pullInterval: 5s
 
     # address is Argus' network location.
-    address: "http://localhost:6600"
+    address: "http://argus:6600"
 
     # adminToken provides internal access to webhooks stored on behalf of users. 
     adminToken: "Hzu1WpIe7S8G"
