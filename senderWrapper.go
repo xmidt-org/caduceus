@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
-	"github.com/xmidt-org/webpa-common/xwebhook"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -68,7 +68,7 @@ type SenderWrapperFactory struct {
 }
 
 type SenderWrapper interface {
-	Update([]xwebhook.Webhook)
+	Update([]ancla.Webhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -129,7 +129,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []xwebhook.Webhook) {
+func (sw *CaduceusSenderWrapper) Update(list []ancla.Webhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Sender:           sw.sender,
@@ -144,7 +144,7 @@ func (sw *CaduceusSenderWrapper) Update(list []xwebhook.Webhook) {
 	}
 
 	ids := make([]struct {
-		Listener xwebhook.Webhook
+		Listener ancla.Webhook
 		ID       string
 	}, len(list))
 
