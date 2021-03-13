@@ -6,13 +6,14 @@ import (
 
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/viper"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/secure"
 	"github.com/xmidt-org/webpa-common/secure/handler"
 	"github.com/xmidt-org/webpa-common/secure/key"
-	"github.com/xmidt-org/webpa-common/xwebhook"
 )
 
 const (
@@ -29,7 +30,7 @@ type JWTValidator struct {
 	Custom secure.JWTValidatorFactory
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookSvc xwebhook.Service) (*mux.Router, error) {
+func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider) (*mux.Router, error) {
 	var (
 		router = mux.NewRouter()
 	)
@@ -48,17 +49,19 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookS
 
 	authorizationDecorator := alice.New(authHandler.Decorate)
 
-	return configServerRouter(router, authorizationDecorator, sw, webhookSvc), nil
+	return configServerRouter(router, authorizationDecorator, sw, webhookSvc, metricsRegistry), nil
 }
 
-func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookSvc xwebhook.Service) *mux.Router {
+func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider) *mux.Router {
 	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
 		return len(r.Header["Content-Type"]) == 1 // require single specification for Content-Type Header
 	}
 
 	router.Handle("/"+fmt.Sprintf("%s/%s", baseURI, version)+"/notify", primaryHandler.Then(serverWrapper)).Methods("POST").HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
 
-	addWebhookHandler := xwebhook.NewAddWebhookHandler(webhookSvc)
+	addWebhookHandler := ancla.NewAddWebhookHandler(webhookSvc, ancla.HandlerConfig{
+		MetricsProvider: metricsRegistry,
+	})
 	// register webhook end points
 	router.Handle("/hook", primaryHandler.Then(addWebhookHandler)).Methods("POST")
 

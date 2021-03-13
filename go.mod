@@ -13,7 +13,8 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.5.1
-	github.com/xmidt-org/webpa-common v1.11.5-0.20210120235745-b98c7113262c
+	github.com/stretchr/testify v1.7.0
+	github.com/xmidt-org/ancla v0.1.2
+	github.com/xmidt-org/webpa-common v1.11.5-0.20210312223801-2c5c6944d659
 	github.com/xmidt-org/wrp-go/v3 v3.0.2
 )
