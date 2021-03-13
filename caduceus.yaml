@@ -237,17 +237,17 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 # information using Argus.
 webhook:
   argus: 
-    # bucket is the partition name for storing webhooks.
+    # listen is the subsection that configures the listening feature of the argus client
+    # (Optional)
+    listen:
+      # pullInterval provides how often the current webhooks list gets refreshed.
+      pullInterval: 5s
+
+    # bucket is the partition name where webhooks will be stored.
     bucket: "webhooks"
 
-    # pullInterval provides how often the current webhooks list gets refreshed.
-    pullInterval: 5s
-
     # address is Argus' network location.
-    address: "http://argus:6600"
-
-    # adminToken provides internal access to webhooks stored on behalf of users. 
-    adminToken: "Hzu1WpIe7S8G"
+    address: "http://localhost:6600"
 
     # auth the authentication method for argus.
     auth:
