@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/webpa-common/xwebhook"
+	"github.com/xmidt-org/ancla"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
@@ -62,7 +62,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, xwebhook.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -132,16 +132,16 @@ func caduceus(arguments []string) int {
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
 	}
-	caduceusConfig.Webhook.Argus.Logger = logger
-	caduceusConfig.Webhook.Argus.MetricsProvider = metricsRegistry
-	svc, stopWatches, err := xwebhook.Initialize(&caduceusConfig.Webhook, caduceusSenderWrapper)
+	caduceusConfig.Webhook.Logger = logger
+	caduceusConfig.Webhook.MetricsProvider = metricsRegistry
+	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, caduceusSenderWrapper)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc)
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, metricsRegistry)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
 		return 1

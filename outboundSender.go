@@ -40,11 +40,11 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/webpa-common/xwebhook"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
@@ -59,17 +59,17 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text         string           `json:"text"`
-	Original     xwebhook.Webhook `json:"webhook_registration"`
-	CutOffPeriod string           `json:"cut_off_period"`
-	QueueSize    int              `json:"queue_size"`
-	Workers      int              `json:"worker_count"`
+	Text         string        `json:"text"`
+	Original     ancla.Webhook `json:"webhook_registration"`
+	CutOffPeriod string        `json:"cut_off_period"`
+	QueueSize    int           `json:"queue_size"`
+	Workers      int           `json:"worker_count"`
 }
 
 // OutboundSenderFactory is a configurable factory for OutboundSender objects.
 type OutboundSenderFactory struct {
 	// The WebHookListener to service
-	Listener xwebhook.Webhook
+	Listener ancla.Webhook
 
 	// The http client Do() function to use for outbound requests.
 	Sender func(*http.Request) (*http.Response, error)
@@ -102,7 +102,7 @@ type OutboundSenderFactory struct {
 }
 
 type OutboundSender interface {
-	Update(xwebhook.Webhook) error
+	Update(ancla.Webhook) error
 	Shutdown(bool)
 	RetiredSince() time.Time
 	Queue(*wrp.Message)
@@ -112,7 +112,7 @@ type OutboundSender interface {
 type CaduceusOutboundSender struct {
 	id                               string
 	urls                             *ring.Ring
-	listener                         xwebhook.Webhook
+	listener                         ancla.Webhook
 	deliverUntil                     time.Time
 	dropUntil                        time.Time
 	sender                           func(*http.Request) (*http.Response, error)
@@ -217,7 +217,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
-func (obs *CaduceusOutboundSender) Update(wh xwebhook.Webhook) (err error) {
+func (obs *CaduceusOutboundSender) Update(wh ancla.Webhook) (err error) {
 
 	// Validate the failure URL, if present
 	if "" != wh.FailureURL {

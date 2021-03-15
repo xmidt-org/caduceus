@@ -237,18 +237,47 @@ jwtValidators:
 authHeader:
   - (( grab $AUTH_HEADER || "dXNlcjpwYXNz" ))
 
+# authtoken used to make spruce work better for authAcquirer
+authToken: (( grab $AUTH_TOKEN || "dXNlcjpwYXNz" ))
+
 ########################################
 #   Webhook Related Configuration
 ########################################
 # Argus Config for storing the webhook information
-webhookStore:
-  bucket: (( grab $ARGUS_BUCKET || "webhooks" ))
-  address:  (( grab $ARGUS_HOST || "argus:6600" ))
-  pullInterval: (( grab $ARGUS_PULL_INTERVAL || "2s" ))
-  adminToken: (( grab $ARGUS_ADMIN_TOKEN || "Hzu1WpIe7S8G" ))
-  defaultTTL: (( grab $ARGUS_DEFAULT_TTL || "300" ))
-  auth:
-    basic: (( grab $AUTH_HEADER || "Basic dXNlcjpwYXNz" ))
+webhook:
+  argus:
+    listen:
+      # pullInterval is how often to call argus to update the webhook structure.
+      pullInterval:  (( grab $ARGUS_PULL_INTERVAL || "5s" ))
+
+    # bucket to store and retrieve webhooks.
+    bucket: (( grab $ARGUS_BUCKET || "webhooks" ))
+
+    # address it the location to talk to argus.
+    address: (( grab  $ARGUS_ENDPOINT || "http://argus:6600" ))
+
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: (( concat "Basic " authToken ))
+
+      # # jwt configures jwt style authentication for argus.
+      # jwt:
+      # # requestHeaders are added to the request for the token.
+      # # (Optional)
+      # # requestHeaders:
+      # #   "": ""
+
+      # # authURL is the URL to access for the token.
+      #   authURL: "http://themis:6501/issue"
+
+      #   # timeout is how long the request to get the token will take before
+      #   # timing out.
+      #   timeout: "1m"
+
+      #   # buffer is the length of time before a token expires to get a new token.
+      #   buffer: "2m"
 ########################################
 #   Delivery Pipeline Related Configuration
 ########################################

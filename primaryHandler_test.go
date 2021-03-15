@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/viper"
@@ -26,7 +27,7 @@ func TestNewPrimaryHandler(t *testing.T) {
 	)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	if _, err := NewPrimaryHandler(l, viper, sw, nil); err != nil {
+	if _, err := NewPrimaryHandler(l, viper, sw, nil, provider.NewDiscardProvider()); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 
@@ -92,7 +93,7 @@ func TestMuxServerConfig(t *testing.T) {
 	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, nil)
+	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, nil, provider.NewDiscardProvider())
 
 	t.Run("TestMuxResponseCorrectMSP", func(t *testing.T) {
 		req := exampleRequest("1234", "application/msgpack", "/api/v3/notify")
