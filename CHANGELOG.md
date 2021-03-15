@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Update to use wrp-go v3 to be able to use the MIME constants. [#252](https://github.com/xmidt-org/caduceus/pull/252)
 - Remove some unused code. [#254](https://github.com/xmidt-org/caduceus/pull/254)
 - Bump webpa-common version with xwebhook item ID format update. [#257](https://github.com/xmidt-org/caduceus/pull/257)
+- Update webhook integration to use xmidt-org/ancla. [#259](https://github.com/xmidt-org/caduceus/pull/259)
 
 ## [v0.4.2]
 ### Fixed
