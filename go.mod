@@ -15,6 +15,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
 	github.com/xmidt-org/ancla v0.1.2
+	github.com/xmidt-org/httpaux v0.1.3 // indirect
 	github.com/xmidt-org/webpa-common v1.11.5
 	github.com/xmidt-org/wrp-go/v3 v3.0.2
 )
