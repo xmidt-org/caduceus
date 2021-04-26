@@ -20,6 +20,20 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/gorilla/mux"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/candlelight"
+	"github.com/xmidt-org/webpa-common/concurrent"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/server"
+	"github.com/xmidt-org/webpa-common/service/servicecfg"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
@@ -27,23 +41,12 @@ import (
 	"os/signal"
 	"runtime"
 	"time"
-
-	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/ancla"
-
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/service/servicecfg"
-
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"github.com/xmidt-org/webpa-common/concurrent"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/server"
 )
 
 const (
-	applicationName = "caduceus"
-	DEFAULT_KEY_ID  = "current"
+	applicationName  = "caduceus"
+	DEFAULT_KEY_ID   = "current"
+	tracingConfigKey = "tracing"
 )
 
 var (
@@ -52,9 +55,31 @@ var (
 	BuildTime = "undefined"
 )
 
+func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {
+	var tracing = candlelight.Tracing{
+		Enabled:        false,
+		Propagator:     propagation.TraceContext{},
+		TracerProvider: trace.NewNoopTracerProvider(),
+	}
+	var traceConfig candlelight.Config
+	err := v.UnmarshalKey(tracingConfigKey, &traceConfig)
+	if err != nil {
+		return candlelight.Tracing{}, err
+	}
+	traceConfig.ApplicationName = appName
+	tracerProvider, err := candlelight.ConfigureTracerProvider(traceConfig)
+	if err != nil {
+		return candlelight.Tracing{}, err
+	}
+	if len(traceConfig.Provider) != 0 && traceConfig.Provider != candlelight.DefaultTracerProvider {
+		tracing.Enabled = true
+	}
+	tracing.TracerProvider = tracerProvider
+	return tracing, nil
+}
+
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
-
 func caduceus(arguments []string) int {
 	beginCaduceus := time.Now()
 
@@ -63,6 +88,7 @@ func caduceus(arguments []string) int {
 		v = viper.New()
 
 		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics)
+		infoLogger                          = logging.Info(logger)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -134,14 +160,28 @@ func caduceus(arguments []string) int {
 	}
 	caduceusConfig.Webhook.Logger = logger
 	caduceusConfig.Webhook.MetricsProvider = metricsRegistry
-	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, caduceusSenderWrapper)
+	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, GetLogger, caduceusSenderWrapper)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, metricsRegistry)
+	tracing, err := loadTracing(v, applicationName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
+		return 1
+	}
+	infoLogger.Log(logging.MessageKey(), "tracing status", "enabled", tracing.Enabled)
+
+	rootRouter := mux.NewRouter()
+	otelMuxOptions := []otelmux.Option{
+		otelmux.WithPropagators(tracing.Propagator),
+		otelmux.WithTracerProvider(tracing.TracerProvider),
+	}
+	rootRouter.Use(otelmux.Middleware("mainSpan", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator))
+
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, metricsRegistry, rootRouter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
 		return 1

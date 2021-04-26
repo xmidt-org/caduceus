@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/secure"
 	"github.com/xmidt-org/webpa-common/secure/handler"
@@ -27,7 +28,7 @@ func TestNewPrimaryHandler(t *testing.T) {
 	)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	if _, err := NewPrimaryHandler(l, viper, sw, nil, provider.NewDiscardProvider()); err != nil {
+	if _, err := NewPrimaryHandler(l, viper, sw, nil, provider.NewDiscardProvider(), candlelight.TraceConfig{}); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 

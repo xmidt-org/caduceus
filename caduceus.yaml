@@ -345,3 +345,17 @@ sender:
 #   - 1000
 #   - 10000
 
+# tracing provides configuration around traces using OpenTelemetry.
+# (Optional). By default, a 'noop' tracer provider is used and tracing is disabled.
+tracing:
+  # provider is the provider name. Currently, stdout, jaegar and zipkin are supported.
+  # 'noop' can also be used as provider to explicitly disable tracing.
+  provider: "noop"
+
+  # skipTraceExport only applies when provider is stdout. Set skipTraceExport to true
+  # so that trace information is not written to stdout.
+  # skipTraceExport: true
+
+  # endpoint is where trace information should be routed. Applies to zipkin and jaegar.
+  # endpoint: "http://localhost:9411/api/v2/spans"
+

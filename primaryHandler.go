@@ -2,8 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/candlelight"
+	"github.com/xmidt-org/webpa-common/logging"
 	"net/http"
 
+	"context"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
@@ -30,10 +34,24 @@ type JWTValidator struct {
 	Custom secure.JWTValidatorFactory
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider) (*mux.Router, error) {
-	var (
-		router = mux.NewRouter()
-	)
+func SetLogger(logger log.Logger) func(delegate http.Handler) http.Handler {
+	return func(delegate http.Handler) http.Handler {
+		return http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				kvs := []interface{}{"requestHeaders", r.Header, "requestURL", r.URL.EscapedPath(), "method", r.Method}
+				kvs, _ = candlelight.AppendTraceInfo(r.Context(), kvs)
+				ctx := r.WithContext(logging.WithLogger(r.Context(), log.With(logger, kvs...)))
+				delegate.ServeHTTP(w, ctx)
+			})
+	}
+}
+
+func GetLogger(ctx context.Context) bascule.Logger {
+	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	return logger
+}
+
+func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider, router *mux.Router) (*mux.Router, error) {
 
 	validator, err := getValidator(v)
 	if err != nil {
@@ -47,7 +65,7 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookS
 		Logger:              l,
 	}
 
-	authorizationDecorator := alice.New(authHandler.Decorate)
+	authorizationDecorator := alice.New(SetLogger(l), authHandler.Decorate)
 
 	return configServerRouter(router, authorizationDecorator, sw, webhookSvc, metricsRegistry), nil
 }
