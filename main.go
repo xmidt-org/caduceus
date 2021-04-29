@@ -32,9 +32,11 @@ import (
 	"github.com/xmidt-org/webpa-common/server"
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"io"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -54,6 +56,19 @@ var (
 	Version   = "undefined"
 	BuildTime = "undefined"
 )
+
+// httpClientTimeout contains timeouts for an HTTP client and its requests.
+type httpClientTimeout struct {
+	// ClientTimeout is HTTP Client Timeout.
+	ClientTimeout time.Duration
+
+	// RequestTimeout can be imposed as an additional timeout on the request
+	// using context cancellation.
+	RequestTimeout time.Duration
+
+	// NetDialerTimeout is the net dialer timeout
+	NetDialerTimeout time.Duration
+}
 
 func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {
 	var tracing = candlelight.Tracing{
@@ -78,6 +93,40 @@ func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {
 	return tracing, nil
 }
 
+func newArgusClientTimeout(v *viper.Viper) (httpClientTimeout, error) {
+	var timeouts httpClientTimeout
+	err := v.UnmarshalKey("argusClientTimeout", &timeouts)
+	if err != nil {
+		return httpClientTimeout{}, err
+	}
+	if timeouts.ClientTimeout == 0 {
+		timeouts.ClientTimeout = time.Second * 50
+	}
+	if timeouts.NetDialerTimeout == 0 {
+		timeouts.NetDialerTimeout = time.Second * 5
+	}
+	return timeouts, nil
+
+}
+
+func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *http.Client {
+	var transport http.RoundTripper = &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout: timeouts.NetDialerTimeout,
+		}).Dial,
+	}
+
+	transport = otelhttp.NewTransport(transport,
+		otelhttp.WithPropagators(tracing.Propagator),
+		otelhttp.WithTracerProvider(tracing.TracerProvider),
+	)
+
+	return &http.Client{
+		Timeout:   timeouts.ClientTimeout,
+		Transport: transport,
+	}
+}
+
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
 func caduceus(arguments []string) int {
@@ -88,7 +137,7 @@ func caduceus(arguments []string) int {
 		v = viper.New()
 
 		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics)
-		infoLogger                          = logging.Info(logger)
+		infoLogger                          = level.Info(logger)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -117,12 +166,24 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	tr := &http.Transport{
+	tracing, err := loadTracing(v, applicationName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
+		return 1
+	}
+	infoLogger.Log(logging.MessageKey(), "tracing status", "enabled", tracing.Enabled)
+
+	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.Sender.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   caduceusConfig.Sender.NumWorkersPerSender,
 		ResponseHeaderTimeout: caduceusConfig.Sender.ResponseHeaderTimeout,
 		IdleConnTimeout:       caduceusConfig.Sender.IdleConnTimeout,
 	}
+
+	tr = otelhttp.NewTransport(tr,
+		otelhttp.WithPropagators(tracing.Propagator),
+		otelhttp.WithTracerProvider(tracing.TracerProvider),
+	)
 
 	caduceusSenderWrapper, err := SenderWrapperFactory{
 		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
@@ -158,21 +219,22 @@ func caduceus(arguments []string) int {
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
 	}
+
 	caduceusConfig.Webhook.Logger = logger
 	caduceusConfig.Webhook.MetricsProvider = metricsRegistry
-	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, GetLogger, caduceusSenderWrapper)
+	argusClientTimeout, err := newArgusClientTimeout(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %s \n", err.Error())
+		return 1
+	}
 
+	caduceusConfig.Webhook.Argus.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
+	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, GetLogger, caduceusSenderWrapper)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
-
-	tracing, err := loadTracing(v, applicationName)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
-		return 1
-	}
-	infoLogger.Log(logging.MessageKey(), "tracing status", "enabled", tracing.Enabled)
+	infoLogger.Log(logging.MessageKey(), "Webhook service enabled")
 
 	rootRouter := mux.NewRouter()
 	otelMuxOptions := []otelmux.Option{
