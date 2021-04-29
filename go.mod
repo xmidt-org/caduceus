@@ -2,8 +2,6 @@ module github.com/xmidt-org/caduceus
 
 go 1.14
 
-//replace github.com/xmidt-org/ancla => /Users/utsavbatra/Documents/work/ancla
-
 require (
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b // indirect

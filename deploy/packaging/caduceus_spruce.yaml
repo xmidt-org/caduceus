@@ -350,6 +350,16 @@ tracing:
   # skipTraceExport: true
 
   # endpoint is where trace information should be routed. Applies to zipkin and jaegar.
-  # endpoint: (( grab $TRACING_PROVIDER_ENDPOINT || "http://localhost:9411/api/v2/spans" ))
+  # endpoint: (( grab $TRACING_PROVIDER_ENDPOINT || "http://zipkin:9411/api/v2/spans" ))
 
+# timeouts that apply to the Argus HTTP client.
+# (Optional) By default, the values below will be used.
+argusClientTimeout:
+  # clientTimeout is the timeout for requests made through this 
+  # HTTP client. This timeout includes connection time, any
+  # redirects, and reading the response body.
+  clientTimeout: 50s
 
+  # netDialerTimeout is the maximum amount of time the HTTP Client Dialer will
+  # wait for a connect to complete.
+  netDialerTimeout: 5s

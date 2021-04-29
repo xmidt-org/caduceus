@@ -62,9 +62,6 @@ type httpClientTimeout struct {
 	// ClientTimeout is HTTP Client Timeout.
 	ClientTimeout time.Duration
 
-	// RequestTimeout can be imposed as an additional timeout on the request
-	// using context cancellation.
-	RequestTimeout time.Duration
 
 	// NetDialerTimeout is the net dialer timeout
 	NetDialerTimeout time.Duration
