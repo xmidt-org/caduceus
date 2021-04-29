@@ -358,6 +358,7 @@ tracing:
 
   # endpoint is where trace information should be routed. Applies to zipkin and jaegar.
   # endpoint: "http://localhost:9411/api/v2/spans"
+
 # timeouts that apply to the Argus HTTP client.
 # (Optional) By default, the values below will be used.
 argusClientTimeout:
