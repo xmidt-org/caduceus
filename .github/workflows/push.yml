@@ -120,4 +120,3 @@ jobs:
 
       - run: licensed cache
       - run: licensed status
-      - run: licensed list
