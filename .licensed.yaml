@@ -8,3 +8,4 @@ allowed:
 reviewed:
   go:
     #- github.com/gorilla/* # works
+    #
