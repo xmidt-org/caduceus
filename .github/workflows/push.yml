@@ -21,9 +21,17 @@ jobs:
         with:
           go-version: '1.15.x' # The Go version to download (if necessary) and use.
 
+      # Setup the license checker
+      - uses: jonabc/setup-licensed@v1
+        with:
+          version: 2.x
+
       # Run build of the application
       - name: Run build
         run: go build ./...
+
+      - name: Run License Check
+        run: licensed status
 
       # Run gofmt on the code
       - name: Run gofmt
