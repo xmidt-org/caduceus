@@ -114,7 +114,7 @@ jobs:
       - uses: actions/setup-go@v2
       - uses: jonabc/setup-licensed@v1
         with:
-         version: 2.x
+         version: 3.x
 
       - run: go get
 
