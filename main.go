@@ -67,63 +67,6 @@ type httpClientTimeout struct {
 	NetDialerTimeout time.Duration
 }
 
-func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {
-	var tracing = candlelight.Tracing{
-		Enabled:        false,
-		Propagator:     propagation.TraceContext{},
-		TracerProvider: trace.NewNoopTracerProvider(),
-	}
-	var traceConfig candlelight.Config
-	err := v.UnmarshalKey(tracingConfigKey, &traceConfig)
-	if err != nil {
-		return candlelight.Tracing{}, err
-	}
-	traceConfig.ApplicationName = appName
-	tracerProvider, err := candlelight.ConfigureTracerProvider(traceConfig)
-	if err != nil {
-		return candlelight.Tracing{}, err
-	}
-	if len(traceConfig.Provider) != 0 && traceConfig.Provider != candlelight.DefaultTracerProvider {
-		tracing.Enabled = true
-	}
-	tracing.TracerProvider = tracerProvider
-	return tracing, nil
-}
-
-func newArgusClientTimeout(v *viper.Viper) (httpClientTimeout, error) {
-	var timeouts httpClientTimeout
-	err := v.UnmarshalKey("argusClientTimeout", &timeouts)
-	if err != nil {
-		return httpClientTimeout{}, err
-	}
-	if timeouts.ClientTimeout == 0 {
-		timeouts.ClientTimeout = time.Second * 50
-	}
-	if timeouts.NetDialerTimeout == 0 {
-		timeouts.NetDialerTimeout = time.Second * 5
-	}
-	return timeouts, nil
-
-}
-
-func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *http.Client {
-	var transport http.RoundTripper = &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: timeouts.NetDialerTimeout,
-		}).Dial,
-	}
-
-	transport = otelhttp.NewTransport(transport,
-		otelhttp.WithPropagators(tracing.Propagator),
-		otelhttp.WithTracerProvider(tracing.TracerProvider),
-	)
-
-	return &http.Client{
-		Timeout:   timeouts.ClientTimeout,
-		Transport: transport,
-	}
-}
-
 // caduceus is the driver function for Caduceus.  It performs everything main() would do,
 // except for obtaining the command-line arguments (which are passed to it).
 func caduceus(arguments []string) int {
@@ -221,7 +164,7 @@ func caduceus(arguments []string) int {
 	caduceusConfig.Webhook.MetricsProvider = metricsRegistry
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %s \n", err.Error())
+		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
 		return 1
 	}
 
@@ -293,6 +236,63 @@ func caduceus(arguments []string) int {
 	caduceusSenderWrapper.Shutdown(true)
 	stopWatches()
 	return 0
+}
+
+func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {
+	var tracing = candlelight.Tracing{
+		Enabled:        false,
+		Propagator:     propagation.TraceContext{},
+		TracerProvider: trace.NewNoopTracerProvider(),
+	}
+	var traceConfig candlelight.Config
+	err := v.UnmarshalKey(tracingConfigKey, &traceConfig)
+	if err != nil {
+		return candlelight.Tracing{}, err
+	}
+	traceConfig.ApplicationName = appName
+	tracerProvider, err := candlelight.ConfigureTracerProvider(traceConfig)
+	if err != nil {
+		return candlelight.Tracing{}, err
+	}
+	if len(traceConfig.Provider) != 0 && traceConfig.Provider != candlelight.DefaultTracerProvider {
+		tracing.Enabled = true
+	}
+	tracing.TracerProvider = tracerProvider
+	return tracing, nil
+}
+
+func newArgusClientTimeout(v *viper.Viper) (httpClientTimeout, error) {
+	var timeouts httpClientTimeout
+	err := v.UnmarshalKey("argusClientTimeout", &timeouts)
+	if err != nil {
+		return httpClientTimeout{}, err
+	}
+	if timeouts.ClientTimeout == 0 {
+		timeouts.ClientTimeout = time.Second * 50
+	}
+	if timeouts.NetDialerTimeout == 0 {
+		timeouts.NetDialerTimeout = time.Second * 5
+	}
+	return timeouts, nil
+
+}
+
+func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *http.Client {
+	var transport http.RoundTripper = &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout: timeouts.NetDialerTimeout,
+		}).Dial,
+	}
+
+	transport = otelhttp.NewTransport(transport,
+		otelhttp.WithPropagators(tracing.Propagator),
+		otelhttp.WithTracerProvider(tracing.TracerProvider),
+	)
+
+	return &http.Client{
+		Timeout:   timeouts.ClientTimeout,
+		Transport: transport,
+	}
 }
 
 func printVersion(f *pflag.FlagSet, arguments []string) (error, bool) {
