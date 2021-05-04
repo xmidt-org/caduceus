@@ -338,3 +338,28 @@ sender:
 #   - 100
 #   - 1000
 #   - 10000
+
+# tracing provides configuration for OpenTelemetry
+tracing:
+  # provider is the provider name. Currently, stdout, jaegar and zipkin are supported.
+  # 'noop' can also be used as provider to explicitly disable tracing.
+  provider: (( grab $TRACING_PROVIDER_NAME || "noop" ))
+
+  # skipTraceExport only applies when provider is stdout. Set skipTraceExport to true
+  # so that trace information is not written to stdout.
+  # skipTraceExport: true
+
+  # endpoint is where trace information should be routed. Applies to zipkin and jaegar.
+  # endpoint: (( grab $TRACING_PROVIDER_ENDPOINT || "http://zipkin:9411/api/v2/spans" ))
+
+# timeouts that apply to the Argus HTTP client.
+# (Optional) By default, the values below will be used.
+argusClientTimeout:
+  # clientTimeout is the timeout for requests made through this 
+  # HTTP client. This timeout includes connection time, any
+  # redirects, and reading the response body.
+  clientTimeout: 50s
+
+  # netDialerTimeout is the maximum amount of time the HTTP Client Dialer will
+  # wait for a connect to complete.
+  netDialerTimeout: 5s

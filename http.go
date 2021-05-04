@@ -43,9 +43,14 @@ type ServerHandler struct {
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	debugLog := log.WithPrefix(sh.Logger, level.Key(), level.DebugValue())
-	infoLog := log.WithPrefix(sh.Logger, level.Key(), level.InfoValue())
-	errorLog := log.WithPrefix(sh.Logger, level.Key(), level.ErrorValue())
+	logger := logging.GetLogger(request.Context())
+	if logger == logging.DefaultLogger() {
+		logger = sh.Logger
+	}
+	debugLog := level.Debug(logger)
+	infoLog := level.Info(logger)
+	errorLog := level.Error(logger)
+
 	messageKey := logging.MessageKey()
 	errorKey := logging.ErrorKey()
 
