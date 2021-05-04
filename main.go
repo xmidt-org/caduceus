@@ -20,7 +20,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/spf13/pflag"
@@ -62,7 +61,6 @@ type httpClientTimeout struct {
 	// ClientTimeout is HTTP Client Timeout.
 	ClientTimeout time.Duration
 
-
 	// NetDialerTimeout is the net dialer timeout
 	NetDialerTimeout time.Duration
 }
@@ -77,7 +75,6 @@ func caduceus(arguments []string) int {
 		v = viper.New()
 
 		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics)
-		infoLogger                          = level.Info(logger)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -97,7 +94,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	log.WithPrefix(logger, level.Key(), level.InfoValue()).Log("configurationFile", v.ConfigFileUsed())
+	level.Info(logger).Log("configurationFile", v.ConfigFileUsed())
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -111,7 +108,7 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
 		return 1
 	}
-	infoLogger.Log(logging.MessageKey(), "tracing status", "enabled", tracing.Enabled)
+	level.Info(logger).Log(logging.MessageKey(), "tracing status", "enabled", tracing.Enabled)
 
 	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.Sender.DisableClientHostnameValidation},
@@ -174,14 +171,14 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
-	infoLogger.Log(logging.MessageKey(), "Webhook service enabled")
+	level.Info(logger).Log(logging.MessageKey(), "Webhook service enabled")
 
 	rootRouter := mux.NewRouter()
 	otelMuxOptions := []otelmux.Option{
 		otelmux.WithPropagators(tracing.Propagator),
 		otelmux.WithTracerProvider(tracing.TracerProvider),
 	}
-	rootRouter.Use(otelmux.Middleware("mainSpan", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator))
+	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator))
 
 	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, metricsRegistry, rootRouter)
 	if err != nil {
@@ -201,30 +198,30 @@ func caduceus(arguments []string) int {
 	// Now, initialize the service discovery infrastructure
 	//
 	if !v.IsSet("service") {
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "no service discovery configured")
+		level.Info(logger).Log(logging.MessageKey(), "no service discovery configured")
 	} else {
 		e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
 		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
+			level.Error(logger).Log(logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
 			return 4
 		}
 
 		defer e.Close()
-		logger.Log(level.Key(), level.InfoValue(), "configurationFile", v.ConfigFileUsed())
+		level.Info(logger).Log("configurationFile", v.ConfigFileUsed())
 		e.Register()
 	}
 
-	log.WithPrefix(logger, level.Key(), level.InfoValue()).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
+	level.Info(logger).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
 	signals := make(chan os.Signal, 10)
 	signal.Notify(signals, os.Kill, os.Interrupt)
 	for exit := false; !exit; {
 		select {
 		case s := <-signals:
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "exiting due to signal", "signal", s)
+			level.Error(logger).Log(logging.MessageKey(), "exiting due to signal", "signal", s)
 			exit = true
 		case <-done:
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "one or more servers exited")
+			level.Error(logger).Log(logging.MessageKey(), "one or more servers exited")
 			exit = true
 		}
 	}

@@ -45,7 +45,7 @@ type ServerHandler struct {
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	logger := logging.GetLogger(request.Context())
 	if logger == logging.DefaultLogger() {
-	    logger = sh.Logger
+		logger = sh.Logger
 	}
 	debugLog := level.Debug(logger)
 	infoLog := level.Info(logger)
