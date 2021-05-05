@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 
+## [v0.4.4]
+- 
+
 ## [v0.4.3]
 ### Changed
 - Fix a bug where the response bodies were not cleaned up when informing a client of a failure. [#250](https://github.com/xmidt-org/caduceus/pull/250)
@@ -131,7 +134,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.4...HEAD
+[v0.4.4]: https://github.com/Comcast/caduceus/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/Comcast/caduceus/compare/v0.4.2...v0.4.3
 [v0.4.2]: https://github.com/Comcast/caduceus/compare/v0.4.1...v0.4.2
 [v0.4.1]: https://github.com/Comcast/caduceus/compare/v0.4.0...v0.4.1
