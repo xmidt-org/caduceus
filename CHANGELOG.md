@@ -5,7 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
+- Add support for acquiring Themis tokens through Ancla. [#267](https://github.com/xmidt-org/caduceus/pull/267)
+- Update candlelight version. [#267](https://github.com/xmidt-org/caduceus/pull/267)
 
 ## [v0.4.4]
 - Add OpenTelemetry tracing feature. [#263](https://github.com/xmidt-org/caduceus/pull/263) thanks to @utsavbatra5
