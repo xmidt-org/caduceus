@@ -236,6 +236,12 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 # webhook provides configuration for storing and obtaining webhook
 # information using Argus.
 webhook:
+  # JWTParserType establishes which parser type will be used by the JWT token
+  # acquirer used by Argus. Options include 'simple' and 'raw'.
+  # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
+  # Raw: parser assumes all of the token payload == JWT token
+  # (Optional). Defaults to 'simple'.
+  JWTParserType: "raw"
   argus: 
     # listen is the subsection that configures the listening feature of the argus client
     # (Optional)

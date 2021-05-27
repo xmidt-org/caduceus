@@ -20,6 +20,15 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"runtime"
+	"time"
+
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/spf13/pflag"
@@ -32,16 +41,6 @@ import (
 	"github.com/xmidt-org/webpa-common/service/servicecfg"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/trace"
-	"io"
-	"net"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"os/signal"
-	"runtime"
-	"time"
 )
 
 const (
@@ -108,7 +107,7 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
 		return 1
 	}
-	level.Info(logger).Log(logging.MessageKey(), "tracing status", "enabled", tracing.Enabled)
+	level.Info(logger).Log(logging.MessageKey(), "tracing status", "enabled", !tracing.IsNoop())
 
 	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.Sender.DisableClientHostnameValidation},
@@ -118,8 +117,8 @@ func caduceus(arguments []string) int {
 	}
 
 	tr = otelhttp.NewTransport(tr,
-		otelhttp.WithPropagators(tracing.Propagator),
-		otelhttp.WithTracerProvider(tracing.TracerProvider),
+		otelhttp.WithPropagators(tracing.Propagator()),
+		otelhttp.WithTracerProvider(tracing.TracerProvider()),
 	)
 
 	caduceusSenderWrapper, err := SenderWrapperFactory{
@@ -175,10 +174,10 @@ func caduceus(arguments []string) int {
 
 	rootRouter := mux.NewRouter()
 	otelMuxOptions := []otelmux.Option{
-		otelmux.WithPropagators(tracing.Propagator),
-		otelmux.WithTracerProvider(tracing.TracerProvider),
+		otelmux.WithPropagators(tracing.Propagator()),
+		otelmux.WithTracerProvider(tracing.TracerProvider()),
 	}
-	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator))
+	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator()))
 
 	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, metricsRegistry, rootRouter)
 	if err != nil {
@@ -236,26 +235,14 @@ func caduceus(arguments []string) int {
 }
 
 func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {
-	var tracing = candlelight.Tracing{
-		Enabled:        false,
-		Propagator:     propagation.TraceContext{},
-		TracerProvider: trace.NewNoopTracerProvider(),
-	}
 	var traceConfig candlelight.Config
 	err := v.UnmarshalKey(tracingConfigKey, &traceConfig)
 	if err != nil {
 		return candlelight.Tracing{}, err
 	}
 	traceConfig.ApplicationName = appName
-	tracerProvider, err := candlelight.ConfigureTracerProvider(traceConfig)
-	if err != nil {
-		return candlelight.Tracing{}, err
-	}
-	if len(traceConfig.Provider) != 0 && traceConfig.Provider != candlelight.DefaultTracerProvider {
-		tracing.Enabled = true
-	}
-	tracing.TracerProvider = tracerProvider
-	return tracing, nil
+	tracing, err := candlelight.New(traceConfig)
+	return tracing, err
 }
 
 func newArgusClientTimeout(v *viper.Viper) (httpClientTimeout, error) {
@@ -282,8 +269,8 @@ func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *htt
 	}
 
 	transport = otelhttp.NewTransport(transport,
-		otelhttp.WithPropagators(tracing.Propagator),
-		otelhttp.WithTracerProvider(tracing.TracerProvider),
+		otelhttp.WithPropagators(tracing.Propagator()),
+		otelhttp.WithTracerProvider(tracing.TracerProvider()),
 	)
 
 	return &http.Client{

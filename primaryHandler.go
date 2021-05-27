@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/candlelight"
-	"github.com/xmidt-org/webpa-common/logging"
 	"net/http"
 
+	"github.com/xmidt-org/candlelight"
+	"github.com/xmidt-org/webpa-common/logging"
+
 	"context"
+
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
@@ -46,7 +47,7 @@ func SetLogger(logger log.Logger) func(delegate http.Handler) http.Handler {
 	}
 }
 
-func GetLogger(ctx context.Context) bascule.Logger {
+func GetLogger(ctx context.Context) log.Logger {
 	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 	return logger
 }
