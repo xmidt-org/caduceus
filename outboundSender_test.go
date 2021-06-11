@@ -48,10 +48,6 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.fn(req, int(i))
 }
 
-func getLogger() log.Logger {
-	return log.NewNopLogger()
-}
-
 func getNewTestOutputLogger(out io.Writer) log.Logger {
 	return log.NewLogfmtLogger(out)
 }
@@ -172,7 +168,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		DeliveryRetries: 1,
 		RetryCodes:      []int{429},
 		MetricsRegistry: fakeRegistry,
-		Logger:          getLogger(),
+		Logger:          log.NewNopLogger(),
 	}
 }
 
@@ -520,7 +516,7 @@ func TestInvalidEventRegex(t *testing.T) {
 		Sender:     (&http.Client{}).Do,
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     getLogger(),
+		Logger:     log.NewNopLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -544,7 +540,7 @@ func TestInvalidUrl(t *testing.T) {
 		Sender:     (&http.Client{}).Do,
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     getLogger(),
+		Logger:     log.NewNopLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -560,7 +556,7 @@ func TestInvalidUrl(t *testing.T) {
 		Sender:     (&http.Client{}).Do,
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     getLogger(),
+		Logger:     log.NewNopLogger(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
