@@ -165,7 +165,7 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusConfig.Webhook.Argus.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
-	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, getLogger, caduceusSenderWrapper)
+	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, getLogger, logging.WithLogger, caduceusSenderWrapper)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1

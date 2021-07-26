@@ -5,7 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.4.6]
 - Prevent Authorization header from getting logged. [#270](https://github.com/xmidt-org/caduceus/pull/270)
+- Bumped ancla, webpa-common versions. [#271](https://github.com/xmidt-org/caduceus/pull/271)
+
 ## [v0.4.5]
 - Add support for acquiring Themis tokens through Ancla. [#267](https://github.com/xmidt-org/caduceus/pull/267)
 - Update candlelight version. [#267](https://github.com/xmidt-org/caduceus/pull/267)
@@ -137,7 +141,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.6...HEAD
+[v0.4.6]: https://github.com/Comcast/caduceus/compare/v0.4.5...v0.4.6
 [v0.4.5]: https://github.com/Comcast/caduceus/compare/v0.4.4...v0.4.5
 [v0.4.4]: https://github.com/Comcast/caduceus/compare/v0.4.3...v0.4.4
 [v0.4.3]: https://github.com/Comcast/caduceus/compare/v0.4.2...v0.4.3
