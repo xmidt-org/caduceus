@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Prevent Authorization header from getting logged. [#270](https://github.com/xmidt-org/caduceus/pull/270)
+- Bumped ancla, webpa-common versions. [#271](https://github.com/xmidt-org/caduceus/pull/271)
+
 ## [v0.4.5]
 - Add support for acquiring Themis tokens through Ancla. [#267](https://github.com/xmidt-org/caduceus/pull/267)
 - Update candlelight version. [#267](https://github.com/xmidt-org/caduceus/pull/267)
