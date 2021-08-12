@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
@@ -50,11 +49,8 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookS
 }
 
 func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider) *mux.Router {
-	var singleContentType = func(r *http.Request, _ *mux.RouteMatch) bool {
-		return len(r.Header["Content-Type"]) == 1 // require single specification for Content-Type Header
-	}
 
-	router.Handle("/"+fmt.Sprintf("%s/%s", baseURI, version)+"/notify", primaryHandler.Then(serverWrapper)).Methods("POST").HeadersRegexp("Content-Type", "application/msgpack").MatcherFunc(singleContentType)
+	router.Handle("/"+fmt.Sprintf("%s/%s", baseURI, version)+"/notify", primaryHandler.Then(serverWrapper)).Methods("POST")
 
 	addWebhookHandler := ancla.NewAddWebhookHandler(webhookSvc, ancla.HandlerConfig{
 		MetricsProvider: metricsRegistry,

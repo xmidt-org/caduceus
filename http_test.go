@@ -329,3 +329,54 @@ func TestServerInvalidBody(t *testing.T) {
 		}
 	})
 }
+
+func TestHandlerUnsupportedMediaType(t *testing.T) {
+
+	assert := assert.New(t)
+
+	logger := logging.DefaultLogger()
+	fakeHandler := new(mockHandler)
+
+	fakeQueueDepth := new(mockGauge)
+
+	serverWrapper := &ServerHandler{
+		Logger:                   logger,
+		caduceusHandler:          fakeHandler,
+		incomingQueueDepthMetric: fakeQueueDepth,
+		maxOutstanding:           1,
+	}
+	testCases := []struct {
+		name    string
+		headers []string
+	}{
+		{
+			name: "No Content Type Header",
+		}, {
+			name:    "Wrong Content Type Header",
+			headers: []string{"application/json"},
+		}, {
+			name:    "Multiple Content Type Headers",
+			headers: []string{"application/msgpack", "application/msgpack", "application/msgpack"},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := exampleRequest()
+			req.Header.Del("Content-Type")
+			for _, h := range testCase.headers {
+				req.Header.Add("Content-Type", h)
+			}
+			serverWrapper.ServeHTTP(w, req)
+			resp := w.Result()
+
+			assert.Equal(http.StatusUnsupportedMediaType, resp.StatusCode)
+			if nil != resp.Body {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
+		})
+	}
+
+}

@@ -56,6 +56,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	infoLog.Log(messageKey, "Receiving incoming request...")
 
+	if len(request.Header["Content-Type"]) != 1 || request.Header["Content-Type"][0] != "application/msgpack" {
+		//return a 415
+		response.WriteHeader(http.StatusUnsupportedMediaType)
+		response.Write([]byte("Invalid Content-Type header(s). Expected application/msgpack. \n"))
+		debugLog.Log(messageKey, "Invalid Content-Type header(s). Expected application/msgpack. \n")
+		return
+	}
+
 	outstanding := atomic.AddInt64(&sh.incomingQueueDepth, 1)
 	defer atomic.AddInt64(&sh.incomingQueueDepth, -1)
 
