@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added 415 response for Content-Type header issues. [#272](https://github.com/xmidt-org/caduceus/pull/273)
 
 ## [v0.4.6]
 - Prevent Authorization header from getting logged. [#270](https://github.com/xmidt-org/caduceus/pull/270)
