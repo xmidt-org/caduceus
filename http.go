@@ -67,6 +67,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
+	if len(request.Header["Content-Type"]) != 1 || request.Header["Content-Type"][0] != "application/msgpack" {
+		//return a 415
+		response.WriteHeader(http.StatusUnsupportedMediaType)
+		response.Write([]byte("Invalid Content-Type header(s). Expected application/msgpack. \n"))
+		debugLog.Log(messageKey, "Invalid Content-Type header(s). Expected application/msgpack. \n")
+		return
+	}
+
 	sh.incomingQueueDepthMetric.Add(1.0)
 	defer sh.incomingQueueDepthMetric.Add(-1.0)
 
