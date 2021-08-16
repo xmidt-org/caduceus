@@ -120,7 +120,7 @@ components:
           type: string
           format: binary
           description: The bin format packed data.
-        sessionID:
+        session_id:
           type: string
           description: A unique ID for the device's connection session with XMiDT.
           example: "1aaIkcz1cak0wXzIHsXkV8Uak1V"
@@ -191,6 +191,7 @@ components:
           example: "5m"
         until:
           type: string
+          format: date-time
           description: 
             The time this subscription expires in 
             [RFC3339](https://www.rfc-editor.org/rfc/rfc3339.html) format.
