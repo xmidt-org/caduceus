@@ -7,7 +7,7 @@ externalDocs:
   description: Find more about XMiDT
   url: https://xmidt.io/docs/introduction/overview/
 servers:
-  - url: http://caduceus:6000
+  - url: https://caduceus.example.com
 security:
   - jwt_auth: [ ]
   - basic_auth: [ ]
