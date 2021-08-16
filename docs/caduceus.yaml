@@ -1,0 +1,234 @@
+openapi: 3.0.3
+info:
+  title: Caduceus API
+  description: 'Register webhooks and send events for webhook fanout'
+  version: 0.1.0
+externalDocs:
+  description: Find more about XMiDT
+  url: https://xmidt.io/docs/introduction/overview/
+servers:
+  - url: http://caduceus:6000
+security:
+  - jwt_auth: [ ]
+  - basic_auth: [ ]
+
+
+paths:
+  /api/v3/notify:
+    post:
+      summary: Send event
+      description:
+        Send an event so it can be fanned out to all applicable webhooks.
+      requestBody:
+        content:
+          application/msgpack:
+            schema:
+              $ref: '#/components/schemas/Event'
+        required: true
+      responses:
+        202:
+          description: Event received.
+          content: { }
+        400:
+          $ref: '#/components/responses/400'
+        401:
+          $ref: '#/components/responses/401'
+        403:
+          $ref: '#/components/responses/403'
+        429:
+          $ref: '#/components/responses/429'
+        500:
+          $ref: '#/components/responses/500'
+
+  /hook:
+    post:
+      summary: Register webhook
+      description:
+        Create a webhook for receiving events.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Webhook'
+        required: true
+      responses:
+        200:
+          description: Webhook registered.
+          content: { }
+        400:
+          $ref: '#/components/responses/400'
+        401:
+          $ref: '#/components/responses/401'
+        403:
+          $ref: '#/components/responses/403'
+        429:
+          $ref: '#/components/responses/429'
+        500:
+          $ref: '#/components/responses/500'
+
+  
+components:
+  schemas:
+    Event:
+      description: Event is the extension of wrp message.
+      externalDocs:
+        url: https://xmidt.io/docs/wrp/simple-messages/#simple-event-definition
+      type: object
+      required:
+       - msg_type
+       - source
+       - dest
+       - payload
+       - sessionID
+      properties:
+        msg_type:
+          type: integer
+          description: The message type for the simple event. This value SHALL be 4.
+          example: 4
+        source:
+          type: string
+          description: The creator of the event.
+          example: "dns:talaria.xmidt.example.com"
+        dest:
+          type: string
+          description: The name of the target device of the event.
+          example: "event:device-status/mac:ffffffffdae4/online"
+        content_type:
+          type: string
+          description: The media type of the payload.
+          example: "application/json"
+        partner_ids:
+          type: array
+          items:
+            type: string
+          description: The list of partner ids the message is meant to target.
+          example: ["example_partner", ".*"]
+        headers:
+          type: array
+          items:
+            type: string
+          description: The headers associated with the payload.
+        metadata:
+          type: object  # map[string]string
+          additionalProperties:
+            type: string
+          description: 
+            The map of name/value pairs used by consumers of WRP messages for 
+            filtering & other purposes.
+          example: {"/boot-time": "1542834188","/last-reconnect-reason": "spanish inquisition" }
+        payload:
+          type: string
+          format: binary
+          description: The bin format packed data.
+        sessionID:
+          type: string
+          description: A unique ID for the device's connection session with XMiDT.
+          example: "1aaIkcz1cak0wXzIHsXkV8Uak1V"
+    Webhook:
+      description: The information needed to register a webhook with XMiDT.
+      type: object
+      required:
+      - events
+      properties:
+        registered_from_address:
+          type: string
+          description: The subscription request origin HTTP Address.
+          example: http://127.0.0.1/fakeurl/registerer
+        config:
+          type: object
+          description: Values related to event delivery.
+          properties:
+            url:
+              type: string
+              description: The HTTP URL to deliver messages to.
+              example: http://127.0.0.1/fakeurl/events
+            content_type:
+              type: string
+              description: 
+                The type of messages desired.  If "application/msgpack" is
+                specific, the full wrp is sent to the webhook.  If not, only the
+                payload is sent.
+              example: "application/msgpack"
+            secret:
+              type: string
+              description: The string value for the SHA1 HMAC.
+              example: "abcdefghijklmn"
+            alt_urls:
+              type: array
+              items:
+                type: string
+              description:
+                 The list of explicit URLs that should be round robin through on
+                 failure cases to the main URL.
+              example: []
+        failure_url:
+          type: string
+          description: 
+            The URL used to notify subscribers when they've been cut off due to 
+            event overflow.
+          example: http://127.0.0.1/fakeurl/failure
+        events:
+          type: array
+          items:
+            type: string
+          description: 
+            The list of regular expressions to match an event type against.
+          example: [".*"]
+        matcher:
+          type: object
+          description: Contains values to match against the metadata.
+          properties:
+            device_id:
+              type: array
+              items:
+                type: string
+              description: 
+                The list of regular expressions to match device id type against.
+              example: [".*"]
+        duration:
+          type: string
+          description: How long the subscription lasts once added.
+          example: "5m"
+        until:
+          type: string
+          description: 
+            The time this subscription expires in 
+            [RFC3339](https://www.rfc-editor.org/rfc/rfc3339.html) format.
+          example: "2021-08-16T07:33:35+00:00"
+  responses:
+    400:
+      description: 
+        Bad request. More information can be found in the [HTTP
+        RFC](https://tools.ietf.org/html/rfc7231#section-6.5.1).
+      content: { }
+    401:
+      description: 
+        Unauthorized. More information can be found in the [HTTP
+        RFC](https://httpwg.org/specs/rfc7235.html#status.401).
+      content: { }
+    403:
+      description: 
+        Forbidden. More information can be found in the [HTTP
+        RFC](https://httpwg.org/specs/rfc7231.html#status.403).
+      content: { }
+    429:
+      description: 
+        Too many requests. More information can be found in the [HTTP
+        RFC](https://tools.ietf.org/html/rfc6585#section-4).
+      content: { }
+    500:
+      description: 
+        An internal error occurred. More information can be found in the [HTTP
+        RFC](https://tools.ietf.org/html/rfc7231#section-6.6.1).
+      content: { }
+
+  securitySchemes:
+    jwt_auth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Auth must be a JWT.
+    basic_auth:
+      type: http
+      scheme: basic
+      description: Auth must be a base64 encoded username and password.
