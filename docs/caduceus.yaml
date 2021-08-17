@@ -79,7 +79,7 @@ components:
        - source
        - dest
        - payload
-       - sessionID
+       - session_id
       properties:
         msg_type:
           type: integer
@@ -133,7 +133,7 @@ components:
         registered_from_address:
           type: string
           description: The subscription request origin HTTP Address.
-          example: http://127.0.0.1/fakeurl/registerer
+          example: https://listener.example.com/registerer
         config:
           type: object
           description: Values related to event delivery.
@@ -141,7 +141,7 @@ components:
             url:
               type: string
               description: The HTTP URL to deliver messages to.
-              example: http://127.0.0.1/fakeurl/events
+              example: https://listener.example.com/event
             content_type:
               type: string
               description: 
@@ -166,13 +166,14 @@ components:
           description: 
             The URL used to notify subscribers when they've been cut off due to 
             event overflow.
-          example: http://127.0.0.1/fakeurl/failure
+          example: https://failure-listener.example.com
         events:
           type: array
           items:
             type: string
           description: 
-            The list of regular expressions to match an event type against.
+            The list of [regular expressions](https://github.com/google/re2/wiki/Syntax)
+            to match an event type against.
           example: [".*"]
         matcher:
           type: object
@@ -183,7 +184,8 @@ components:
               items:
                 type: string
               description: 
-                The list of regular expressions to match device id type against.
+                The list of [regular expressions](https://github.com/google/re2/wiki/Syntax)
+                to match device id type against.
               example: [".*"]
         duration:
           type: string
