@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Added 415 response for Content-Type header issues. [#272](https://github.com/xmidt-org/caduceus/pull/273)
+- Fixed log and response for incoming queue full 503. [#275](https://github.com/xmidt-org/caduceus/pull/275)
 
 ## [v0.4.6]
 - Prevent Authorization header from getting logged. [#270](https://github.com/xmidt-org/caduceus/pull/270)
