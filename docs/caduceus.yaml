@@ -35,10 +35,14 @@ paths:
           $ref: '#/components/responses/401'
         403:
           $ref: '#/components/responses/403'
+        415:
+          $ref: '#/components/responses/415'
         429:
           $ref: '#/components/responses/429'
         500:
           $ref: '#/components/responses/500'
+        503:
+          $ref: '#/components/responses/503'
 
   /hook:
     post:
@@ -214,6 +218,11 @@ components:
         Forbidden. More information can be found in the [HTTP
         RFC](https://httpwg.org/specs/rfc7231.html#status.403).
       content: { }
+    415:
+      description: 
+        Unsupported media type. More information can be found in the [HTTP
+        RFC](https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.13).
+      content: { }
     429:
       description: 
         Too many requests. More information can be found in the [HTTP
@@ -223,6 +232,11 @@ components:
       description: 
         An internal error occurred. More information can be found in the [HTTP
         RFC](https://tools.ietf.org/html/rfc7231#section-6.6.1).
+      content: { }
+    503:
+      description: 
+        Service unavailable. More information can be found in the [HTTP
+        RFC](https://datatracker.ietf.org/doc/html/rfc7231#section-6.6.4).
       content: { }
 
   securitySchemes:
