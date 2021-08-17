@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Comcast Cable Communications Management, LLC
+ * Copyright 2021 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,8 +70,8 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	if 0 < sh.maxOutstanding && sh.maxOutstanding < outstanding {
 		// return a 503
 		response.WriteHeader(http.StatusServiceUnavailable)
-		response.Write([]byte("Request placed on to queue.\n"))
-		debugLog.Log(messageKey, "Request placed on to queue.\n")
+		response.Write([]byte("Incoming queue is full.\n"))
+		debugLog.Log(messageKey, "Incoming queue is full.\n")
 		return
 	}
 
