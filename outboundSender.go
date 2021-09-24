@@ -101,6 +101,8 @@ type OutboundSenderFactory struct {
 	Logger log.Logger
 
 	NoPIDAction string
+
+	CustomPIDs []string
 }
 
 type OutboundSender interface {
@@ -150,6 +152,7 @@ type CaduceusOutboundSender struct {
 	mutex                            sync.RWMutex
 	queue                            atomic.Value
 	noPIDAction                      string
+	customPIDs                       []string
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -193,6 +196,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			Workers:      osf.NumWorkers,
 		},
 		noPIDAction: osf.NoPIDAction,
+		customPIDs:  osf.CustomPIDs,
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -385,9 +389,10 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	//only send if at least one partnerID is in the internalWebhook's partnerID list
 	if len(obs.listener.PartnerIDs) == 0 {
 		switch obs.noPIDAction {
-		case "send":
+		case "custom":
+			obs.listener.PartnerIDs = obs.customPIDs
 		case "donotsend":
-
+			return
 		}
 
 	} else {
@@ -403,7 +408,6 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		}
 	}
 
-	//make it configurable per wes' comment
 	for _, eventRegex := range events {
 		if !eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
 			// regex didn't match; don't do anything

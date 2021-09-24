@@ -67,6 +67,8 @@ type SenderWrapperFactory struct {
 	Sender func(*http.Request) (*http.Response, error)
 
 	NoPIDAction string
+
+	CustomPIDs []string
 }
 
 type SenderWrapper interface {
@@ -93,6 +95,7 @@ type CaduceusSenderWrapper struct {
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 	noPIDAction         string
+	customPIDs          []string
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
@@ -110,6 +113,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		logger:              swf.Logger,
 		metricsRegistry:     swf.MetricsRegistry,
 		noPIDAction:         swf.NoPIDAction,
+		customPIDs:          swf.CustomPIDs,
 	}
 
 	if swf.Linger <= 0 {
@@ -146,6 +150,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		RetryCodes:       sw.retryCodes,
 		Logger:           sw.logger,
 		NoPIDAction:      sw.noPIDAction,
+		CustomPIDs:       sw.customPIDs,
 	}
 
 	ids := make([]struct {

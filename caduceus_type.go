@@ -52,6 +52,7 @@ type SenderConfig struct {
 	DeliveryInterval                time.Duration
 	RetryCodes                      []int
 	NoPIDAction                     string
+	CustomPIDs                      []string
 }
 
 type CaduceusMetricsRegistry interface {

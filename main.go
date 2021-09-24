@@ -136,6 +136,7 @@ func caduceus(arguments []string) int {
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do,
 		NoPIDAction: caduceusConfig.Sender.NoPIDAction,
+		CustomPIDs:  caduceusConfig.Sender.CustomPIDs,
 	}.New()
 
 	if err != nil {
