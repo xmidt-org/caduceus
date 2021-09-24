@@ -357,7 +357,8 @@ sender:
   # provided in the list of customPIDs 
   noPIDAction: ""
 
-  #
+  # customPIDs is a custom list ofallowed PartnerIDs that will be used if noPIDAction 
+  # is "custom"
   customPIDs: []
 
 # tracing provides configuration around traces using OpenTelemetry.
