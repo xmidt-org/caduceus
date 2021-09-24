@@ -354,11 +354,11 @@ sender:
   # noPIDAction dictates what to do if PartnerIDs are missing or empty. "donotsend"
   # will have Caduceus not send the msg to all listeners if PartnerIDs are not 
   # provided. "custom" will have Caduceus check if the webhook has a PartnerID that is 
-  # provided in the list of customPIDs 
+  # provided in the list of customPIDs. 
   noPIDAction: ""
 
   # customPIDs is a custom list ofallowed PartnerIDs that will be used if noPIDAction 
-  # is "custom"
+  # is "custom".
   customPIDs: []
 
 # tracing provides configuration around traces using OpenTelemetry.
