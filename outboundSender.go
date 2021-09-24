@@ -100,8 +100,10 @@ type OutboundSenderFactory struct {
 	// The logger to use.
 	Logger log.Logger
 
+	// Determines what is done if no PartnerIDs are present or given.
 	NoPIDAction string
 
+	// A custom list of accepted PartnerIDs that are used if NoPIDAction is of value "custom".
 	CustomPIDs []string
 }
 
@@ -385,8 +387,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		return
 	}
 
-	//check length of partnerIDS in obs.listener
-	//only send if at least one partnerID is in the internalWebhook's partnerID list
+	//check the partnerIDs
 	if len(obs.listener.PartnerIDs) == 0 {
 		switch obs.noPIDAction {
 		case "custom":
