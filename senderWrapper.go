@@ -65,10 +65,12 @@ type SenderWrapperFactory struct {
 
 	// The http client Do() function to share with OutboundSenders.
 	Sender func(*http.Request) (*http.Response, error)
+
+	NoPIDAction string
 }
 
 type SenderWrapper interface {
-	Update([]ancla.Webhook)
+	Update([]ancla.InternalWebhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -90,6 +92,7 @@ type CaduceusSenderWrapper struct {
 	eventType           metrics.Counter
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
+	noPIDAction         string
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
@@ -106,6 +109,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		linger:              swf.Linger,
 		logger:              swf.Logger,
 		metricsRegistry:     swf.MetricsRegistry,
+		noPIDAction:         swf.NoPIDAction,
 	}
 
 	if swf.Linger <= 0 {
@@ -129,7 +133,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []ancla.Webhook) {
+func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Sender:           sw.sender,
@@ -141,16 +145,17 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.Webhook) {
 		DeliveryInterval: sw.deliveryInterval,
 		RetryCodes:       sw.retryCodes,
 		Logger:           sw.logger,
+		NoPIDAction:      sw.noPIDAction,
 	}
 
 	ids := make([]struct {
-		Listener ancla.Webhook
+		Listener ancla.InternalWebhook
 		ID       string
 	}, len(list))
 
 	for i, v := range list {
 		ids[i].Listener = v
-		ids[i].ID = v.Config.URL
+		ids[i].ID = v.Webhook.Config.URL
 	}
 
 	sw.mutex.Lock()

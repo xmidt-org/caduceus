@@ -351,6 +351,11 @@ sender:
 #   - 1000
 #   - 10000
 
+  # noPIDAction dictates what to do if PartnerIDs are missing or empty. "send" will
+  # have Caduceus send the msg to all listeners if PartnerIDs are not provided.
+  # "donotsend" will have Caduceus send not the send the msg at all.
+  noPIDAction: ""
+
 # tracing provides configuration around traces using OpenTelemetry.
 # (Optional). By default, a 'noop' tracer provider is used and tracing is disabled.
 tracing:

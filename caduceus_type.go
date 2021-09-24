@@ -51,6 +51,7 @@ type SenderConfig struct {
 	DeliveryRetries                 int
 	DeliveryInterval                time.Duration
 	RetryCodes                      []int
+	NoPIDAction                     string
 }
 
 type CaduceusMetricsRegistry interface {
