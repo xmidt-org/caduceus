@@ -355,6 +355,7 @@ sender:
   # will have Caduceus not send the msg to all listeners if PartnerIDs are not 
   # provided. "custom" will have Caduceus check if the webhook has a PartnerID that is 
   # provided in the list of customPIDs. 
+  # Default: Caduceus will send to all listeners if PartnerIDs are missing or empty.
   noPIDAction: ""
 
   # customPIDs is a custom list ofallowed PartnerIDs that will be used if noPIDAction 
