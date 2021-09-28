@@ -66,9 +66,11 @@ type SenderWrapperFactory struct {
 	// The http client Do() function to share with OutboundSenders.
 	Sender func(*http.Request) (*http.Response, error)
 
-	NoPIDAction string
-
+	// A custom list of accepted PartnerIDs that are used if NoPIDAction is of value "custom".
 	CustomPIDs []string
+
+	// Dictates whether or not to enforce the partner ID check.
+	DisablePartnerIDs bool
 }
 
 type SenderWrapper interface {
@@ -94,8 +96,8 @@ type CaduceusSenderWrapper struct {
 	eventType           metrics.Counter
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
-	noPIDAction         string
 	customPIDs          []string
+	disablePartnerIDs   bool
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
@@ -112,8 +114,8 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		linger:              swf.Linger,
 		logger:              swf.Logger,
 		metricsRegistry:     swf.MetricsRegistry,
-		noPIDAction:         swf.NoPIDAction,
 		customPIDs:          swf.CustomPIDs,
+		disablePartnerIDs:   swf.DisablePartnerIDs,
 	}
 
 	if swf.Linger <= 0 {
@@ -140,17 +142,17 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Sender:           sw.sender,
-		CutOffPeriod:     sw.cutOffPeriod,
-		NumWorkers:       sw.numWorkersPerSender,
-		QueueSize:        sw.queueSizePerSender,
-		MetricsRegistry:  sw.metricsRegistry,
-		DeliveryRetries:  sw.deliveryRetries,
-		DeliveryInterval: sw.deliveryInterval,
-		RetryCodes:       sw.retryCodes,
-		Logger:           sw.logger,
-		NoPIDAction:      sw.noPIDAction,
-		CustomPIDs:       sw.customPIDs,
+		Sender:            sw.sender,
+		CutOffPeriod:      sw.cutOffPeriod,
+		NumWorkers:        sw.numWorkersPerSender,
+		QueueSize:         sw.queueSizePerSender,
+		MetricsRegistry:   sw.metricsRegistry,
+		DeliveryRetries:   sw.deliveryRetries,
+		DeliveryInterval:  sw.deliveryInterval,
+		RetryCodes:        sw.retryCodes,
+		Logger:            sw.logger,
+		CustomPIDs:        sw.customPIDs,
+		DisablePartnerIDs: sw.disablePartnerIDs,
 	}
 
 	ids := make([]struct {

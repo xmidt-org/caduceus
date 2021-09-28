@@ -100,11 +100,11 @@ type OutboundSenderFactory struct {
 	// The logger to use.
 	Logger log.Logger
 
-	// Determines what is done if no PartnerIDs are present or given.
-	NoPIDAction string
-
 	// A custom list of accepted PartnerIDs that are used if NoPIDAction is of value "custom".
 	CustomPIDs []string
+
+	// Dictates whether or not to enforce the partner ID check.
+	DisablePartnerIDs bool
 }
 
 type OutboundSender interface {
@@ -153,8 +153,8 @@ type CaduceusOutboundSender struct {
 	logger                           log.Logger
 	mutex                            sync.RWMutex
 	queue                            atomic.Value
-	noPIDAction                      string
 	customPIDs                       []string
+	disablePartnerIDs                bool
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -197,8 +197,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 			QueueSize:    osf.QueueSize,
 			Workers:      osf.NumWorkers,
 		},
-		noPIDAction: osf.NoPIDAction,
-		customPIDs:  osf.CustomPIDs,
+		customPIDs:        osf.CustomPIDs,
+		disablePartnerIDs: osf.DisablePartnerIDs,
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -361,10 +361,12 @@ func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
 	return deliverUntil
 }
 
-func contains(str string, sl []string) bool {
-	for _, s := range sl {
-		if s == str {
-			return true
+func overlaps(sl1 []string, sl2 []string) bool {
+	for _, s1 := range sl1 {
+		for _, s2 := range sl2 {
+			if s1 == s2 {
+				return true
+			}
 		}
 	}
 	return false
@@ -388,23 +390,11 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	}
 
 	//check the partnerIDs
-	if len(obs.listener.PartnerIDs) == 0 {
-		switch obs.noPIDAction {
-		case "custom":
-			obs.listener.PartnerIDs = obs.customPIDs
-		case "donotsend":
-			return
+	if !obs.disablePartnerIDs {
+		if len(msg.PartnerIDs) == 0 {
+			msg.PartnerIDs = obs.customPIDs
 		}
-
-	} else {
-		hasPID := false
-		for _, pid := range obs.listener.PartnerIDs {
-			if contains(pid, msg.PartnerIDs) {
-				hasPID = true
-				break
-			}
-		}
-		if !hasPID {
+		if !overlaps(obs.listener.PartnerIDs, msg.PartnerIDs) {
 			return
 		}
 	}
