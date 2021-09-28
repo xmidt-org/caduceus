@@ -81,45 +81,50 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		}
 	}
 
-	w := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"iot", "test"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{"iot", "test"},
+			Config: ancla.DeliveryConfig{
+				URL:         "http://localhost:9999/foo",
+				ContentType: wrp.MimeTypeJson,
+				Secret:      "123456",
+			},
+		},
+		PartnerIDs: []string{},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
-	w.Config.Secret = "123456"
-	w.Matcher.DeviceID = matcher
+	w.Webhook.Matcher.DeviceID = matcher
 
 	// test dc metric
 	fakeDC := new(mockCounter)
-	fakeDC.On("With", []string{"url", w.Config.URL, "code", "200", "event", "test"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "200", "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "200", "event", "unknown"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "failure", "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "event", "test"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "event", "unknown"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "201"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "202"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "204"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "429", "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Config.URL, "code", "failure"}).Return(fakeDC)
+	fakeDC.On("With", []string{"url", w.Webhook.Config.URL, "code", "200", "event", "test"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "200", "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "200", "event", "unknown"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "failure", "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "event", "test"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "event", "unknown"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "201"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "202"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "204"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "429", "event", "iot"}).Return(fakeDC).
+		On("With", []string{"url", w.Webhook.Config.URL, "code", "failure"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
 
 	// test slow metric
 	fakeSlow := new(mockCounter)
-	fakeSlow.On("With", []string{"url", w.Config.URL}).Return(fakeSlow)
+	fakeSlow.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakeSlow)
 	fakeSlow.On("Add", 1.0).Return()
 
 	// test dropped metric
 	fakeDroppedSlow := new(mockCounter)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "cut_off"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "expired_before_queueing"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "invalid_config"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "cut_off"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "expired"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "expired_before_queueing"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "invalid_config"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", mock.Anything).Return()
 
 	// IncomingContentType cases
@@ -132,12 +137,12 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	// QueueDepth case
 	fakeQdepth := new(mockGauge)
-	fakeQdepth.On("With", []string{"url", w.Config.URL}).Return(fakeQdepth)
+	fakeQdepth.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
 	// DropsDueToPanic case
 	fakePanicDrop := new(mockCounter)
-	fakePanicDrop.On("With", []string{"url", w.Config.URL}).Return(fakePanicDrop)
+	fakePanicDrop.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakePanicDrop)
 	fakePanicDrop.On("Add", 1.0).Return()
 
 	// Build a registry and register all fake metrics, these are synymous with the metrics in
@@ -288,13 +293,15 @@ func TestAltURL(t *testing.T) {
 
 	urls := map[string]int{}
 
-	w := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{".*"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{".*"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
-	w.Config.AlternativeURLs = []string{
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.AlternativeURLs = []string{
 		"http://localhost:9999/foo",
 		"http://localhost:9999/bar",
 		"http://localhost:9999/faa",
@@ -504,12 +511,14 @@ func TestInvalidEventRegex(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"[[:123"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{"[[:123"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err := OutboundSenderFactory{
 		Listener:   w,
@@ -528,12 +537,14 @@ func TestInvalidUrl(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"iot"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{"iot"},
+		},
 	}
-	w.Config.URL = "invalid"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "invalid"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err := OutboundSenderFactory{
 		Listener:   w,
@@ -545,11 +556,13 @@ func TestInvalidUrl(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"iot"},
+	w2 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{"iot"},
+		},
 	}
-	w2.Config.ContentType = wrp.MimeTypeJson
+	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err = OutboundSenderFactory{
 		Listener:   w2,
@@ -579,12 +592,14 @@ func TestInvalidSender(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"iot"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{"iot"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -601,13 +616,15 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.Webhook{
-		Until:      time.Now().Add(60 * time.Second),
-		FailureURL: "invalid",
-		Events:     []string{"iot"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:      time.Now().Add(60 * time.Second),
+			FailureURL: "invalid",
+			Events:     []string{"iot"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -622,11 +639,13 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.Webhook{
-		Until: time.Now().Add(60 * time.Second),
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until: time.Now().Add(60 * time.Second),
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -637,12 +656,14 @@ func TestInvalidEvents(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := ancla.Webhook{
-		Until:  time.Now().Add(60 * time.Second),
-		Events: []string{"iot(.*"},
+	w2 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now().Add(60 * time.Second),
+			Events: []string{"iot(.*"},
+		},
 	}
-	w2.Config.URL = "http://localhost:9999/foo"
-	w2.Config.ContentType = wrp.MimeTypeJson
+	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf = simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w2
@@ -659,20 +680,24 @@ func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
-	w1 := ancla.Webhook{
-		Until:  now,
-		Events: []string{"iot", "test"},
+	w1 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  now,
+			Events: []string{"iot", "test"},
+		},
 	}
-	w1.Config.URL = "http://localhost:9999/foo"
-	w1.Config.ContentType = wrp.MimeTypeMsgpack
+	w1.Webhook.Config.URL = "http://localhost:9999/foo"
+	w1.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	later := time.Now().Add(30 * time.Second)
-	w2 := ancla.Webhook{
-		Until:  later,
-		Events: []string{"more", "messages"},
+	w2 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  later,
+			Events: []string{"more", "messages"},
+		},
 	}
-	w2.Config.URL = "http://localhost:9999/foo"
-	w2.Config.ContentType = wrp.MimeTypeMsgpack
+	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	w2.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -699,12 +724,14 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	var output bytes.Buffer
 	logger := getNewTestOutputLogger(&output)
 
-	w := ancla.Webhook{
-		Until:  time.Now(),
-		Events: []string{"iot", "test"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:  time.Now(),
+			Events: []string{"iot", "test"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -745,13 +772,15 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		return
 	}
 
-	w := ancla.Webhook{
-		Until:      time.Now(),
-		FailureURL: "http://localhost:12345/bar",
-		Events:     []string{"iot", "test"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:      time.Now(),
+			FailureURL: "http://localhost:12345/bar",
+			Events:     []string{"iot", "test"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
@@ -789,14 +818,16 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		return
 	}
 
-	w := ancla.Webhook{
-		Until:      time.Now(),
-		FailureURL: "http://localhost:12345/bar",
-		Events:     []string{"iot", "test"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:      time.Now(),
+			FailureURL: "http://localhost:12345/bar",
+			Events:     []string{"iot", "test"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
-	w.Config.Secret = "123456"
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.Secret = "123456"
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
@@ -826,13 +857,15 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		return
 	}
 
-	w := ancla.Webhook{
-		Until:      time.Now(),
-		FailureURL: "http://localhost:12345/bar",
-		Events:     []string{"iot", "test"},
+	w := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Until:      time.Now(),
+			FailureURL: "http://localhost:12345/bar",
+			Events:     []string{"iot", "test"},
+		},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
-	w.Config.ContentType = wrp.MimeTypeJson
+	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w

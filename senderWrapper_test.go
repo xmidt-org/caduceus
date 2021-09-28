@@ -26,7 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -184,26 +184,32 @@ func TestSwSimple(t *testing.T) {
 
 	assert.Equal(int32(0), trans.i)
 
-	w1 := ancla.Webhook{
-		Duration: 6 * time.Second,
-		Until:    time.Now().Add(6 * time.Second),
-		Events:   []string{"iot"},
+	w1 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Config: ancla.DeliveryConfig{
+				URL:         "http://localhost:8888/foo",
+				ContentType: wrp.MimeTypeJson,
+			},
+			Duration: 6 * time.Second,
+			Until:    time.Now().Add(6 * time.Second),
+			Events:   []string{"iot"},
+		},
 	}
-	w1.Config.URL = "http://localhost:8888/foo"
-	w1.Config.ContentType = wrp.MimeTypeJson
-	w1.Matcher.DeviceID = []string{"mac:112233445566"}
+	w1.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
-	w2 := ancla.Webhook{
-		Duration: 4 * time.Second,
-		Until:    time.Now().Add(4 * time.Second),
-		Events:   []string{"iot", "test/extra-stuff", "wrp"},
+	w2 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{
+			Duration: 4 * time.Second,
+			Until:    time.Now().Add(4 * time.Second),
+			Events:   []string{"iot", "test/extra-stuff", "wrp"},
+		},
 	}
-	w2.Config.URL = "http://localhost:9999/foo"
-	w2.Config.ContentType = wrp.MimeTypeJson
-	w2.Matcher.DeviceID = []string{"mac:112233445566"}
+	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
+	w2.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
 	// Add 2 listeners
-	list := []ancla.Webhook{w1, w2}
+	list := []ancla.InternalWebhook{w1, w2}
 
 	sw.Update(list)
 
@@ -217,14 +223,14 @@ func TestSwSimple(t *testing.T) {
 	// Send it again
 	sw.Queue(test)
 
-	w3 := ancla.Webhook{
-		Events: []string{"iot"},
+	w3 := ancla.InternalWebhook{
+		Webhook: ancla.Webhook{},
 	}
-	w3.Config.URL = "http://localhost:9999/foo"
-	w3.Config.ContentType = wrp.MimeTypeJson
+	w3.Webhook.Config.URL = "http://localhost:9999/foo"
+	w3.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	// We get a registration
-	list2 := []ancla.Webhook{w3}
+	list2 := []ancla.InternalWebhook{w3}
 	sw.Update(list2)
 	time.Sleep(time.Second)
 
