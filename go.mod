@@ -14,7 +14,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/xmidt-org/ancla v0.3.0
+	github.com/xmidt-org/ancla v0.3.1
 	github.com/xmidt-org/candlelight v0.0.5
 	github.com/xmidt-org/webpa-common/v2 v2.0.1
 	github.com/xmidt-org/wrp-go/v3 v3.0.2

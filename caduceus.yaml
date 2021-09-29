@@ -355,7 +355,7 @@ sender:
   # is "custom".
   customPIDs: []
 
-  # disablePartnerIDs dictates whether or not to enfore the partnerID check
+  # disablePartnerIDs dictates whether or not to enforce the partnerID check
   # Defaults to 'false'.
   disablePartnerIDs: false
 

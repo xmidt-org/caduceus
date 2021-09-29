@@ -100,10 +100,11 @@ type OutboundSenderFactory struct {
 	// The logger to use.
 	Logger log.Logger
 
-	// A custom list of accepted PartnerIDs that are used if NoPIDAction is of value "custom".
+	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
+	// has no partner IDs.
 	CustomPIDs []string
 
-	// Dictates whether or not to enforce the partner ID check.
+	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
 }
 
