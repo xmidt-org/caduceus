@@ -351,8 +351,9 @@ sender:
 #   - 1000
 #   - 10000
 
-  # customPIDs is a custom list ofallowed PartnerIDs that will be used if noPIDAction 
-  # is "custom".
+  # customPIDs is a custom list of allowed PartnerIDs that will be used if a message 
+  # has no partner IDs.  When empty, a message with no partner IDs will not be sent 
+  # to any listeners when enforcing the partner ID check.
   customPIDs: []
 
   # disablePartnerIDs dictates whether or not to enforce the partnerID check

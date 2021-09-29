@@ -703,8 +703,6 @@ github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijb
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/vmware/govmomi v0.18.0/go.mod h1:URlwyTFZX72RmxtxuaFL2Uj3fD1JTvZdx59bHWk6aFU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
-github.com/xmidt-org/ancla v0.3.0 h1:cr7injAQ+0R7AzLCz8gh9R2s8wX9ZJsyK3eCUrmYR9Y=
-github.com/xmidt-org/ancla v0.3.0/go.mod h1:ouFTJFAgisn3DpLAdtkTbOOkYyprkO9ZbXqpAmin/Gg=
 github.com/xmidt-org/ancla v0.3.1 h1:CzI33KHmvy9fTxSSSvjLvftxzIAXkTElBFWSmJSdqoY=
 github.com/xmidt-org/ancla v0.3.1/go.mod h1:ouFTJFAgisn3DpLAdtkTbOOkYyprkO9ZbXqpAmin/Gg=
 github.com/xmidt-org/argus v0.3.9/go.mod h1:mDFS44R704gl9Fif3gkfAyvnZa53SvMepmXjYWABPvk=

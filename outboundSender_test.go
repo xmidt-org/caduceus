@@ -91,7 +91,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 				Secret:      "123456",
 			},
 		},
-		PartnerIDs: []string{},
+		PartnerIDs: []string{"comcast"},
 	}
 	w.Webhook.Matcher.DeviceID = matcher
 
@@ -187,8 +187,69 @@ func simpleRequest() *wrp.Message {
 	}
 }
 
+func simpleRequestWithPartnerIDs() *wrp.Message {
+	return &wrp.Message{
+		Source:          "mac:112233445566/lmlite",
+		TransactionUUID: "1234",
+		ContentType:     wrp.MimeTypeMsgpack,
+		Destination:     "event:bob/magic/dog",
+		Payload:         []byte("Hello, world."),
+		PartnerIDs:      []string{"comcast"},
+	}
+}
+
 // Simple test that covers the normal successful case with no extra matchers
 func TestSimpleWrp(t *testing.T) {
+	fmt.Printf("\n\nTestingSimpleWRP:\n\n")
+
+	assert := assert.New(t)
+
+	trans := &transport{}
+
+	fmt.Printf("SimpleSetup:\n")
+	obs, err := simpleSetup(trans, time.Second, nil)
+	assert.NotNil(obs)
+	assert.Nil(err)
+
+	// queue case 1
+	req := simpleRequestWithPartnerIDs()
+	req.Destination = "event:iot"
+	fmt.Printf("Queue case 1:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	req = simpleRequestWithPartnerIDs()
+	req.Destination = "event:test"
+	fmt.Printf("\nQueue case 2:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	// queue case 3
+	req = simpleRequestWithPartnerIDs()
+	req.Destination = "event:no-match"
+	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	// queue case 4
+	req = simpleRequestWithPartnerIDs()
+	req.ContentType = wrp.MimeTypeJson
+	fmt.Printf("\nQueue case 3:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	req = simpleRequestWithPartnerIDs()
+	req.ContentType = "application/http"
+	fmt.Printf("\nQueue case 4:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	req = simpleRequestWithPartnerIDs()
+	req.ContentType = "unknown"
+	fmt.Printf("\nQueue case 4:\n %v\n", spew.Sprint(req))
+	obs.Queue(req)
+
+	obs.Shutdown(true)
+
+	assert.Equal(int32(2), trans.i)
+}
+
+func TestSimpleWrpPartnerIDsFailure(t *testing.T) {
 	fmt.Printf("\n\nTestingSimpleWRP:\n\n")
 
 	assert := assert.New(t)
@@ -235,7 +296,7 @@ func TestSimpleWrp(t *testing.T) {
 
 	obs.Shutdown(true)
 
-	assert.Equal(int32(2), trans.i)
+	assert.Equal(int32(0), trans.i)
 }
 
 // Simple test that covers the normal retry case
@@ -252,7 +313,7 @@ func TestSimpleRetry(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleRequestWithPartnerIDs()
 	req.Source = "mac:112233445566"
 	req.TransactionUUID = "1234"
 	req.Destination = "event:iot"
@@ -277,7 +338,7 @@ func Test429Retry(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleRequestWithPartnerIDs()
 	req.Source = "mac:112233445566"
 	req.TransactionUUID = "1234"
 	req.Destination = "event:iot"
@@ -298,6 +359,7 @@ func TestAltURL(t *testing.T) {
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{".*"},
 		},
+		PartnerIDs: []string{"comcast"},
 	}
 	w.Webhook.Config.URL = "http://localhost:9999/foo"
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
@@ -320,7 +382,7 @@ func TestAltURL(t *testing.T) {
 	assert.NotNil(obs)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleRequestWithPartnerIDs()
 	req.Source = "mac:112233445566"
 	req.TransactionUUID = "1234"
 	req.Destination = "event:iot"
@@ -345,13 +407,13 @@ func TestSimpleWrpWithMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleRequestWithPartnerIDs()
 	req.TransactionUUID = "1234"
 	req.Source = "mac:112233445566"
 	req.Destination = "event:iot"
 	obs.Queue(req)
 
-	r2 := simpleRequest()
+	r2 := simpleRequestWithPartnerIDs()
 	r2.TransactionUUID = "1234"
 	r2.Source = "mac:112233445565"
 	r2.Destination = "event:test"
@@ -386,32 +448,32 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	obs, err := simpleSetup(trans, time.Second, m)
 	assert.Nil(err)
 
-	req := simpleRequest()
+	req := simpleRequestWithPartnerIDs()
 	req.TransactionUUID = "1234"
 	req.Source = "mac:112233445566"
 	req.Destination = "event:iot"
 	obs.Queue(req)
 
-	r2 := simpleRequest()
+	r2 := simpleRequestWithPartnerIDs()
 	r2.TransactionUUID = "1234"
 	r2.Source = "mac:112233445565"
 	r2.Destination = "event:test"
 	obs.Queue(r2)
 
-	r3 := simpleRequest()
+	r3 := simpleRequestWithPartnerIDs()
 	r3.TransactionUUID = "1234"
 	r3.Source = "mac:112233445560"
 	r3.Destination = "event:iot"
 	obs.Queue(r3)
 
-	r4 := simpleRequest()
+	r4 := simpleRequestWithPartnerIDs()
 	r4.TransactionUUID = "1234"
 	r4.Source = "mac:112233445560"
 	r4.Destination = "event:test"
 	obs.Queue(r4)
 
 	/* This will panic. */
-	r5 := simpleRequest()
+	r5 := simpleRequestWithPartnerIDs()
 	r5.TransactionUUID = "1234"
 	r5.Source = "mac:112233445560"
 	r5.Destination = "event:test\xedoops"
