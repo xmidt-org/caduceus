@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.5.0]
+- Bumped webpa-common to v2. [#276](https://github.com/xmidt-org/caduceus/pull/276)
+- Added configuration for PartnerID check. [#276](https://github.com/xmidt-org/caduceus/pull/276)
+- Changed passsing Webhooks to InternalWebhooks to allow for storage of PartnerIDs. [#276](https://github.com/xmidt-org/caduceus/pull/276)
 - Added 415 response for Content-Type header issues. [#272](https://github.com/xmidt-org/caduceus/pull/273)
 - Fixed log and response for incoming queue full 503. [#275](https://github.com/xmidt-org/caduceus/pull/275)
 
@@ -143,7 +148,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/Comcast/caduceus/compare/v0.4.6...v0.5.0
 [v0.4.6]: https://github.com/Comcast/caduceus/compare/v0.4.5...v0.4.6
 [v0.4.5]: https://github.com/Comcast/caduceus/compare/v0.4.4...v0.4.5
 [v0.4.4]: https://github.com/Comcast/caduceus/compare/v0.4.3...v0.4.4

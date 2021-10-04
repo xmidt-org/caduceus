@@ -65,10 +65,17 @@ type SenderWrapperFactory struct {
 
 	// The http client Do() function to share with OutboundSenders.
 	Sender func(*http.Request) (*http.Response, error)
+
+	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
+	// has no partner IDs.
+	CustomPIDs []string
+
+	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
+	DisablePartnerIDs bool
 }
 
 type SenderWrapper interface {
-	Update([]ancla.Webhook)
+	Update([]ancla.InternalWebhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -90,6 +97,8 @@ type CaduceusSenderWrapper struct {
 	eventType           metrics.Counter
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
+	customPIDs          []string
+	disablePartnerIDs   bool
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
@@ -106,6 +115,8 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		linger:              swf.Linger,
 		logger:              swf.Logger,
 		metricsRegistry:     swf.MetricsRegistry,
+		customPIDs:          swf.CustomPIDs,
+		disablePartnerIDs:   swf.DisablePartnerIDs,
 	}
 
 	if swf.Linger <= 0 {
@@ -129,28 +140,30 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []ancla.Webhook) {
+func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Sender:           sw.sender,
-		CutOffPeriod:     sw.cutOffPeriod,
-		NumWorkers:       sw.numWorkersPerSender,
-		QueueSize:        sw.queueSizePerSender,
-		MetricsRegistry:  sw.metricsRegistry,
-		DeliveryRetries:  sw.deliveryRetries,
-		DeliveryInterval: sw.deliveryInterval,
-		RetryCodes:       sw.retryCodes,
-		Logger:           sw.logger,
+		Sender:            sw.sender,
+		CutOffPeriod:      sw.cutOffPeriod,
+		NumWorkers:        sw.numWorkersPerSender,
+		QueueSize:         sw.queueSizePerSender,
+		MetricsRegistry:   sw.metricsRegistry,
+		DeliveryRetries:   sw.deliveryRetries,
+		DeliveryInterval:  sw.deliveryInterval,
+		RetryCodes:        sw.retryCodes,
+		Logger:            sw.logger,
+		CustomPIDs:        sw.customPIDs,
+		DisablePartnerIDs: sw.disablePartnerIDs,
 	}
 
 	ids := make([]struct {
-		Listener ancla.Webhook
+		Listener ancla.InternalWebhook
 		ID       string
 	}, len(list))
 
 	for i, v := range list {
 		ids[i].Listener = v
-		ids[i].ID = v.Config.URL
+		ids[i].ID = v.Webhook.Config.URL
 	}
 
 	sw.mutex.Lock()

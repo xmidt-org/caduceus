@@ -10,9 +10,9 @@ import (
 	"github.com/justinas/alice"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/webpa-common/secure"
-	"github.com/xmidt-org/webpa-common/secure/handler"
-	"github.com/xmidt-org/webpa-common/secure/key"
+	"github.com/xmidt-org/webpa-common/v2/secure"
+	"github.com/xmidt-org/webpa-common/v2/secure/handler"
+	"github.com/xmidt-org/webpa-common/v2/secure/key"
 )
 
 const (

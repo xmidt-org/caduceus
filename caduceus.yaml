@@ -351,6 +351,15 @@ sender:
 #   - 1000
 #   - 10000
 
+  # customPIDs is a custom list of allowed PartnerIDs that will be used if a message 
+  # has no partner IDs.  When empty, a message with no partner IDs will not be sent 
+  # to any listeners when enforcing the partner ID check.
+  customPIDs: []
+
+  # disablePartnerIDs dictates whether or not to enforce the partnerID check
+  # Defaults to 'false'.
+  disablePartnerIDs: false
+
 # tracing provides configuration around traces using OpenTelemetry.
 # (Optional). By default, a 'noop' tracer provider is used and tracing is disabled.
 tracing:

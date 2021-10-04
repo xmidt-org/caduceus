@@ -39,7 +39,7 @@ type mockSenderWrapper struct {
 	mock.Mock
 }
 
-func (m *mockSenderWrapper) Update(list []ancla.Webhook) {
+func (m *mockSenderWrapper) Update(list []ancla.InternalWebhook) {
 	m.Called(list)
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -51,6 +51,8 @@ type SenderConfig struct {
 	DeliveryRetries                 int
 	DeliveryInterval                time.Duration
 	RetryCodes                      []int
+	CustomPIDs                      []string
+	DisablePartnerIDs               bool
 }
 
 type CaduceusMetricsRegistry interface {

@@ -35,10 +35,10 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/candlelight"
-	"github.com/xmidt-org/webpa-common/concurrent"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/server"
-	"github.com/xmidt-org/webpa-common/service/servicecfg"
+	"github.com/xmidt-org/webpa-common/v2/concurrent"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/server"
+	"github.com/xmidt-org/webpa-common/v2/service/servicecfg"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
@@ -135,6 +135,8 @@ func caduceus(arguments []string) int {
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do,
+		CustomPIDs:        caduceusConfig.Sender.CustomPIDs,
+		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
 	}.New()
 
 	if err != nil {

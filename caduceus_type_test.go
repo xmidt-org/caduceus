@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
