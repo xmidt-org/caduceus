@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.5.1]
+- Edited Queue function to fix [duplicate events bug](https://github.com/xmidt-org/caduceus/issues/277). [#378](https://github.com/xmidt-org/caduceus/pull/278)
+
 ## [v0.5.0]
 - Bumped webpa-common to v2. [#276](https://github.com/xmidt-org/caduceus/pull/276)
 - Added configuration for PartnerID check. [#276](https://github.com/xmidt-org/caduceus/pull/276)
@@ -148,7 +151,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.5.1...HEAD
+[v0.5.1]: https://github.com/Comcast/caduceus/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/Comcast/caduceus/compare/v0.4.6...v0.5.0
 [v0.4.6]: https://github.com/Comcast/caduceus/compare/v0.4.5...v0.4.6
 [v0.4.5]: https://github.com/Comcast/caduceus/compare/v0.4.4...v0.4.5
