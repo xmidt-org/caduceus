@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [v0.5.1]
-- Edited Queue function to fix [duplicate events bug](https://github.com/xmidt-org/caduceus/issues/277). [#378](https://github.com/xmidt-org/caduceus/pull/278)
+- Edited Queue function to fix [duplicate events bug](https://github.com/xmidt-org/caduceus/issues/277). [#278](https://github.com/xmidt-org/caduceus/pull/278)
 
 ## [v0.5.0]
 - Bumped webpa-common to v2. [#276](https://github.com/xmidt-org/caduceus/pull/276)
