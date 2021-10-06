@@ -445,6 +445,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 				obs.queueOverflow()
 				obs.droppedQueueFullCounter.Add(1.0)
 			}
+			return
 		}
 	}
 }
