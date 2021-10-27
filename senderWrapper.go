@@ -187,7 +187,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
 
-	sw.eventType.With("event", msg.FindEventStringSubMatch())
+	sw.eventType.With("event", msg.FindEventStringSubMatch()).Add(1)
 
 	for _, v := range sw.senders {
 		v.Queue(msg)
