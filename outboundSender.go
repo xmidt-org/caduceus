@@ -622,15 +622,8 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		Interval: obs.deliveryInterval,
 		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
 		// Always retry on failures up to the max count.
-		ShouldRetry: func(error) bool { return true },
-		ShouldRetryStatus: func(code int) bool {
-			for _, c := range obs.retryCodes {
-				if code == c {
-					return true
-				}
-			}
-			return false
-		},
+		ShouldRetry:       xhttp.ShouldRetry,
+		ShouldRetryStatus: xhttp.ShouldRetryStatus,
 	}
 
 	// update subsequent requests with the next url in the list upon failure
