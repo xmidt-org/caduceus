@@ -623,7 +623,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
 		// Always retry on failures up to the max count.
 		ShouldRetry:       xhttp.ShouldRetry,
-		ShouldRetryStatus: xhttp.ShouldRetryStatus,
+		ShouldRetryStatus: xhttp.RetryCodes,
 	}
 
 	// update subsequent requests with the next url in the list upon failure
