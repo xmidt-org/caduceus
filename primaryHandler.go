@@ -5,7 +5,6 @@ import (
 
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/spf13/viper"
@@ -29,7 +28,7 @@ type JWTValidator struct {
 	Custom secure.JWTValidatorFactory
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider, router *mux.Router) (*mux.Router, error) {
+func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookSvc ancla.Service, handlerConfig ancla.HandlerConfig, router *mux.Router) (*mux.Router, error) {
 
 	validator, err := getValidator(v)
 	if err != nil {
@@ -45,16 +44,14 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, sw *ServerHandler, webhookS
 
 	authorizationDecorator := alice.New(setLogger(l), authHandler.Decorate)
 
-	return configServerRouter(router, authorizationDecorator, sw, webhookSvc, metricsRegistry), nil
+	return configServerRouter(router, authorizationDecorator, sw, webhookSvc, handlerConfig), nil
 }
 
-func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookSvc ancla.Service, metricsRegistry provider.Provider) *mux.Router {
+func configServerRouter(router *mux.Router, primaryHandler alice.Chain, serverWrapper *ServerHandler, webhookSvc ancla.Service, handlerConfig ancla.HandlerConfig) *mux.Router {
 
 	router.Handle("/"+fmt.Sprintf("%s/%s", baseURI, version)+"/notify", primaryHandler.Then(serverWrapper)).Methods("POST")
 
-	addWebhookHandler := ancla.NewAddWebhookHandler(webhookSvc, ancla.HandlerConfig{
-		MetricsProvider: metricsRegistry,
-	})
+	addWebhookHandler := ancla.NewAddWebhookHandler(webhookSvc, handlerConfig)
 	// register webhook end points
 	router.Handle("/hook", primaryHandler.Then(addWebhookHandler)).Methods("POST")
 
