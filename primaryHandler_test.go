@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/secure"
 	"github.com/xmidt-org/webpa-common/v2/secure/handler"
@@ -27,7 +28,10 @@ func TestNewPrimaryHandler(t *testing.T) {
 	)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	if _, err := NewPrimaryHandler(l, viper, sw, nil, provider.NewDiscardProvider(), mux.NewRouter()); err != nil {
+	c := ancla.HandlerConfig{
+		MetricsProvider: provider.NewDiscardProvider(),
+	}
+	if _, err := NewPrimaryHandler(l, viper, sw, nil, c, mux.NewRouter()); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 
@@ -93,7 +97,10 @@ func TestMuxServerConfig(t *testing.T) {
 	authHandler := handler.AuthorizationHandler{Validator: nil}
 	caduceusHandler := alice.New(authHandler.Decorate)
 
-	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, nil, provider.NewDiscardProvider())
+	c := ancla.HandlerConfig{
+		MetricsProvider: provider.NewDiscardProvider(),
+	}
+	router := configServerRouter(mux.NewRouter(), caduceusHandler, serverWrapper, nil, c)
 
 	t.Run("TestMuxResponseCorrectMSP", func(t *testing.T) {
 		req := exampleRequest("1234", "application/msgpack", "/api/v3/notify")

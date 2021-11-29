@@ -181,7 +181,12 @@ func caduceus(arguments []string) int {
 	}
 	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator()))
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, metricsRegistry, rootRouter)
+	handlerConfig := ancla.HandlerConfig{
+		MetricsProvider:   metricsRegistry,
+		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
+		GetLogger:         getLogger,
+	}
+	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, handlerConfig, rootRouter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
 		return 1

@@ -5,7 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Edited retry functions in outboundSender and bumped webpa-common from v2.0.1 to v2.0.2. [#280](https://github.com/xmidt-org/caduceus/pull/280/files)
+
+## [v0.5.2]
+- Edited retry functions in outboundSender and bumped webpa-common from v2.0.1 to v2.0.3. [#280](https://github.com/xmidt-org/caduceus/pull/280)
+- Bumped ancla to v0.3.5 in order to fix panic in post webhook endpoint. [#298](https://github.com/xmidt-org/caduceus/pull/298)
+- Used already existing configuration for whether to check partner IDs in post webhook endpoint. [#298](https://github.com/xmidt-org/caduceus/pull/298)
 
 ## [v0.5.1]
 - Edited Queue function to fix [duplicate events bug](https://github.com/xmidt-org/caduceus/issues/277). [#278](https://github.com/xmidt-org/caduceus/pull/278)
@@ -152,7 +156,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.5.2...HEAD
+[v0.5.2]: https://github.com/Comcast/caduceus/compare/v0.5.1...v0.5.2
 [v0.5.1]: https://github.com/Comcast/caduceus/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/Comcast/caduceus/compare/v0.4.6...v0.5.0
 [v0.4.6]: https://github.com/Comcast/caduceus/compare/v0.4.5...v0.4.6
