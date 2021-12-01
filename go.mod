@@ -3,7 +3,6 @@ module github.com/xmidt-org/caduceus
 go 1.14
 
 require (
-	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-kit/kit v0.10.0
@@ -15,6 +14,7 @@ require (
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
 	github.com/xmidt-org/ancla v0.3.5
+	github.com/xmidt-org/bascule v0.10.2
 	github.com/xmidt-org/candlelight v0.0.5
 	github.com/xmidt-org/webpa-common/v2 v2.0.3
 	github.com/xmidt-org/wrp-go/v3 v3.0.2

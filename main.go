@@ -35,6 +35,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/candlelight"
+	"github.com/xmidt-org/webpa-common/v2/basculechecks"
+	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
 	"github.com/xmidt-org/webpa-common/v2/concurrent"
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/server"
@@ -45,7 +47,7 @@ import (
 
 const (
 	applicationName  = "caduceus"
-	DEFAULT_KEY_ID   = "current"
+	defaultKeyID     = "current"
 	tracingConfigKey = "tracing"
 )
 
@@ -73,7 +75,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics, basculechecks.Metrics, basculemetrics.Metrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -186,9 +188,9 @@ func caduceus(arguments []string) int {
 		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
 		GetLogger:         getLogger,
 	}
-	primaryHandler, err := NewPrimaryHandler(logger, v, serverWrapper, svc, handlerConfig, rootRouter)
+	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, serverWrapper, svc, handlerConfig, rootRouter)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Validator error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Handler creation error: %v\n", err)
 		return 1
 	}
 
