@@ -36,8 +36,8 @@ type CapabilityConfig struct {
 
 // JWTValidator provides a convenient way to define jwt validator through config files
 type JWTValidator struct {
-	// Key is used to create the key.Resolver for JWT verification keys
-	Key key.ResolverFactory `json:"key"`
+	// Keys is used to create the key.Resolver for JWT verification keys
+	Keys key.ResolverFactory `json:"key"`
 
 	// Leeway is used to set the amount of time buffer should be given to JWT
 	// time values, such as nbf
@@ -94,8 +94,8 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 
 	var jwtVal JWTValidator
 	v.UnmarshalKey("jwtValidator", &jwtVal)
-	if jwtVal.Key.URI != "" {
-		resolver, err := jwtVal.Key.NewResolver()
+	if jwtVal.Keys.URI != "" {
+		resolver, err := jwtVal.Keys.NewResolver()
 		if err != nil {
 			return &alice.Chain{}, fmt.Errorf("failed to create resolver: %v", err)
 		}
@@ -123,7 +123,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		var endpoints []*regexp.Regexp
 		c, err := basculechecks.NewEndpointRegexCheck(capabilityCheck.Prefix, capabilityCheck.AcceptAllMethod)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create capability check", err)
+			return nil, fmt.Errorf("failed to create capability check: %v", err)
 		}
 		for _, e := range capabilityCheck.EndpointBuckets {
 			r, err := regexp.Compile(e)
