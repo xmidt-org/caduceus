@@ -45,7 +45,6 @@ type JWTValidator struct {
 }
 
 func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, handlerConfig ancla.HandlerConfig, router *mux.Router) (*mux.Router, error) {
-
 	auth, err := authenticationMiddleware(v, l, registry)
 	if err != nil {
 		return nil, fmt.Errorf("unable to build authentication middleware: %v", err)
