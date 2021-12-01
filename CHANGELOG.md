@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Removed endpoint for registering webhooks. [#299](https://github.com/xmidt-org/caduceus/pull/299)
+- Moved auth middleware to use bascule package instead of deprecated webpa-common/secure. [#299](https://github.com/xmidt-org/caduceus/pull/299)
+- Updated api version in url to v4 to indicate breaking changes in response codes when an invalid auth is sent. [#299](https://github.com/xmidt-org/caduceus/pull/299)
 
 ## [v0.5.2]
 - Edited retry functions in outboundSender and bumped webpa-common from v2.0.1 to v2.0.3. [#280](https://github.com/xmidt-org/caduceus/pull/280)

@@ -219,17 +219,16 @@ log:
 # Any combination of these configurations may be used for authorization.
 # If ANY match, the request goes onwards.
 
-# jwtValidators provides the details about where to get the keys for JWT
+# jwtValidator provides the details about where to get the keys for JWT
 # kid values and their associated information (expiration, etc) for JWTs
-# used as authorization
+# used as authorization.
 # (Optional)
-jwtValidators:
-  -
-    keys:
-      factory:
-        uri: "https://jwt.example.com/keys/{keyId}"
-      purpose: 0
-      updateInterval: 604800000000000
+jwtValidator:
+  key:
+    factory:
+      uri: "https://jwt.example.com/keys/{keyId}"
+    purpose: 0
+    updateInterval: 604800000000000
 
 # authHeader provides the list of basic auth headers that caduceus will accept
 # as authorization

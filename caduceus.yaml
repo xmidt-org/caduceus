@@ -213,9 +213,9 @@ log:
 # Any combination of these configurations may be used for authorization.
 # If ANY match, the request goes onwards.
 
-# jwtValidators provides the details about where to get the keys for JWT
+# jwtValidator provides the details about where to get the keys for JWT
 # kid values and their associated information (expiration, etc) for JWTs
-# used as authorization
+# used as authorization.
 # (Optional)
 # jwtValidator:
 #   key:
