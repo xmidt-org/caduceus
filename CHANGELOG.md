@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.6.0]
 - Removed endpoint for registering webhooks. [#299](https://github.com/xmidt-org/caduceus/pull/299)
 - Moved auth middleware to use bascule package instead of deprecated webpa-common/secure. [#299](https://github.com/xmidt-org/caduceus/pull/299)
 - Updated api version in url to v4 to indicate breaking changes in response codes when an invalid auth is sent. [#299](https://github.com/xmidt-org/caduceus/pull/299)
@@ -159,7 +161,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/Comcast/caduceus/compare/v0.5.2...v0.6.0
 [v0.5.2]: https://github.com/Comcast/caduceus/compare/v0.5.1...v0.5.2
 [v0.5.1]: https://github.com/Comcast/caduceus/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/Comcast/caduceus/compare/v0.4.6...v0.5.0
