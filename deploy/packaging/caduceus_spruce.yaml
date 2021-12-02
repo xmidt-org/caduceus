@@ -194,7 +194,7 @@ log:
 
   # level is the logging level to use - INFO, DEBUG, WARN, ERROR
   # (Optional) defaults to ERROR
-  level: "DEBUG"
+  level: (( grab $LOG_LEVEL || "DEBUG" ))
 
   # maxsize is the maximum file size in MB
   # (Optional) defaults to max 100MB
@@ -219,17 +219,16 @@ log:
 # Any combination of these configurations may be used for authorization.
 # If ANY match, the request goes onwards.
 
-# jwtValidators provides the details about where to get the keys for JWT
+# jwtValidator provides the details about where to get the keys for JWT
 # kid values and their associated information (expiration, etc) for JWTs
-# used as authorization
+# used as authorization.
 # (Optional)
-jwtValidators:
-  -
-    keys:
-      factory:
-        uri: "https://jwt.example.com/keys/{keyId}"
-      purpose: 0
-      updateInterval: 604800000000000
+jwtValidator:
+  keys:
+    factory:
+      uri: "https://jwt.example.com/keys/{keyId}"
+    purpose: 0
+    updateInterval: 604800000000000
 
 # authHeader provides the list of basic auth headers that caduceus will accept
 # as authorization
@@ -239,6 +238,39 @@ authHeader:
 
 # authtoken used to make spruce work better for authAcquirer
 authToken: (( grab $AUTH_TOKEN || "dXNlcjpwYXNz" ))
+
+# capabilityCheck provides the details needed for checking an incoming JWT's
+# capabilities.  If the type of check isn't provided, no checking is done.  The 
+# type can be "monitor" or "enforce".  If it is empty or a different value, no 
+# checking is done.  If "monitor" is provided, the capabilities are checked but 
+# the request isn't rejected when there isn't a valid capability for the 
+# request. Instead, a message is logged.  When "enforce" is provided, a request 
+# that doesn't have the needed capability is rejected.
+#
+# The capability is expected to have the format:
+#
+# {prefix}{endpoint}:{method}
+#
+# The prefix can be a regular expression.  If it's empty, no capability check 
+# is done.  The endpoint is a regular expression that should match the endpoint
+# the request was sent to. The method is usually the method of the request, such as 
+# GET.  The accept all method is a catchall string that indicates the capability 
+# is approved for all methods.
+# (Optional)
+# capabilityCheck:
+#   # type provides the mode for capability checking.
+#   type: "enforce"
+#   # prefix provides the regex to match the capability before the endpoint.
+#   prefix: "prefix Here"
+#   # acceptAllMethod provides a way to have a capability that allows all 
+#   # methods for a specific endpoint.
+#   acceptAllMethod: "all"
+#   # endpointBuckets provides regular expressions to use against the request 
+#   # endpoint in order to group requests for a metric label.
+#   endpointBuckets:
+#     - "hook\\b"
+#     - "hooks\\b"
+#     - "notify\\b"
 
 ########################################
 #   Webhook Related Configuration
