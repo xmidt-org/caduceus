@@ -72,10 +72,10 @@ func TestServerHandler(t *testing.T) {
 	fmt.Print("TestingeServerHandler")
 
 	tcs := []struct {
-		desc             string
-		expectedResponse int
-		request          *http.Request
-		invalidCountAdd  bool
+		desc                  string
+		expectedResponse      int
+		request               *http.Request
+		throwStatusBadRequest bool
 	}{
 		{
 			desc:             "TestServeHTTPHappyPath",
@@ -83,10 +83,10 @@ func TestServerHandler(t *testing.T) {
 			request:          exampleRequest(4),
 		},
 		{
-			desc:             "TestServeHTTPInvalidMessageType",
-			expectedResponse: http.StatusBadRequest,
-			request:          exampleRequest(1),
-			invalidCountAdd:  true,
+			desc:                  "TestServeHTTPInvalidMessageType",
+			expectedResponse:      http.StatusBadRequest,
+			request:               exampleRequest(1),
+			throwStatusBadRequest: true,
 		},
 	}
 
@@ -95,7 +95,7 @@ func TestServerHandler(t *testing.T) {
 
 		logger := logging.DefaultLogger()
 		fakeHandler := new(mockHandler)
-		if !tc.invalidCountAdd {
+		if !tc.throwStatusBadRequest {
 			fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 				mock.AnythingOfType("*wrp.Message")).Return().Times(1)
 		}
@@ -105,7 +105,7 @@ func TestServerHandler(t *testing.T) {
 		fakeInvalidCount := new(mockCounter)
 		fakeQueueDepth := new(mockGauge)
 		fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
-		if tc.invalidCountAdd {
+		if tc.throwStatusBadRequest {
 			fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
 		}
 
