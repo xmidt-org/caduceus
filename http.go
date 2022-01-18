@@ -104,10 +104,10 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			response.Write([]byte("Invalid payload format.\n"))
-			debugLog.Log(messageKey, "Invalid payload format.\n")
+			debugLog.Log(messageKey, "Invalid payload format.")
 		} else {
 			response.Write([]byte("Invalid MessageType.\n"))
-			debugLog.Log(messageKey, "Invalid MessageType.\n")
+			debugLog.Log(messageKey, "Invalid MessageType.")
 		}
 		return
 	}
