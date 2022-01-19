@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [v0.6.1]
-- Bump wrp-go version. []()
+- Bump wrp-go version. [#301](https://github.com/xmidt-org/caduceus/pull/301)
 - Reject all non-SimpleEvents wrp messages.[#300](https://github.com/xmidt-org/caduceus/pull/300)
 
 ## [v0.6.0]
