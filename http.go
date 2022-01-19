@@ -96,12 +96,19 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	decoder := wrp.NewDecoderBytes(payload, wrp.Msgpack)
 	msg := new(wrp.Message)
-	if err := decoder.Decode(msg); err != nil {
+
+	err = decoder.Decode(msg)
+	if err != nil || msg.MessageType() != 4 {
 		// return a 400
 		sh.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
-		response.Write([]byte("Invalid payload format.\n"))
-		debugLog.Log(messageKey, "Invalid payload format.\n")
+		if err != nil {
+			response.Write([]byte("Invalid payload format.\n"))
+			debugLog.Log(messageKey, "Invalid payload format.")
+		} else {
+			response.Write([]byte("Invalid MessageType.\n"))
+			debugLog.Log(messageKey, "Invalid MessageType.")
+		}
 		return
 	}
 

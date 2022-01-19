@@ -33,7 +33,7 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
-func exampleRequest(list ...string) *http.Request {
+func exampleRequest(msgType int, list ...string) *http.Request {
 	var buffer bytes.Buffer
 
 	trans := "1234"
@@ -42,17 +42,18 @@ func exampleRequest(list ...string) *http.Request {
 
 	for i := range list {
 		switch {
-		case 0 == i:
+		case i == 0:
 			trans = list[i]
-		case 1 == i:
+		case i == 1:
 			ct = list[i]
-		case 2 == i:
+		case i == 2:
 			url = list[i]
 		}
 
 	}
 	wrp.NewEncoder(&buffer, wrp.Msgpack).Encode(
 		&wrp.Message{
+			Type:            wrp.MessageType(msgType),
 			Source:          "mac:112233445566/lmlite",
 			TransactionUUID: trans,
 			ContentType:     ct,
@@ -70,42 +71,67 @@ func exampleRequest(list ...string) *http.Request {
 func TestServerHandler(t *testing.T) {
 	fmt.Print("TestingeServerHandler")
 
-	assert := assert.New(t)
-
-	logger := logging.DefaultLogger()
-	fakeHandler := new(mockHandler)
-	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
-		mock.AnythingOfType("*wrp.Message")).Return().Once()
-
-	fakeEmptyRequests := new(mockCounter)
-	fakeErrorRequests := new(mockCounter)
-	fakeInvalidCount := new(mockCounter)
-	fakeQueueDepth := new(mockGauge)
-	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
-
-	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		errorRequests:            fakeErrorRequests,
-		emptyRequests:            fakeEmptyRequests,
-		invalidCount:             fakeInvalidCount,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
+	tcs := []struct {
+		desc                  string
+		expectedResponse      int
+		request               *http.Request
+		throwStatusBadRequest bool
+	}{
+		{
+			desc:             "TestServeHTTPHappyPath",
+			expectedResponse: http.StatusAccepted,
+			request:          exampleRequest(4),
+		},
+		{
+			desc:                  "TestServeHTTPInvalidMessageType",
+			expectedResponse:      http.StatusBadRequest,
+			request:               exampleRequest(1),
+			throwStatusBadRequest: true,
+		},
 	}
 
-	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
-		w := httptest.NewRecorder()
+	for _, tc := range tcs {
+		assert := assert.New(t)
 
-		serverWrapper.ServeHTTP(w, exampleRequest())
-		resp := w.Result()
-
-		assert.Equal(http.StatusAccepted, resp.StatusCode)
-		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
+		logger := logging.DefaultLogger()
+		fakeHandler := new(mockHandler)
+		if !tc.throwStatusBadRequest {
+			fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
+				mock.AnythingOfType("*wrp.Message")).Return().Times(1)
 		}
-		fakeHandler.AssertExpectations(t)
-	})
+
+		fakeEmptyRequests := new(mockCounter)
+		fakeErrorRequests := new(mockCounter)
+		fakeInvalidCount := new(mockCounter)
+		fakeQueueDepth := new(mockGauge)
+		fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
+		if tc.throwStatusBadRequest {
+			fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
+		}
+
+		serverWrapper := &ServerHandler{
+			Logger:                   logger,
+			caduceusHandler:          fakeHandler,
+			errorRequests:            fakeErrorRequests,
+			emptyRequests:            fakeEmptyRequests,
+			invalidCount:             fakeInvalidCount,
+			incomingQueueDepthMetric: fakeQueueDepth,
+			maxOutstanding:           1,
+		}
+		t.Run(tc.desc, func(t *testing.T) {
+			w := httptest.NewRecorder()
+
+			serverWrapper.ServeHTTP(w, tc.request)
+			resp := w.Result()
+
+			assert.Equal(tc.expectedResponse, resp.StatusCode)
+			if nil != resp.Body {
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+			}
+			fakeHandler.AssertExpectations(t)
+		})
+	}
 }
 
 func TestServerHandlerFixWrp(t *testing.T) {
@@ -147,7 +173,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		serverWrapper.ServeHTTP(w, exampleRequest("", ""))
+		serverWrapper.ServeHTTP(w, exampleRequest(4, "", ""))
 		resp := w.Result()
 
 		assert.Equal(http.StatusAccepted, resp.StatusCode)
@@ -186,7 +212,7 @@ func TestServerHandlerFull(t *testing.T) {
 		serverWrapper.incomingQueueDepth = 1
 
 		/* Make the call that goes over the limit */
-		serverWrapper.ServeHTTP(w, exampleRequest())
+		serverWrapper.ServeHTTP(w, exampleRequest(4))
 		resp := w.Result()
 
 		assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
@@ -363,7 +389,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			req := exampleRequest()
+			req := exampleRequest(4)
 			req.Header.Del("Content-Type")
 			for _, h := range testCase.headers {
 				req.Header.Add("Content-Type", h)
