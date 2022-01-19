@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.1]
+- Bump wrp-go version. [#301](https://github.com/xmidt-org/caduceus/pull/301)
+- Reject all non-SimpleEvents wrp messages.[#300](https://github.com/xmidt-org/caduceus/pull/300)
+
 ## [v0.6.0]
 - Removed endpoint for registering webhooks. [#299](https://github.com/xmidt-org/caduceus/pull/299)
 - Moved auth middleware to use bascule package instead of deprecated webpa-common/secure. [#299](https://github.com/xmidt-org/caduceus/pull/299)
@@ -161,7 +165,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.6.1...HEAD
+[v0.6.1]: https://github.com/Comcast/caduceus/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/Comcast/caduceus/compare/v0.5.2...v0.6.0
 [v0.5.2]: https://github.com/Comcast/caduceus/compare/v0.5.1...v0.5.2
 [v0.5.1]: https://github.com/Comcast/caduceus/compare/v0.5.0...v0.5.1
