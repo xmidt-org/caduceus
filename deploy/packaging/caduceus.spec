@@ -23,7 +23,7 @@ BuildRequires: git
 The XMiDT server for delivering events
 
 %prep
-%setup -q
+%setup
 
 %build
 GOPROXY=https://proxy.golang.org go build -ldflags "-linkmode=external -X 'main.BuildTime=`date -u '+%c'`' -X main.GitCommit={{{ git_short_hash }}} -X main.Version=%{version}" -o %{name} .
