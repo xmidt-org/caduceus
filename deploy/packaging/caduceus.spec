@@ -11,7 +11,7 @@ Packager:   Comcast
 Group:      System Environment/Daemons
 License:    ASL 2.0
 URL:        https://github.com/xmidt-org/caduceus
-Source0:    %{name}-%{version}.tar.gz
+Source0:    {{{ git_dir_pack }}}
 
 Prefix:     /opt
 BuildRoot:  %{_tmppath}/%{name}
