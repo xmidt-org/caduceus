@@ -15,5 +15,9 @@ function git_tag_version {
         tag="$(git describe --tags --abbrev=0)"
     fi
 
+    # Remove the potential prefix of `v`
+    if [[ $tag =~ ^v[0-9].* ]]; then
+        tag="${tag:1}"
+    fi
     output "$tag"
 }
