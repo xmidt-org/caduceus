@@ -5,7 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.6.2]
 - Updated spec file and rpkg version macro to be able to choose when the 'v' is included in the version. [#304](https://github.com/xmidt-org/caduceus/pull/304)
+- Added debug logging to outbound sender. [#305](https://github.com/xmidt-org/caduceus/pull/305)
 
 ## [v0.6.1]
 - Bump wrp-go version. [#301](https://github.com/xmidt-org/caduceus/pull/301)
@@ -166,7 +169,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.6.2...HEAD
+[v0.6.2]: https://github.com/Comcast/caduceus/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/Comcast/caduceus/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/Comcast/caduceus/compare/v0.5.2...v0.6.0
 [v0.5.2]: https://github.com/Comcast/caduceus/compare/v0.5.1...v0.5.2
