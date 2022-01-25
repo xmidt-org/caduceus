@@ -179,6 +179,10 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return
 	}
 
+	decoratedLogger := log.With(osf.Logger,
+		"webhook.address", osf.Listener.Webhook.Address,
+	)
+
 	caduceusOutboundSender := &CaduceusOutboundSender{
 		id:               osf.Listener.Webhook.Config.URL,
 		listener:         osf.Listener,
@@ -186,7 +190,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		queueSize:        osf.QueueSize,
 		cutOffPeriod:     osf.CutOffPeriod,
 		deliverUntil:     osf.Listener.Webhook.Until,
-		logger:           osf.Logger,
+		logger:           decoratedLogger,
 		deliveryRetries:  osf.DeliveryRetries,
 		deliveryInterval: osf.DeliveryInterval,
 		retryCodes:       osf.RetryCodes,
@@ -387,6 +391,8 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	now := time.Now()
 
 	if !obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
+		level.Debug(obs.logger).Log(logging.MessageKey(), "invalid time window for event",
+			"now", now, "dropUntil", dropUntil, "deliverUntil", deliverUntil)
 		return
 	}
 
@@ -396,57 +402,68 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			msg.PartnerIDs = obs.customPIDs
 		}
 		if !overlaps(obs.listener.PartnerIDs, msg.PartnerIDs) {
+			level.Debug(obs.logger).Log(logging.MessageKey(), "partner id check failed",
+				"webhook.partnerIDs", obs.listener.PartnerIDs,
+				"event.partnerIDs", msg.PartnerIDs,
+			)
 			return
 		}
 	}
 
+	var (
+		matchEvent  bool
+		matchDevice = true
+	)
 	for _, eventRegex := range events {
-		if !eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-			// regex didn't match; don't do anything
-			continue
+		if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+			matchEvent = true
+			break
 		}
+	}
+	if !matchEvent {
+		level.Debug(obs.logger).Log(
+			logging.MessageKey(), "destination regex doesn't match",
+			"webhook.events", obs.listener.Webhook.Events,
+			"event.dest", msg.Destination,
+		)
+		return
+	}
 
-		matchDevice := (nil == matcher)
-		if nil != matcher {
-			for _, deviceRegex := range matcher {
-				if deviceRegex.MatchString(msg.Source) {
-					matchDevice = true
-					break
-				}
+	if matcher != nil {
+		matchDevice = false
+		for _, deviceRegex := range matcher {
+			if deviceRegex.MatchString(msg.Source) {
+				matchDevice = true
+				break
 			}
 		}
-		/*
-			 // if the device id matches then we want to look through all the metadata
-			 // and make sure that the obs metadata matches the metadata provided
-			 if matchDevice {
-				 for key, val := range metaData {
-					 if matchers, ok := matcher[key]; ok {
-						 for _, deviceRegex := range matchers {
-							 matchDevice = false
-							 if deviceRegex.MatchString(val) {
-								 matchDevice = true
-								 break
-							 }
-						 }
-						 // metadata was provided but did not match our expectations,
-						 // so it is time to drop the message
-						 if !matchDevice {
-							 break
-						 }
-					 }
-				 }
-			 }
-		*/
-		if matchDevice {
-			select {
-			case obs.queue.Load().(chan *wrp.Message) <- msg:
-				obs.queueDepthGauge.Add(1.0)
-			default:
-				obs.queueOverflow()
-				obs.droppedQueueFullCounter.Add(1.0)
-			}
-			return
-		}
+	}
+
+	if !matchDevice {
+		level.Debug(obs.logger).Log(
+			logging.MessageKey(), "device regex doesn't match",
+			"webhook.devices", obs.listener.Webhook.Matcher.DeviceID,
+			"event.source", msg.Source,
+		)
+		return
+	}
+
+	select {
+	case obs.queue.Load().(chan *wrp.Message) <- msg:
+		obs.queueDepthGauge.Add(1.0)
+		level.Debug(obs.logger).Log(
+			logging.MessageKey(), "event added to outbound queue",
+			"event.source", msg.Source,
+			"event.destination", msg.Destination,
+		)
+	default:
+		level.Debug(obs.logger).Log(
+			logging.MessageKey(), "queue full. event dropped",
+			"event.source", msg.Source,
+			"event.destination", msg.Destination,
+		)
+		obs.queueOverflow()
+		obs.droppedQueueFullCounter.Add(1.0)
 	}
 }
 
@@ -639,11 +656,18 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	}
 
 	// Send it
+	level.Debug(obs.logger).Log(
+		logging.MessageKey(), "attempting to send event",
+		"event.source", msg.Source,
+		"event.destination", msg.Destination,
+	)
 	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
 	code := "failure"
+	l := obs.logger
 	if nil != err {
 		// Report failure
 		obs.droppedNetworkErrCounter.Add(1.0)
+		l = log.With(l, logging.ErrorKey(), err)
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
@@ -656,6 +680,13 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
+	level.Debug(l).Log(
+		logging.MessageKey(), "event sent-ish",
+		"event.source", msg.Source,
+		"event.destination", msg.Destination,
+		"code", code,
+		"url", req.URL.String(),
+	)
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows:

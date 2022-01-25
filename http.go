@@ -117,7 +117,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
-	debugLog.Log(messageKey, "Request placed on to queue.")
+	debugLog.Log(messageKey, "event passed to senders.",
+		"event", msg,
+	)
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
