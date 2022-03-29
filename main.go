@@ -130,7 +130,6 @@ func caduceus(arguments []string) int {
 		Linger:              caduceusConfig.Sender.Linger,
 		DeliveryRetries:     caduceusConfig.Sender.DeliveryRetries,
 		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
-		RetryCodes:          caduceusConfig.Sender.RetryCodes,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
 		Sender: (&http.Client{

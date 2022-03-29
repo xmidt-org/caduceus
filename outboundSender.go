@@ -91,9 +91,6 @@ type OutboundSenderFactory struct {
 	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
-	// The HTTP status codes to retry on.
-	RetryCodes []int
-
 	// Metrics registry.
 	MetricsRegistry CaduceusMetricsRegistry
 
@@ -128,7 +125,6 @@ type CaduceusOutboundSender struct {
 	queueSize                        int
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
-	retryCodes                       []int
 	deliveryCounter                  metrics.Counter
 	deliveryRetryCounter             metrics.Counter
 	droppedQueueFullCounter          metrics.Counter
@@ -193,7 +189,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		logger:           decoratedLogger,
 		deliveryRetries:  osf.DeliveryRetries,
 		deliveryInterval: osf.DeliveryInterval,
-		retryCodes:       osf.RetryCodes,
 		maxWorkers:       osf.NumWorkers,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,

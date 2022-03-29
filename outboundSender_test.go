@@ -171,7 +171,6 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		NumWorkers:      10,
 		QueueSize:       10,
 		DeliveryRetries: 1,
-		RetryCodes:      []int{429},
 		MetricsRegistry: fakeRegistry,
 		Logger:          log.NewNopLogger(),
 	}
