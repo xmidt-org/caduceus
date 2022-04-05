@@ -1,0 +1,24 @@
+allowed:
+  - mit 
+  - apache-2.0
+  - bsd-2-clause
+  - bsd-3-clause
+  - isc
+  - mpl-2.0         # Needed for hashicorp stuff
+
+
+reviewed:
+  go:
+    - emperror.dev/errors                       # MIT
+    - github.com/magiconair/properties          # bsd-2-clause
+    - github.com/jtacoma/uritemplates           # bsd-3-clause
+    - github.com/pmezard/go-difflib/difflib     # bsd-3-clause (unmaintained)
+    - github.com/samuel/go-zookeeper/zk         # bsd-3-clause
+    - go.uber.org/dig                           # MIT
+    - go.uber.org/dig/internal/dot              # MIT
+    - go.uber.org/dig/internal/digreflect       # MIT
+    - golang.org/x/sys/internal/unsafeheader    # bsd-3-clause
+    - golang.org/x/sys/unix                     # bsd-3-clause
+    - gopkg.in/ini.v1                           # apache-2.0
+    - gopkg.in/yaml.v2                          # apache-2.0
+    - github.com/gorilla/mux                    # bsd-3-clause

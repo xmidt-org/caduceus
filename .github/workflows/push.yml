@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  go_version: '1.15.x' # The Go version to download (if necessary) and use.
+
 on:
   create:
   pull_request:
@@ -19,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.15.x' # The Go version to download (if necessary) and use.
+          go-version: ${{ env.go_version }}
 
       # Run build of the application
       - name: Run build
@@ -105,3 +108,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  licensed:
+    name: License Checker
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.go_version }}
+      - uses: jonabc/setup-licensed@v1
+        with:
+         version: 3.x
+      - run: go get
+      - run: licensed cache
+      - run: licensed status
