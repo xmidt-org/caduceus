@@ -38,6 +38,7 @@ type ServerHandler struct {
 	invalidCount             metrics.Counter
 	incomingQueueDepthMetric metrics.Gauge
 	modifiedWRPCount         metrics.Counter
+	querylatency             metrics.Histogram
 	incomingQueueDepth       int64
 	maxOutstanding           int64
 }

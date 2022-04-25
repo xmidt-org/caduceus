@@ -23,6 +23,7 @@ const (
 	ConsumerDropUntilGauge          = "consumer_drop_until"
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
+	QueryDurationSecondsHistogram   = "query_duration_seconds_histogram"
 )
 
 const (
@@ -137,6 +138,13 @@ func Metrics() []xmetrics.Metric {
 			Type:       "gauge",
 			LabelNames: []string{"url"},
 		},
+		{
+			Name:       QueryDurationSecondsHistogram,
+			Help:       "A histogram of latencies for queries.",
+			Type:       "histogram",
+			LabelNames: []string{"url", "code"},
+			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
+		},
 	}
 }
 
@@ -159,4 +167,5 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
+	c.querylatency = m.NewHistogram(QueryDurationSecondsHistogram, 11).With("url", c.id, "code", "200")
 }

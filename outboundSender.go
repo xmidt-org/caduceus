@@ -40,6 +40,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/device"
 	"github.com/xmidt-org/webpa-common/v2/logging"
@@ -142,6 +143,7 @@ type CaduceusOutboundSender struct {
 	maxWorkersGauge                  metrics.Gauge
 	currentWorkersGauge              metrics.Gauge
 	deliveryRetryMaxGauge            metrics.Gauge
+	querylatency                     metrics.Histogram
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration
 	workers                          semaphore.Interface
@@ -656,7 +658,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		"event.source", msg.Source,
 		"event.destination", msg.Destination,
 	)
-	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+
+	respFunc := xhttp.RetryTransactor(retryOptions, obs.sender)
+	roundTripperFunc := obs.metricRoundTripper(respFunc, time.Now)
+	resp, err := respFunc(req)
 	code := "failure"
 	l := obs.logger
 	if nil != err {
@@ -672,6 +677,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		if nil != resp.Body {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
+			roundTripperFunc(req)
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
@@ -760,5 +766,20 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	if nil != resp.Body {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
+	}
+}
+
+func (obs *CaduceusOutboundSender) metricRoundTripper(next promhttp.RoundTripperFunc, now func() time.Time) promhttp.RoundTripperFunc {
+	if now == nil {
+		now = time.Now
+	}
+	return func(req *http.Request) (*http.Response, error) {
+		resp, err := next(req)
+
+		// find time difference, add to metric
+		var latency = time.Since(now())
+		obs.querylatency.Observe(float64(latency))
+
+		return resp, err
 	}
 }

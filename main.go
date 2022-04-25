@@ -156,6 +156,7 @@ func caduceus(arguments []string) int {
 		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
+		querylatency:             metricsRegistry.NewHistogram(QueryDurationSecondsHistogram, 11),
 		maxOutstanding:           0,
 	}
 
