@@ -40,7 +40,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/device"
 	"github.com/xmidt-org/webpa-common/v2/logging"
@@ -154,6 +153,8 @@ type CaduceusOutboundSender struct {
 	queue                            atomic.Value
 	customPIDs                       []string
 	disablePartnerIDs                bool
+	Sender                           HTTPClient
+	clientMiddleware                 func(HTTPClient) HTTPClient
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -659,9 +660,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		"event.destination", msg.Destination,
 	)
 
-	respFunc := xhttp.RetryTransactor(retryOptions, obs.sender)
-	roundTripperFunc := obs.metricRoundTripper(respFunc, time.Now)
-	resp, err := respFunc(req)
+	retryer := xhttp.RetryTransactor(retryOptions, obs.sender)
+	roundTripper := obs.clientMiddleware(DoerFunc(retryer))
+	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
+	roundTripper.Do(req)
 	code := "failure"
 	l := obs.logger
 	if nil != err {
@@ -677,7 +679,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		if nil != resp.Body {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
-			roundTripperFunc(req)
+			roundTripper.Do(req)
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
@@ -766,20 +768,5 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	if nil != resp.Body {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
-	}
-}
-
-func (obs *CaduceusOutboundSender) metricRoundTripper(next promhttp.RoundTripperFunc, now func() time.Time) promhttp.RoundTripperFunc {
-	if now == nil {
-		now = time.Now
-	}
-	return func(req *http.Request) (*http.Response, error) {
-		resp, err := next(req)
-
-		// find time difference, add to metric
-		var latency = time.Since(now())
-		obs.querylatency.Observe(float64(latency))
-
-		return resp, err
 	}
 }

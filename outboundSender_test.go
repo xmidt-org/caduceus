@@ -145,11 +145,6 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakePanicDrop.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakePanicDrop)
 	fakePanicDrop.On("Add", 1.0).Return()
 
-	// Fake
-	fakeLatency := new(mockHistogram)
-	fakeLatency.On("With", []string{"url", w.Webhook.Config.URL, "code", "200"}).Return(fakeLatency)
-	fakeLatency.On("Observe", 1.0).Return()
-
 	// Build a registry and register all fake metrics, these are synymous with the metrics in
 	// metrics.go
 	//
@@ -168,7 +163,6 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
 
 	return &OutboundSenderFactory{
 		Listener:        w,

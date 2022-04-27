@@ -69,12 +69,6 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeDDTIP := new(mockCounter)
 	fakeDDTIP.On("Add", 1.0).Return()
 
-	// Fake
-	fakeLatency := new(mockHistogram)
-	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo", "code", "200"}).Return(fakeLatency)
-	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo", "code", "200"}).Return(fakeLatency)
-	fakeLatency.On("Observe", 1.0).Return()
-
 	fakeGauge := new(mockGauge)
 	fakeGauge.On("Add", 1.0).Return().
 		On("Add", -1.0).Return().
@@ -126,7 +120,6 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,

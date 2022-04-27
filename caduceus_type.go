@@ -57,7 +57,7 @@ type SenderConfig struct {
 type CaduceusMetricsRegistry interface {
 	NewCounter(name string) metrics.Counter
 	NewGauge(name string) metrics.Gauge
-	NewHistogram(name string, buckets int) metrics.Histogram
+	// NewHistogram(name string, buckets int) metrics.Histogram
 }
 
 type RequestHandler interface {
