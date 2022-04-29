@@ -13,10 +13,11 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
-	github.com/xmidt-org/ancla v0.3.5
+	github.com/xmidt-org/ancla v0.3.9
 	github.com/xmidt-org/bascule v0.10.2
 	github.com/xmidt-org/candlelight v0.0.5
-	github.com/xmidt-org/webpa-common/v2 v2.0.3
+	github.com/xmidt-org/webpa-common v1.11.9 // indirect
+	github.com/xmidt-org/webpa-common/v2 v2.0.5
 	github.com/xmidt-org/wrp-go/v3 v3.1.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.19.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.19.0

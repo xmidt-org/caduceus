@@ -160,7 +160,7 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Webhook.MetricsProvider = metricsRegistry
+	caduceusConfig.Webhook.Measures = *ancla.NewMeasures(metricsRegistry)
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
@@ -182,12 +182,7 @@ func caduceus(arguments []string) int {
 	}
 	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator()))
 
-	handlerConfig := ancla.HandlerConfig{
-		MetricsProvider:   metricsRegistry,
-		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
-		GetLogger:         getLogger,
-	}
-	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, serverWrapper, svc, handlerConfig, rootRouter)
+	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, serverWrapper, svc, rootRouter, v.GetBool("previousVersionSupport"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Handler creation error: %v\n", err)
 		return 1
