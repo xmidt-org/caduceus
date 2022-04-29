@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 
 	"github.com/go-kit/kit/log"
@@ -24,7 +25,10 @@ import (
 )
 
 const (
-	apiBase = "api/v4"
+	apiVersion         = "v4"
+	prevAPIVersion     = "v3"
+	apiBase            = "api/" + apiVersion
+	apiBaseDualVersion = "api/{version:" + apiVersion + "|" + prevAPIVersion + "}"
 )
 
 type CapabilityConfig struct {
@@ -44,13 +48,20 @@ type JWTValidator struct {
 	Leeway bascule.Leeway
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, handlerConfig ancla.HandlerConfig, router *mux.Router) (*mux.Router, error) {
+func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
 	auth, err := authenticationMiddleware(v, l, registry)
 	if err != nil {
 		return nil, fmt.Errorf("unable to build authentication middleware: %v", err)
 	}
 
-	router.Handle("/"+apiBase+"/notify", auth.Then(sw)).Methods("POST")
+	// if we want to support the previous API version, then include it in the
+	// api base.
+	urlPrefix := fmt.Sprintf("/%s/", apiBase)
+	if prevVersionSupport {
+		urlPrefix = fmt.Sprintf("/%s/", apiBaseDualVersion)
+	}
+
+	router.Handle(urlPrefix+"/notify", auth.Then(sw)).Methods("POST")
 
 	return router, nil
 }
@@ -107,7 +118,13 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		}))
 	}
 
-	authConstructor := basculehttp.NewConstructor(options...)
+	authConstructor := basculehttp.NewConstructor(append([]basculehttp.COption{
+		basculehttp.WithParseURLFunc(basculehttp.CreateRemovePrefixURLFunc("/"+apiBase+"/", basculehttp.DefaultParseURLFunc)),
+	}, options...)...)
+	authConstructorLegacy := basculehttp.NewConstructor(append([]basculehttp.COption{
+		basculehttp.WithParseURLFunc(basculehttp.CreateRemovePrefixURLFunc("/api/"+prevAPIVersion+"/", basculehttp.DefaultParseURLFunc)),
+		basculehttp.WithCErrorHTTPResponseFunc(basculehttp.LegacyOnErrorHTTPResponse),
+	}, options...)...)
 
 	bearerRules := bascule.Validators{
 		bchecks.NonEmptyPrincipal(),
@@ -148,8 +165,21 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		basculehttp.WithRules("Bearer", bearerRules),
 		basculehttp.WithEErrorResponseFunc(listener.OnErrorResponse),
 	)
-	constructors := []alice.Constructor{setLogger(logger), authConstructor, authEnforcer, basculehttp.NewListenerDecorator(listener)}
 
-	chain := alice.New(constructors...)
-	return &chain, nil
+	authChain := alice.New(setLogger(logger), authConstructor, authEnforcer, basculehttp.NewListenerDecorator(listener))
+	authChainLegacy := alice.New(setLogger(logger), authConstructorLegacy, authEnforcer, basculehttp.NewListenerDecorator(listener))
+
+	versionCompatibleAuth := alice.New(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(r http.ResponseWriter, req *http.Request) {
+			vars := mux.Vars(req)
+			if vars != nil {
+				if vars["version"] == prevAPIVersion {
+					authChainLegacy.Then(next).ServeHTTP(r, req)
+					return
+				}
+			}
+			authChain.Then(next).ServeHTTP(r, req)
+		})
+	})
+	return &versionCompatibleAuth, nil
 }

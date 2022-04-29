@@ -3,11 +3,9 @@ package main
 import (
 	"testing"
 
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
@@ -23,10 +21,7 @@ func TestNewPrimaryHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	c := ancla.HandlerConfig{
-		MetricsProvider: provider.NewDiscardProvider(),
-	}
-	if _, err := NewPrimaryHandler(l, viper, r, sw, nil, c, mux.NewRouter()); err != nil {
+	if _, err := NewPrimaryHandler(l, viper, r, sw, nil, mux.NewRouter(), true); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 

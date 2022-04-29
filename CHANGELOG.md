@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.3]
+- Added configurable support for v3 notify endpoint. []()
+
 ## [v0.6.2]
 - Updated spec file and rpkg version macro to be able to choose when the 'v' is included in the version. [#304](https://github.com/xmidt-org/caduceus/pull/304)
 - Added debug logging to outbound sender. [#305](https://github.com/xmidt-org/caduceus/pull/305)
@@ -117,7 +120,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [v0.2.0]
 ### Added
-- Metrics to support debugging the problem found by GH Issue [issue 145](https://github.com/Comcast/caduceus/issues/145)
+- Metrics to support debugging the problem found by GH Issue [issue 145](https://github.com/xmidt-org/caduceus/issues/145)
 - Add WRP Header support for Partner-Ids and Metadata
 
 ### Changed
@@ -137,24 +140,24 @@ fixed build upload
 
 ## [v0.1.3] - 2019-02-27
 ### Changed
-- Fix for [issue 126](https://github.com/Comcast/caduceus/issues/126)
+- Fix for [issue 126](https://github.com/xmidt-org/caduceus/issues/126)
 
 ## [v0.1.2] - 2019-02-21
 ### Added
-- Fix for delivering events as json or msgpack based events [issue 113](https://github.com/Comcast/caduceus/issues/113)
+- Fix for delivering events as json or msgpack based events [issue 113](https://github.com/xmidt-org/caduceus/issues/113)
 
 ### Changed
 - Updated to new version of webpa-common library
 - Remove the worker pool as a fixed number of workers per endpoint and simply cap
-  the maximum number.  Partial fix for [issue 115](https://github.com/Comcast/caduceus/issues/115), [issue 103](https://github.com/Comcast/caduceus/issues/103)
-- Fix for webhook shallow copy bug.  Partial fix for [issue 115](https://github.com/Comcast/caduceus/issues/115)
+  the maximum number.  Partial fix for [issue 115](https://github.com/xmidt-org/caduceus/issues/115), [issue 103](https://github.com/xmidt-org/caduceus/issues/103)
+- Fix for webhook shallow copy bug.  Partial fix for [issue 115](https://github.com/xmidt-org/caduceus/issues/115)
 - Fix for webhook update for all fields (updated webpa-common code to bring in fix)
-- Fix for retry logic so all failures are retried the specified number of times - [issue 91](https://github.com/Comcast/caduceus/issues/91)
-- Fix for waiting for DNS to resolve prior to listening for webhook updates - [issue 111](https://github.com/Comcast/caduceus/issues/111)
+- Fix for retry logic so all failures are retried the specified number of times - [issue 91](https://github.com/xmidt-org/caduceus/issues/91)
+- Fix for waiting for DNS to resolve prior to listening for webhook updates - [issue 111](https://github.com/xmidt-org/caduceus/issues/111)
 - Fix for cpu spike after about 10 mintues due to worker go routines not finishing.
 - Fix logic for updating webhooks
 - Fix for sending the same event multiple times to the same webhook.
-- Fix for [issue 99](https://github.com/Comcast/caduceus/issues/99)
+- Fix for [issue 99](https://github.com/xmidt-org/caduceus/issues/99)
 
 ## [0.1.1] - 2018-04-06
 ### Added
@@ -169,33 +172,34 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/Comcast/caduceus/compare/v0.6.2...HEAD
-[v0.6.2]: https://github.com/Comcast/caduceus/compare/v0.6.1...v0.6.2
-[v0.6.1]: https://github.com/Comcast/caduceus/compare/v0.6.0...v0.6.1
-[v0.6.0]: https://github.com/Comcast/caduceus/compare/v0.5.2...v0.6.0
-[v0.5.2]: https://github.com/Comcast/caduceus/compare/v0.5.1...v0.5.2
-[v0.5.1]: https://github.com/Comcast/caduceus/compare/v0.5.0...v0.5.1
-[v0.5.0]: https://github.com/Comcast/caduceus/compare/v0.4.6...v0.5.0
-[v0.4.6]: https://github.com/Comcast/caduceus/compare/v0.4.5...v0.4.6
-[v0.4.5]: https://github.com/Comcast/caduceus/compare/v0.4.4...v0.4.5
-[v0.4.4]: https://github.com/Comcast/caduceus/compare/v0.4.3...v0.4.4
-[v0.4.3]: https://github.com/Comcast/caduceus/compare/v0.4.2...v0.4.3
-[v0.4.2]: https://github.com/Comcast/caduceus/compare/v0.4.1...v0.4.2
-[v0.4.1]: https://github.com/Comcast/caduceus/compare/v0.4.0...v0.4.1
-[v0.4.0]: https://github.com/Comcast/caduceus/compare/v0.3.0...v0.4.0
-[v0.3.0]: https://github.com/Comcast/caduceus/compare/v0.2.8...v0.3.0
-[v0.2.8]: https://github.com/Comcast/caduceus/compare/v0.2.7...v0.2.8
-[v0.2.7]: https://github.com/Comcast/caduceus/compare/v0.2.6...v0.2.7
-[v0.2.6]: https://github.com/Comcast/caduceus/compare/v0.2.5...v0.2.6
-[v0.2.5]: https://github.com/Comcast/caduceus/compare/v0.2.4...v0.2.5
-[v0.2.4]: https://github.com/Comcast/caduceus/compare/v0.2.3...v0.2.4
-[v0.2.3]: https://github.com/Comcast/caduceus/compare/v0.2.2...v0.2.3
-[v0.2.2]: https://github.com/Comcast/caduceus/compare/v0.2.2-rc.1...v0.2.2
-[v0.2.1]: https://github.com/Comcast/caduceus/compare/v0.2.0...v0.2.1
-[v0.2.0]: https://github.com/Comcast/caduceus/compare/v0.1.5...v0.2.0
-[v0.1.5]: https://github.com/Comcast/caduceus/compare/v0.1.4...v0.1.5
-[v0.1.4]: https://github.com/Comcast/caduceus/compare/v0.1.3...v0.1.4
-[v0.1.3]: https://github.com/Comcast/caduceus/compare/v0.1.2...v0.1.3
-[v0.1.2]: https://github.com/Comcast/caduceus/compare/0.1.1...v0.1.2
-[0.1.1]: https://github.com/Comcast/caduceus/compare/0.0.1...0.1.1
-[0.0.1]: https://github.com/Comcast/caduceus/compare/v0.0.0...0.0.1
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.3...HEAD
+[v0.6.3]: https://github.com/xmidt-org/caduceus/compare/v0.6.2...v0.6.3
+[v0.6.2]: https://github.com/xmidt-org/caduceus/compare/v0.6.1...v0.6.2
+[v0.6.1]: https://github.com/xmidt-org/caduceus/compare/v0.6.0...v0.6.1
+[v0.6.0]: https://github.com/xmidt-org/caduceus/compare/v0.5.2...v0.6.0
+[v0.5.2]: https://github.com/xmidt-org/caduceus/compare/v0.5.1...v0.5.2
+[v0.5.1]: https://github.com/xmidt-org/caduceus/compare/v0.5.0...v0.5.1
+[v0.5.0]: https://github.com/xmidt-org/caduceus/compare/v0.4.6...v0.5.0
+[v0.4.6]: https://github.com/xmidt-org/caduceus/compare/v0.4.5...v0.4.6
+[v0.4.5]: https://github.com/xmidt-org/caduceus/compare/v0.4.4...v0.4.5
+[v0.4.4]: https://github.com/xmidt-org/caduceus/compare/v0.4.3...v0.4.4
+[v0.4.3]: https://github.com/xmidt-org/caduceus/compare/v0.4.2...v0.4.3
+[v0.4.2]: https://github.com/xmidt-org/caduceus/compare/v0.4.1...v0.4.2
+[v0.4.1]: https://github.com/xmidt-org/caduceus/compare/v0.4.0...v0.4.1
+[v0.4.0]: https://github.com/xmidt-org/caduceus/compare/v0.3.0...v0.4.0
+[v0.3.0]: https://github.com/xmidt-org/caduceus/compare/v0.2.8...v0.3.0
+[v0.2.8]: https://github.com/xmidt-org/caduceus/compare/v0.2.7...v0.2.8
+[v0.2.7]: https://github.com/xmidt-org/caduceus/compare/v0.2.6...v0.2.7
+[v0.2.6]: https://github.com/xmidt-org/caduceus/compare/v0.2.5...v0.2.6
+[v0.2.5]: https://github.com/xmidt-org/caduceus/compare/v0.2.4...v0.2.5
+[v0.2.4]: https://github.com/xmidt-org/caduceus/compare/v0.2.3...v0.2.4
+[v0.2.3]: https://github.com/xmidt-org/caduceus/compare/v0.2.2...v0.2.3
+[v0.2.2]: https://github.com/xmidt-org/caduceus/compare/v0.2.2-rc.1...v0.2.2
+[v0.2.1]: https://github.com/xmidt-org/caduceus/compare/v0.2.0...v0.2.1
+[v0.2.0]: https://github.com/xmidt-org/caduceus/compare/v0.1.5...v0.2.0
+[v0.1.5]: https://github.com/xmidt-org/caduceus/compare/v0.1.4...v0.1.5
+[v0.1.4]: https://github.com/xmidt-org/caduceus/compare/v0.1.3...v0.1.4
+[v0.1.3]: https://github.com/xmidt-org/caduceus/compare/v0.1.2...v0.1.3
+[v0.1.2]: https://github.com/xmidt-org/caduceus/compare/0.1.1...v0.1.2
+[0.1.1]: https://github.com/xmidt-org/caduceus/compare/0.0.1...0.1.1
+[0.0.1]: https://github.com/xmidt-org/caduceus/compare/v0.0.0...0.0.1
