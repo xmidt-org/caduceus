@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [v0.6.3]
-- Added configurable support for v3 notify endpoint. []()
+- Added configurable support for v3 notify endpoint. [#309](https://github.com/xmidt-org/caduceus/pull/309)
 
 ## [v0.6.2]
 - Updated spec file and rpkg version macro to be able to choose when the 'v' is included in the version. [#304](https://github.com/xmidt-org/caduceus/pull/304)
