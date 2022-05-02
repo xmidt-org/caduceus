@@ -72,7 +72,11 @@ type OutboundSenderFactory struct {
 	Listener ancla.InternalWebhook
 
 	// The http client Do() function to use for outbound requests.
-	Sender func(*http.Request) (*http.Response, error)
+	// Sender func(*http.Request) (*http.Response, error)
+	Sender HTTPClient
+
+	//
+	ClientMiddleware func(HTTPClient) HTTPClient
 
 	// The number of delivery workers to create and use.
 	NumWorkers int
@@ -119,7 +123,7 @@ type CaduceusOutboundSender struct {
 	listener                         ancla.InternalWebhook
 	deliverUntil                     time.Time
 	dropUntil                        time.Time
-	sender                           func(*http.Request) (*http.Response, error)
+	sender                           HTTPClient
 	events                           []*regexp.Regexp
 	matcher                          []*regexp.Regexp
 	queueSize                        int
@@ -142,7 +146,6 @@ type CaduceusOutboundSender struct {
 	maxWorkersGauge                  metrics.Gauge
 	currentWorkersGauge              metrics.Gauge
 	deliveryRetryMaxGauge            metrics.Gauge
-	querylatency                     metrics.Histogram
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration
 	workers                          semaphore.Interface
@@ -153,7 +156,6 @@ type CaduceusOutboundSender struct {
 	queue                            atomic.Value
 	customPIDs                       []string
 	disablePartnerIDs                bool
-	Sender                           HTTPClient
 	clientMiddleware                 func(HTTPClient) HTTPClient
 }
 
@@ -161,6 +163,10 @@ type CaduceusOutboundSender struct {
 func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
 		return
+	}
+
+	if nil == osf.ClientMiddleware {
+		osf.ClientMiddleware = NopHTTPClient
 	}
 
 	if nil == osf.Sender {
@@ -202,6 +208,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		},
 		customPIDs:        osf.CustomPIDs,
 		disablePartnerIDs: osf.DisablePartnerIDs,
+		clientMiddleware:  osf.ClientMiddleware,
 	}
 
 	// Don't share the secret with others when there is an error.
@@ -226,6 +233,10 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	obs = caduceusOutboundSender
 
 	return
+}
+
+func NopHTTPClient(next HTTPClient) HTTPClient {
+	return next
 }
 
 // Update applies user configurable values for the outbound sender when a
@@ -660,10 +671,8 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		"event.destination", msg.Destination,
 	)
 
-	retryer := xhttp.RetryTransactor(retryOptions, obs.sender)
-	roundTripper := obs.clientMiddleware(DoerFunc(retryer))
-	resp, err := xhttp.RetryTransactor(retryOptions, obs.sender)(req)
-	roundTripper.Do(req)
+	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
+	resp, err := retryer(req)
 	code := "failure"
 	l := obs.logger
 	if nil != err {
@@ -679,7 +688,6 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		if nil != resp.Body {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
-			roundTripper.Do(req)
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
@@ -748,7 +756,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
-	resp, err := obs.sender(req)
+	resp, err := obs.sender.Do(req)
 	if nil != err {
 		// Failure
 		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",

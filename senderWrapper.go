@@ -18,7 +18,6 @@ package main
 
 import (
 	"errors"
-	"net/http"
 	"sync"
 	"time"
 
@@ -61,7 +60,7 @@ type SenderWrapperFactory struct {
 	Logger log.Logger
 
 	// The http client Do() function to share with OutboundSenders.
-	Sender func(*http.Request) (*http.Response, error)
+	Sender HTTPClient
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -79,7 +78,7 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              func(*http.Request) (*http.Response, error)
+	sender              HTTPClient
 	numWorkersPerSender int
 	queueSizePerSender  int
 	deliveryRetries     int

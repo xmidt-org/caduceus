@@ -169,7 +169,7 @@ func TestSwSimple(t *testing.T) {
 	trans := &swTransport{}
 
 	swf := getFakeFactory()
-	swf.Sender = trans.RoundTrip
+	swf.Sender = DoerFunc((&http.Client{}).Do)
 
 	swf.Linger = 1 * time.Second
 	sw, err := swf.New()
