@@ -412,3 +412,9 @@ argusClientTimeout:
   # netDialerTimeout is the maximum amount of time the HTTP Client Dialer will
   # wait for a connect to complete.
   netDialerTimeout: 5s
+
+# previousVersionSupport allows us to support two different major versions of
+# the API at the same time from the same application.  When this is true,
+# caduceus will support both "/v3" and "/v4" endpoints.  When false, only "/v4"
+# endpoints will be supported.
+previousVersionSupport: true
