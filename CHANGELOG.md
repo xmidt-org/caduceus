@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.4]
+- Fixed issue of endpoints no longer being found. [#311](https://github.com/xmidt-org/caduceus/pull/311)
+
 ## [v0.6.3]
 - Added configurable support for v3 notify endpoint. [#309](https://github.com/xmidt-org/caduceus/pull/309)
 
@@ -172,7 +175,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.4...HEAD
+[v0.6.4]: https://github.com/xmidt-org/caduceus/compare/v0.6.3...v0.6.4
 [v0.6.3]: https://github.com/xmidt-org/caduceus/compare/v0.6.2...v0.6.3
 [v0.6.2]: https://github.com/xmidt-org/caduceus/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/xmidt-org/caduceus/compare/v0.6.0...v0.6.1

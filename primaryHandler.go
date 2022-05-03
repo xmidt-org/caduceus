@@ -56,9 +56,9 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry,
 
 	// if we want to support the previous API version, then include it in the
 	// api base.
-	urlPrefix := fmt.Sprintf("/%s/", apiBase)
+	urlPrefix := fmt.Sprintf("/%s", apiBase)
 	if prevVersionSupport {
-		urlPrefix = fmt.Sprintf("/%s/", apiBaseDualVersion)
+		urlPrefix = fmt.Sprintf("/%s", apiBaseDualVersion)
 	}
 
 	router.Handle(urlPrefix+"/notify", auth.Then(sw)).Methods("POST")
@@ -96,7 +96,6 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 	options := []basculehttp.COption{
 		basculehttp.WithCLogger(getLogger),
 		basculehttp.WithCErrorResponseFunc(listener.OnErrorResponse),
-		basculehttp.WithParseURLFunc(basculehttp.CreateRemovePrefixURLFunc("/"+apiBase+"/", basculehttp.DefaultParseURLFunc)),
 	}
 	if len(basicAllowed) > 0 {
 		options = append(options, basculehttp.WithTokenFactory("Basic", basculehttp.BasicTokenFactory(basicAllowed)))
