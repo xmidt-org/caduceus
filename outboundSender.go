@@ -146,6 +146,7 @@ type CaduceusOutboundSender struct {
 	maxWorkersGauge                  metrics.Gauge
 	currentWorkersGauge              metrics.Gauge
 	deliveryRetryMaxGauge            metrics.Gauge
+	querylatency                     metrics.Histogram
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration
 	workers                          semaphore.Interface

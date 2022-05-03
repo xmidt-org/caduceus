@@ -167,4 +167,5 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
+	c.querylatency = m.NewHistogram(QueryDurationSecondsHistogram, 11).With("url", c.id, "code", "200")
 }
