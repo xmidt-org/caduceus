@@ -123,7 +123,6 @@ func caduceus(arguments []string) int {
 		otelhttp.WithTracerProvider(tracing.TracerProvider()),
 	)
 
-	var client HTTPClient
 	caduceusSenderWrapper, err := SenderWrapperFactory{
 		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
 		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
@@ -133,9 +132,12 @@ func caduceus(arguments []string) int {
 		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
-		Sender:              client,
-		CustomPIDs:          caduceusConfig.Sender.CustomPIDs,
-		DisablePartnerIDs:   caduceusConfig.Sender.DisablePartnerIDs,
+		Sender: DoerFunc((&http.Client{
+			Transport: tr,
+			Timeout:   caduceusConfig.Sender.ClientTimeout,
+		}).Do),
+		CustomPIDs:        caduceusConfig.Sender.CustomPIDs,
+		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
 	}.New()
 
 	if err != nil {
@@ -154,7 +156,6 @@ func caduceus(arguments []string) int {
 		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
-		querylatency:             metricsRegistry.NewHistogram(QueryDurationSecondsHistogram, 11),
 		maxOutstanding:           0,
 	}
 
