@@ -148,6 +148,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	// Fake Latency
 	fakeLatency := new(mockHistogram)
 	fakeLatency.On("With", []string{"url", w.Webhook.Config.URL, "code", "200"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakeLatency)
 	fakeLatency.On("Observe", 1.0).Return()
 
 	// Build a registry and register all fake metrics, these are synymous with the metrics in

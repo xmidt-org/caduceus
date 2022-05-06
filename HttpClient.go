@@ -3,12 +3,13 @@ package main
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
 )
 
-type HTTPClient interface {
+type httpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
@@ -37,15 +38,22 @@ func newMetricWrapper(now func() time.Time, queryLatency metrics.Histogram) (*me
 	}, nil
 }
 
-func (m *metricWrapper) roundTripper(next HTTPClient) HTTPClient {
+func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 	return DoerFunc(func(req *http.Request) (*http.Response, error) {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()
+		var code string
+
+		if err != nil {
+			code = networkError
+		}
+
+		code = strconv.Itoa(resp.StatusCode)
 
 		// find time difference, add to metric
 		var latency = endTime.Sub(startTime)
-		m.queryLatency.Observe(latency.Seconds())
+		m.queryLatency.With("code", code).Observe(latency.Seconds())
 
 		return resp, err
 	})

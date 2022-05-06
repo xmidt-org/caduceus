@@ -30,6 +30,7 @@ const (
 	emptyContentTypeReason = "empty_content_type"
 	emptyUUIDReason        = "empty_uuid"
 	bothEmptyReason        = "empty_uuid_and_content_type"
+	networkError           = "network_err"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -159,7 +160,7 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 
 	c.droppedCutoffCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
 	c.droppedInvalidConfig = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
-	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "network_err")
+	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", networkError)
 	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
 	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
 	c.renewalTimeGauge = m.NewGauge(ConsumerRenewalTimeGauge).With("url", c.id)
@@ -167,5 +168,4 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
-	c.querylatency = m.NewHistogram(QueryDurationSecondsHistogram, 11).With("url", c.id, "code", "200")
 }

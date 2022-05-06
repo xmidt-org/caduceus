@@ -60,7 +60,7 @@ type SenderWrapperFactory struct {
 	Logger log.Logger
 
 	// The http client Do() function to share with OutboundSenders.
-	Sender HTTPClient
+	Sender httpClient
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -68,6 +68,8 @@ type SenderWrapperFactory struct {
 
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
+
+	Querylatency metrics.Histogram
 }
 
 type SenderWrapper interface {
@@ -78,7 +80,7 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              HTTPClient
+	sender              httpClient
 	numWorkersPerSender int
 	queueSizePerSender  int
 	deliveryRetries     int
@@ -90,10 +92,12 @@ type CaduceusSenderWrapper struct {
 	senders             map[string]OutboundSender
 	metricsRegistry     CaduceusMetricsRegistry
 	eventType           metrics.Counter
+	queryLatency        metrics.Histogram
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 	customPIDs          []string
 	disablePartnerIDs   bool
+	clientMiddleware    func(httpClient) httpClient
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
@@ -119,6 +123,9 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		return
 	}
 
+	measure := NewMetricWrapperMeasures(swf.MetricsRegistry)
+	caduceusSenderWrapper.queryLatency = measure
+
 	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
 
 	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
@@ -129,6 +136,10 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 
 	sw = caduceusSenderWrapper
 	return
+}
+
+func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
+	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
 }
 
 // Update is called when we get changes to our webhook listeners with either
@@ -147,6 +158,8 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
+		ClientMiddleware:  sw.clientMiddleware,
+		QueryLatency:      sw.queryLatency,
 	}
 
 	ids := make([]struct {
@@ -164,6 +177,12 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
 			osf.Listener = inValue.Listener
+			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
+
+			if err != nil {
+				continue
+			}
+			osf.ClientMiddleware = metricWrapper.roundTripper
 			obs, err := osf.New()
 			if nil == err {
 				sw.senders[inValue.ID] = obs

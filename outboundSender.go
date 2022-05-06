@@ -73,10 +73,10 @@ type OutboundSenderFactory struct {
 
 	// The http client Do() function to use for outbound requests.
 	// Sender func(*http.Request) (*http.Response, error)
-	Sender HTTPClient
+	Sender httpClient
 
 	//
-	ClientMiddleware func(HTTPClient) HTTPClient
+	ClientMiddleware func(httpClient) httpClient
 
 	// The number of delivery workers to create and use.
 	NumWorkers int
@@ -107,6 +107,8 @@ type OutboundSenderFactory struct {
 
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
+
+	QueryLatency metrics.Histogram
 }
 
 type OutboundSender interface {
@@ -123,7 +125,7 @@ type CaduceusOutboundSender struct {
 	listener                         ancla.InternalWebhook
 	deliverUntil                     time.Time
 	dropUntil                        time.Time
-	sender                           HTTPClient
+	sender                           httpClient
 	events                           []*regexp.Regexp
 	matcher                          []*regexp.Regexp
 	queueSize                        int
@@ -157,7 +159,7 @@ type CaduceusOutboundSender struct {
 	queue                            atomic.Value
 	customPIDs                       []string
 	disablePartnerIDs                bool
-	clientMiddleware                 func(HTTPClient) HTTPClient
+	clientMiddleware                 func(httpClient) httpClient
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -236,7 +238,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	return
 }
 
-func NopHTTPClient(next HTTPClient) HTTPClient {
+func NopHTTPClient(next httpClient) httpClient {
 	return next
 }
 
@@ -674,6 +676,8 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 
 	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
 	resp, err := retryer(req)
+	//hist, err := newMetricWrapper(nil, obs.querylatency)
+	// thisTrip := hist.roundTripper(obs.sender)
 	code := "failure"
 	l := obs.logger
 	if nil != err {
@@ -689,6 +693,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		if nil != resp.Body {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
+			// thisTrip.Do(req)
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
@@ -777,5 +782,6 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	if nil != resp.Body {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
+
 	}
 }

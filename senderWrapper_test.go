@@ -80,6 +80,8 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeLatency := new(mockHistogram)
 	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo", "code", "200"}).Return(fakeLatency)
 	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo", "code", "200"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeLatency)
 	fakeLatency.On("Observe", 1.0).Return()
 
 	fakeIgnore := new(mockCounter)
