@@ -675,9 +675,9 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	)
 
 	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
-	resp, err := retryer(req)
-	//hist, err := newMetricWrapper(nil, obs.querylatency)
-	// thisTrip := hist.roundTripper(obs.sender)
+	client := obs.clientMiddleware(DoerFunc(retryer))
+	resp, err := client.Do(req)
+
 	code := "failure"
 	l := obs.logger
 	if nil != err {
@@ -693,7 +693,6 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		if nil != resp.Body {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
-			// thisTrip.Do(req)
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)

@@ -43,13 +43,11 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()
-		var code string
+		code := networkError
 
-		if err != nil {
-			code = networkError
+		if err == nil {
+			code = strconv.Itoa(resp.StatusCode)
 		}
-
-		code = strconv.Itoa(resp.StatusCode)
 
 		// find time difference, add to metric
 		var latency = endTime.Sub(startTime)

@@ -68,8 +68,6 @@ type SenderWrapperFactory struct {
 
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
-
-	Querylatency metrics.Histogram
 }
 
 type SenderWrapper interface {
@@ -97,7 +95,6 @@ type CaduceusSenderWrapper struct {
 	shutdown            chan struct{}
 	customPIDs          []string
 	disablePartnerIDs   bool
-	clientMiddleware    func(httpClient) httpClient
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
@@ -123,9 +120,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		return
 	}
 
-	measure := NewMetricWrapperMeasures(swf.MetricsRegistry)
-	caduceusSenderWrapper.queryLatency = measure
-
+	caduceusSenderWrapper.queryLatency = NewMetricWrapperMeasures(swf.MetricsRegistry)
 	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
 
 	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
@@ -158,7 +153,6 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
-		ClientMiddleware:  sw.clientMiddleware,
 		QueryLatency:      sw.queryLatency,
 	}
 
