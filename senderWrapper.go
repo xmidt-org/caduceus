@@ -161,6 +161,8 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	}
 
 	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
+
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
@@ -173,20 +175,19 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		}
 		sender.Update(inValue.Listener)
 	}
-	sw.mutex.Unlock()
 }
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
+	defer sw.mutex.RUnlock()
 
 	sw.eventType.With("event", msg.FindEventStringSubMatch()).Add(1)
 
 	for _, v := range sw.senders {
 		v.Queue(msg)
 	}
-	sw.mutex.RUnlock()
 }
 
 // Shutdown closes down the delivery mechanisms and cleans up the underlying
@@ -194,11 +195,11 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 // (dropping enqueued messages)
 func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
 	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
 	for k, v := range sw.senders {
 		v.Shutdown(gentle)
 		delete(sw.senders, k)
 	}
-	sw.mutex.Unlock()
 	close(sw.shutdown)
 }
 
@@ -213,20 +214,11 @@ func undertaker(sw *CaduceusSenderWrapper) {
 		select {
 		case <-ticker.C:
 			threshold := time.Now().Add(-1 * sw.linger)
-			deadList := make(map[string]OutboundSender)
 
 			// Actually shutting these down could take longer then we
 			// want to lock the mutex, so just remove them from the active
 			// list & shut them down afterwards.
-			sw.mutex.Lock()
-			for k, v := range sw.senders {
-				retired := v.RetiredSince()
-				if threshold.After(retired) {
-					deadList[k] = v
-					delete(sw.senders, k)
-				}
-			}
-			sw.mutex.Unlock()
+			deadList := createDeadlist(sw, threshold)
 
 			// Shut them down
 			for _, v := range deadList {
@@ -237,4 +229,22 @@ func undertaker(sw *CaduceusSenderWrapper) {
 			return
 		}
 	}
+}
+
+func createDeadlist(sw *CaduceusSenderWrapper, threshold time.Time) map[string]OutboundSender {
+	if sw == nil || threshold.IsZero() {
+		return nil
+	}
+
+	deadList := make(map[string]OutboundSender)
+	sw.mutex.Lock()
+	defer sw.mutex.RUnlock()
+	for k, v := range sw.senders {
+		retired := v.RetiredSince()
+		if threshold.After(retired) {
+			deadList[k] = v
+			delete(sw.senders, k)
+		}
+	}
+	return deadList
 }
