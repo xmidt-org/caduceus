@@ -238,7 +238,7 @@ func createDeadlist(sw *CaduceusSenderWrapper, threshold time.Time) map[string]O
 
 	deadList := make(map[string]OutboundSender)
 	sw.mutex.Lock()
-	defer sw.mutex.RUnlock()
+	defer sw.mutex.Unlock()
 	for k, v := range sw.senders {
 		retired := v.RetiredSince()
 		if threshold.After(retired) {
