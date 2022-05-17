@@ -133,10 +133,6 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 	return
 }
 
-func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
-	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
-}
-
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.

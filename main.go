@@ -132,7 +132,7 @@ func caduceus(arguments []string) int {
 		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
 		MetricsRegistry:     metricsRegistry,
 		Logger:              logger,
-		Sender: DoerFunc((&http.Client{
+		Sender: doerFunc((&http.Client{
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do),

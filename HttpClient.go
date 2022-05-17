@@ -13,10 +13,14 @@ type httpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// DoerFunc implements HTTPClient
-type DoerFunc func(*http.Request) (*http.Response, error)
+func noHTTPClient(next httpClient) httpClient {
+	return next
+}
 
-func (d DoerFunc) Do(req *http.Request) (*http.Response, error) {
+// DoerFunc implements HTTPClient
+type doerFunc func(*http.Request) (*http.Response, error)
+
+func (d doerFunc) Do(req *http.Request) (*http.Response, error) {
 	return d(req)
 }
 
@@ -39,7 +43,7 @@ func newMetricWrapper(now func() time.Time, queryLatency metrics.Histogram) (*me
 }
 
 func (m *metricWrapper) roundTripper(next httpClient) httpClient {
-	return DoerFunc(func(req *http.Request) (*http.Response, error) {
+	return doerFunc(func(req *http.Request) (*http.Response, error) {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()

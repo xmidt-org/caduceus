@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -168,4 +169,8 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
+}
+
+func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
+	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
 }

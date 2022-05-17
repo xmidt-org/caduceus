@@ -110,8 +110,8 @@ func (m *mockHistogram) With(labelValues ...string) metrics.Histogram {
 			panic("not UTF-8")
 		}
 	}
-	args := m.Called(labelValues)
-	return args.Get(0).(metrics.Histogram)
+	m.Called(labelValues)
+	return m
 }
 
 // mockCaduceusMetricsRegistry provides the mock implementation of the

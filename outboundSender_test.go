@@ -173,7 +173,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	return &OutboundSenderFactory{
 		Listener:        w,
-		Sender:          DoerFunc((&http.Client{Transport: trans}).Do),
+		Sender:          doerFunc((&http.Client{Transport: trans}).Do),
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
@@ -590,7 +590,7 @@ func TestInvalidEventRegex(t *testing.T) {
 
 	obs, err := OutboundSenderFactory{
 		Listener:   w,
-		Sender:     DoerFunc((&http.Client{}).Do),
+		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
 		Logger:     log.NewNopLogger(),
@@ -616,7 +616,7 @@ func TestInvalidUrl(t *testing.T) {
 
 	obs, err := OutboundSenderFactory{
 		Listener:   w,
-		Sender:     DoerFunc((&http.Client{}).Do),
+		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
 		Logger:     log.NewNopLogger(),
@@ -634,7 +634,7 @@ func TestInvalidUrl(t *testing.T) {
 
 	obs, err = OutboundSenderFactory{
 		Listener:   w2,
-		Sender:     DoerFunc((&http.Client{}).Do),
+		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
 		Logger:     log.NewNopLogger(),
@@ -672,7 +672,7 @@ func TestInvalidLogger(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Sender = DoerFunc((&http.Client{}).Do)
+	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obsf.Logger = nil
 	obs, err := obsf.New()
 
@@ -697,7 +697,7 @@ func TestFailureURL(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Sender = DoerFunc((&http.Client{}).Do)
+	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -718,7 +718,7 @@ func TestInvalidEvents(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
-	obsf.Sender = DoerFunc((&http.Client{}).Do)
+	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 
 	assert.Nil(obs)
@@ -735,7 +735,7 @@ func TestInvalidEvents(t *testing.T) {
 
 	obsf = simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w2
-	obsf.Sender = DoerFunc((&http.Client{}).Do)
+	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err = obsf.New()
 
 	assert.Nil(obs)
@@ -770,7 +770,7 @@ func TestUpdate(t *testing.T) {
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w1
-	obsf.Sender = DoerFunc((&http.Client{}).Do)
+	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 	assert.Nil(err)
 
@@ -805,7 +805,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	obsf := simpleFactorySetup(trans, time.Second, nil)
 	obsf.Listener = w
 	obsf.Logger = logger
-	obsf.Sender = DoerFunc((&http.Client{}).Do)
+	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 
 	assert.Nil(err)

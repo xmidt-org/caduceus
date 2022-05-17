@@ -148,7 +148,6 @@ type CaduceusOutboundSender struct {
 	maxWorkersGauge                  metrics.Gauge
 	currentWorkersGauge              metrics.Gauge
 	deliveryRetryMaxGauge            metrics.Gauge
-	querylatency                     metrics.Histogram
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration
 	workers                          semaphore.Interface
@@ -169,7 +168,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	if nil == osf.ClientMiddleware {
-		osf.ClientMiddleware = NopHTTPClient
+		osf.ClientMiddleware = noHTTPClient
 	}
 
 	if nil == osf.Sender {
@@ -236,10 +235,6 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	obs = caduceusOutboundSender
 
 	return
-}
-
-func NopHTTPClient(next httpClient) httpClient {
-	return next
 }
 
 // Update applies user configurable values for the outbound sender when a
@@ -675,7 +670,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	)
 
 	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
-	client := obs.clientMiddleware(DoerFunc(retryer))
+	client := obs.clientMiddleware(doerFunc(retryer))
 	resp, err := client.Do(req)
 
 	code := "failure"
