@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.6]
+- Fix a missing return after an invalid utf8 string is handled.  [#315](https://github.com/xmidt-org/caduceus/pull/315)
+
 ## [v0.6.5]
 - Bumped wrp-go to v3.1.3 in order to reject all wrps with non-utf-8 strings as invalid. [#314](https://github.com/xmidt-org/caduceus/pull/314)
 - Modified senderWrapper to defer all lock unlocking. [#314](https://github.com/xmidt-org/caduceus/pull/314)
@@ -181,7 +184,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.6...HEAD
+[v0.6.6]: https://github.com/xmidt-org/caduceus/compare/v0.6.5...v0.6.6
 [v0.6.5]: https://github.com/xmidt-org/caduceus/compare/v0.6.4...v0.6.5
 [v0.6.4]: https://github.com/xmidt-org/caduceus/compare/v0.6.3...v0.6.4
 [v0.6.3]: https://github.com/xmidt-org/caduceus/compare/v0.6.2...v0.6.3
