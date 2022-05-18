@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 - Bumped wrp-go to v3.1.3 in order to reject all wrps with non-utf-8 strings as invalid. [#314](https://github.com/xmidt-org/caduceus/pull/314)
 - Modified senderWrapper to defer all lock unlocking. [#314](https://github.com/xmidt-org/caduceus/pull/314)
+- Added github.com/xmidt-org/httpaux as a dependency
+- Added httpaux/recovery middleware to the top-level gorilla/mux Router to prevent panics from shutting down a server
 
 ## [v0.6.4]
 - Fixed issue of endpoints no longer being found. [#311](https://github.com/xmidt-org/caduceus/pull/311)
