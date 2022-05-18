@@ -119,6 +119,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
 		debugLog.Log(messageKey, "Strings must be UTF-8.")
+		return
 	}
 
 	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
