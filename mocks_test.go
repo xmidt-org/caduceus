@@ -17,6 +17,8 @@
 package main
 
 import (
+	"net/http"
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-kit/kit/metrics"
@@ -95,7 +97,7 @@ func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
 	return args.Get(0).(metrics.Gauge)
 }
 
-// // mockHistogram provides the mock implementation of the metrics.Histogram object
+// mockHistogram provides the mock implementation of the metrics.Histogram object
 type mockHistogram struct {
 	mock.Mock
 }
@@ -133,4 +135,27 @@ func (m *mockCaduceusMetricsRegistry) NewGauge(name string) metrics.Gauge {
 func (m *mockCaduceusMetricsRegistry) NewHistogram(name string, buckets int) metrics.Histogram {
 	args := m.Called(name)
 	return args.Get(0).(metrics.Histogram)
+}
+
+// mockTime provides two mock time values
+func mockTime(one, two time.Time) func() time.Time {
+	var called bool
+	return func() time.Time {
+		if called {
+			return two
+		}
+		called = true
+		return one
+	}
+}
+
+// mockHttpClient provides a mock implementation for the httpClient interface
+type mockHttpClient struct {
+	MockDo func(*http.Request) (*http.Response, error)
+}
+
+//type mockDoerFunc func(*http.Request) (*http.Response, error)
+
+func (d mockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	return d.MockDo(req)
 }
