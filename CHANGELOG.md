@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Bumped wrp-go to v3.1.3 in order to reject all wrps with non-utf-8 strings as invalid. [#314](https://github.com/xmidt-org/caduceus/pull/314)
+- Modified senderWrapper to defer all lock unlocking. [#314](https://github.com/xmidt-org/caduceus/pull/314)
 
 ## [v0.6.4]
 - Fixed issue of endpoints no longer being found. [#311](https://github.com/xmidt-org/caduceus/pull/311)
