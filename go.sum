@@ -770,8 +770,9 @@ github.com/xmidt-org/candlelight v0.0.5 h1:2qsfD7Uubz08LQZSaBIYXaQe9qXijr/U8lIDg
 github.com/xmidt-org/candlelight v0.0.5/go.mod h1:j9Q2tzrOAywm+JvvVJjlOmlPJvdlRrOyFjLz33SaU1Y=
 github.com/xmidt-org/httpaux v0.1.2/go.mod h1:qZnH2uObGPwHnOz8HcPNlbcd3gKEvdmxbIK3rgbQhto=
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
-github.com/xmidt-org/httpaux v0.3.0 h1:JdV4QceiE8EMA1Qf5rnJzHdkIPzQV12ddARHLU8hrTs=
 github.com/xmidt-org/httpaux v0.3.0/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
+github.com/xmidt-org/httpaux v0.3.1 h1:lIDpkwacKlB6iO5GScDFgUCq+GLVSoe2yWsA0e8qo/U=
+github.com/xmidt-org/httpaux v0.3.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
 github.com/xmidt-org/sallust v0.1.5 h1:yf95DXZUYnS+Td3w+jV3oO7XmhMbViMYK0A/WVM4QYo=
 github.com/xmidt-org/sallust v0.1.5/go.mod h1:azcKBypudADIeZ3Em8zGjVq3yQ7n4ueSvM/degHMIxo=
 github.com/xmidt-org/themis v0.4.4/go.mod h1:0qRYFvKdrQhwjxH/1nAiTgBGT4cegJR76gfEYF5P7so=
