@@ -35,6 +35,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/candlelight"
+	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
 	"github.com/xmidt-org/webpa-common/v2/concurrent"
@@ -176,6 +177,13 @@ func caduceus(arguments []string) int {
 	level.Info(logger).Log(logging.MessageKey(), "Webhook service enabled")
 
 	rootRouter := mux.NewRouter()
+	rootRouter.Use(
+		recovery.Middleware(
+			recovery.WithStatusCode(555), // a wacky status code that will show up in metrics
+			// TODO: should probably customize things a bit
+		),
+	)
+
 	otelMuxOptions := []otelmux.Option{
 		otelmux.WithPropagators(tracing.Propagator()),
 		otelmux.WithTracerProvider(tracing.TracerProvider()),

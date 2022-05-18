@@ -16,6 +16,7 @@ require (
 	github.com/xmidt-org/ancla v0.3.9
 	github.com/xmidt-org/bascule v0.10.2
 	github.com/xmidt-org/candlelight v0.0.5
+	github.com/xmidt-org/httpaux v0.3.1
 	github.com/xmidt-org/webpa-common v1.11.9 // indirect
 	github.com/xmidt-org/webpa-common/v2 v2.0.5
 	github.com/xmidt-org/wrp-go/v3 v3.1.3
