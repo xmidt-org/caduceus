@@ -769,8 +769,9 @@ github.com/xmidt-org/bascule v0.10.2/go.mod h1:8Mx4EW1AXTWnvh2rDl+/GYPLH4QSJIuPB
 github.com/xmidt-org/candlelight v0.0.5 h1:2qsfD7Uubz08LQZSaBIYXaQe9qXijr/U8lIDgkU7UFM=
 github.com/xmidt-org/candlelight v0.0.5/go.mod h1:j9Q2tzrOAywm+JvvVJjlOmlPJvdlRrOyFjLz33SaU1Y=
 github.com/xmidt-org/httpaux v0.1.2/go.mod h1:qZnH2uObGPwHnOz8HcPNlbcd3gKEvdmxbIK3rgbQhto=
-github.com/xmidt-org/httpaux v0.2.1 h1:SFK+Bab5c6r70VxMfJcDR49aBHIUs0uQJruC+nMpAcg=
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
+github.com/xmidt-org/httpaux v0.3.0 h1:JdV4QceiE8EMA1Qf5rnJzHdkIPzQV12ddARHLU8hrTs=
+github.com/xmidt-org/httpaux v0.3.0/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
 github.com/xmidt-org/sallust v0.1.5 h1:yf95DXZUYnS+Td3w+jV3oO7XmhMbViMYK0A/WVM4QYo=
 github.com/xmidt-org/sallust v0.1.5/go.mod h1:azcKBypudADIeZ3Em8zGjVq3yQ7n4ueSvM/degHMIxo=
 github.com/xmidt-org/themis v0.4.4/go.mod h1:0qRYFvKdrQhwjxH/1nAiTgBGT4cegJR76gfEYF5P7so=
@@ -794,8 +795,8 @@ github.com/xmidt-org/wrp-go v1.3.4 h1:7kj+1VXRNNEI7G0Z3z7C58QpIXrWzTw/eI79FdAhyP
 github.com/xmidt-org/wrp-go v1.3.4/go.mod h1:EWC9BgcYYO1hKgLzz6VFPpg3LU6ZWSDV/uNiWC7zP+o=
 github.com/xmidt-org/wrp-go/v2 v2.0.1/go.mod h1:v0HK0go/7OSVDvKbnXsUn6c+M987p0yyxWEs8/Fmf60=
 github.com/xmidt-org/wrp-go/v3 v3.0.1/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
-github.com/xmidt-org/wrp-go/v3 v3.1.0 h1:BrVDBJ7QSBenWoJmsDyIgOenMeKx/sR0AtIFWoLIGvw=
-github.com/xmidt-org/wrp-go/v3 v3.1.0/go.mod h1:UdaP93eOaUJ0lsC6Dtfd34VB4vIOWDf22nBSFHFWSJc=
+github.com/xmidt-org/wrp-go/v3 v3.1.3 h1:ciys2v5P5EUbSHoidyybSwKmcrMnZ/jaFSmggnZO4Hg=
+github.com/xmidt-org/wrp-go/v3 v3.1.3/go.mod h1:2x7G0QSLYPEUfe8y2gO5NmfYcPgWGw5ui0G24vr4w7o=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

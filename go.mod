@@ -18,7 +18,7 @@ require (
 	github.com/xmidt-org/candlelight v0.0.5
 	github.com/xmidt-org/webpa-common v1.11.9 // indirect
 	github.com/xmidt-org/webpa-common/v2 v2.0.5
-	github.com/xmidt-org/wrp-go/v3 v3.1.0
+	github.com/xmidt-org/wrp-go/v3 v3.1.3
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.19.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.19.0
 )
