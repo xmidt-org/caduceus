@@ -8,6 +8,10 @@ import (
 	"github.com/go-kit/kit/metrics"
 )
 
+var (
+    errNilHistogram = errors.New("histogram cannot be nil")
+)
+
 type httpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
@@ -33,7 +37,7 @@ func newMetricWrapper(now func() time.Time, queryLatency metrics.Histogram) (*me
 		now = time.Now
 	}
 	if queryLatency == nil {
-		return nil, errors.New("histogram cannot be nil")
+		return nil, errNilHistogram
 	}
 	return &metricWrapper{
 		now:          now,

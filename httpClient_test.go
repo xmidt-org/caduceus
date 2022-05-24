@@ -96,9 +96,6 @@ func TestRoundTripper(t *testing.T) {
 			c := m.roundTripper(client)
 			resp, err := c.Do(tc.request)
 
-			// Check response
-			assert.Equal(t, resp.Status, tc.expectedResponse)
-
 			// Check Error
 			if tc.expectedErr != nil {
 				assert.ErrorIs(t, tc.expectedErr, err)
@@ -106,8 +103,12 @@ func TestRoundTripper(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			// Check the histogram
+			// Check response
+			assert.Equal(t, resp.Status, tc.expectedResponse)
+
+			// Check the histogram and expectations
 			fakeHandler.AssertExpectations(t)
+			fakeHist.AssertExpectations(t)
 
 		})
 	}
@@ -130,7 +131,7 @@ func TestNewMetricWrapper(t *testing.T) {
 		},
 		{
 			description:   "Nil Histogram",
-			expectedErr:   errors.New("histogram cannot be nil"),
+			expectedErr:   errNilHistogram,
 			fakeTime:      time.Now,
 			fakeHistogram: nil,
 		},
@@ -149,16 +150,20 @@ func TestNewMetricWrapper(t *testing.T) {
 			// Make function call
 			mw, err := newMetricWrapper(tc.fakeTime, tc.fakeHistogram)
 
-			// Check histogram, nil should send error
-			if tc.fakeHistogram == nil {
-				assert.Equal(t, tc.expectedErr, err)
+			if tc.expectedErr == nil {
+				// Check for no errors
+				assert.NoError(t, err)
+				require.NotNil(t, mw)
+
+				// Check that the time and histogram aren't nil
+				assert.NotNil(t, mw.now)
+				assert.NotNil(t, mw.queryLatency)
+				return
 			}
 
-			// Check time, nil should not error
-			if tc.expectedErr == nil {
-				require.NoError(t, err)
-				require.NotNil(t, mw)
-			}
+			// with error checks
+			assert.Nil(t, mw)
+			assert.ErrorIs(t, err, tc.expectedErr)
 
 		})
 	}

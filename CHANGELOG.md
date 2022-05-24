@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added latency metric, which Tracks the time spent waiting on outbound client URLs to respond. [#312](https://github.com/xmidt-org/caduceus/pull/312)
 
 ## [v0.6.4]
 - Fixed issue of endpoints no longer being found. [#311](https://github.com/xmidt-org/caduceus/pull/311)
