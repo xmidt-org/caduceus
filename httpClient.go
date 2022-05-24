@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
@@ -50,7 +49,7 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		code := networkError
 
 		if err == nil {
-			code = strconv.Itoa(resp.StatusCode)
+			code = resp.Status
 		}
 
 		// find time difference, add to metric
