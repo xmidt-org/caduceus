@@ -30,30 +30,41 @@ import (
 )
 
 func TestRoundTripper(t *testing.T) {
+	errTest := errors.New("test error")
+	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
+	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
 	tests := []struct {
 		description      string
 		startTime        time.Time
 		endTime          time.Time
-		expectedResponse int
+		expectedResponse string
 		request          *http.Request
 		expectedErr      error
 	}{
 		{
 			description:      "Success",
-			startTime:        time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC),
-			endTime:          time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC),
-			expectedResponse: http.StatusOK,
+			startTime:        date1,
+			endTime:          date2,
+			expectedResponse: "200 OK",
 			request:          exampleRequest(1),
 			expectedErr:      nil,
 		},
 		{
 			description:      "503 Service Unavailable",
-			startTime:        time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC),
-			endTime:          time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC),
-			expectedResponse: http.StatusServiceUnavailable,
+			startTime:        date1,
+			endTime:          date2,
+			expectedResponse: "503 Service Unavailable",
 			request:          exampleRequest(1),
 			expectedErr:      nil,
+		},
+		{
+			description:      "Network Error",
+			startTime:        date1,
+			endTime:          date2,
+			expectedResponse: "network_err",
+			request:          exampleRequest(1),
+			expectedErr:      errTest,
 		},
 	}
 
@@ -64,8 +75,9 @@ func TestRoundTripper(t *testing.T) {
 			fakeTime := mockTime(tc.startTime, tc.endTime)
 			fakeHandler := new(mockHandler)
 			fakeHist := new(mockHistogram)
-			fakeHist.On("With", mock.AnythingOfType("[]string")).Return().Times(2)
-			fakeHist.On("Observe", mock.AnythingOfType("float64")).Return().Times(2)
+			histogramFunctionCall := []string{"code", tc.expectedResponse}
+			fakeHist.On("With", histogramFunctionCall).Return().Once()
+			fakeHist.On("Observe", mock.AnythingOfType("float64")).Return().Once()
 
 			// Create a roundtripper with mock time and mock histogram
 			m, err := newMetricWrapper(fakeTime, fakeHist)
@@ -74,7 +86,7 @@ func TestRoundTripper(t *testing.T) {
 
 			// Create an http response
 			expected := http.Response{
-				StatusCode: tc.expectedResponse,
+				Status: tc.expectedResponse,
 			}
 
 			client := doerFunc(func(*http.Request) (*http.Response, error) {
@@ -85,7 +97,7 @@ func TestRoundTripper(t *testing.T) {
 			resp, err := c.Do(tc.request)
 
 			// Check response
-			assert.Equal(t, resp.StatusCode, tc.expectedResponse)
+			assert.Equal(t, resp.Status, tc.expectedResponse)
 
 			// Check Error
 			if tc.expectedErr != nil {
