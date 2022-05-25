@@ -17,7 +17,6 @@
 package main
 
 import (
-	"net/http"
 	"time"
 	"unicode/utf8"
 
@@ -147,15 +146,4 @@ func mockTime(one, two time.Time) func() time.Time {
 		called = true
 		return one
 	}
-}
-
-// mockHttpClient provides a mock implementation for the httpClient interface
-type mockHttpClient struct {
-	MockDo func(*http.Request) (*http.Response, error)
-}
-
-//type mockDoerFunc func(*http.Request) (*http.Response, error)
-
-func (d mockHttpClient) Do(req *http.Request) (*http.Response, error) {
-	return d.MockDo(req)
 }

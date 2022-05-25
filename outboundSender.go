@@ -168,7 +168,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	}
 
 	if nil == osf.ClientMiddleware {
-		osf.ClientMiddleware = noHTTPClient
+		osf.ClientMiddleware = nopHTTPClient
 	}
 
 	if nil == osf.Sender {

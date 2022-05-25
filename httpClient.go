@@ -3,20 +3,21 @@ package main
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
 )
 
 var (
-    errNilHistogram = errors.New("histogram cannot be nil")
+	errNilHistogram = errors.New("histogram cannot be nil")
 )
 
 type httpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-func noHTTPClient(next httpClient) httpClient {
+func nopHTTPClient(next httpClient) httpClient {
 	return next
 }
 
@@ -53,7 +54,7 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		code := networkError
 
 		if err == nil {
-			code = resp.Status
+			code = strconv.Itoa(resp.StatusCode)
 		}
 
 		// find time difference, add to metric

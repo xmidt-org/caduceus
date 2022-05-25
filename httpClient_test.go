@@ -19,13 +19,14 @@ package main
 
 import (
 	"errors"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,33 +39,41 @@ func TestRoundTripper(t *testing.T) {
 		description      string
 		startTime        time.Time
 		endTime          time.Time
-		expectedResponse string
+		expectedCode     string
 		request          *http.Request
 		expectedErr      error
+		expectedResponse *http.Response
 	}{
 		{
-			description:      "Success",
-			startTime:        date1,
-			endTime:          date2,
-			expectedResponse: "200 OK",
-			request:          exampleRequest(1),
-			expectedErr:      nil,
+			description:  "Success",
+			startTime:    date1,
+			endTime:      date2,
+			expectedCode: "200",
+			request:      exampleRequest(1),
+			expectedErr:  nil,
+			expectedResponse: &http.Response{
+				StatusCode: 200,
+			},
 		},
 		{
-			description:      "503 Service Unavailable",
-			startTime:        date1,
-			endTime:          date2,
-			expectedResponse: "503 Service Unavailable",
-			request:          exampleRequest(1),
-			expectedErr:      nil,
+			description:  "503 Service Unavailable",
+			startTime:    date1,
+			endTime:      date2,
+			expectedCode: "503",
+			request:      exampleRequest(1),
+			expectedErr:  nil,
+			expectedResponse: &http.Response{
+				StatusCode: 503,
+			},
 		},
 		{
 			description:      "Network Error",
 			startTime:        date1,
 			endTime:          date2,
-			expectedResponse: "network_err",
+			expectedCode:     "network_err",
 			request:          exampleRequest(1),
 			expectedErr:      errTest,
+			expectedResponse: nil,
 		},
 	}
 
@@ -75,36 +84,34 @@ func TestRoundTripper(t *testing.T) {
 			fakeTime := mockTime(tc.startTime, tc.endTime)
 			fakeHandler := new(mockHandler)
 			fakeHist := new(mockHistogram)
-			histogramFunctionCall := []string{"code", tc.expectedResponse}
+			histogramFunctionCall := []string{"code", tc.expectedCode}
+			fakeLatency := date2.Sub(date1)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
-			fakeHist.On("Observe", mock.AnythingOfType("float64")).Return().Once()
+			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 			// Create a roundtripper with mock time and mock histogram
 			m, err := newMetricWrapper(fakeTime, fakeHist)
 			require.NoError(t, err)
 			require.NotNil(t, m)
 
-			// Create an http response
-			expected := http.Response{
-				Status: tc.expectedResponse,
-			}
-
 			client := doerFunc(func(*http.Request) (*http.Response, error) {
-				return &expected, tc.expectedErr
+
+				return tc.expectedResponse, tc.expectedErr
 			})
 
 			c := m.roundTripper(client)
 			resp, err := c.Do(tc.request)
 
-			// Check Error
-			if tc.expectedErr != nil {
-				assert.ErrorIs(t, tc.expectedErr, err)
-			} else {
+			if tc.expectedErr == nil {
+				// Read and close response body
+				if resp.Body != nil {
+					io.Copy(ioutil.Discard, resp.Body)
+					resp.Body.Close()
+				}
 				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, tc.expectedErr, err)
 			}
-
-			// Check response
-			assert.Equal(t, resp.Status, tc.expectedResponse)
 
 			// Check the histogram and expectations
 			fakeHandler.AssertExpectations(t)
