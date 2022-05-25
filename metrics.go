@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -23,12 +24,14 @@ const (
 	ConsumerDropUntilGauge          = "consumer_drop_until"
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
+	QueryDurationSecondsHistogram   = "query_duration_seconds_histogram"
 )
 
 const (
 	emptyContentTypeReason = "empty_content_type"
 	emptyUUIDReason        = "empty_uuid"
 	bothEmptyReason        = "empty_uuid_and_content_type"
+	networkError           = "network_err"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -137,6 +140,13 @@ func Metrics() []xmetrics.Metric {
 			Type:       "gauge",
 			LabelNames: []string{"url"},
 		},
+		{
+			Name:       QueryDurationSecondsHistogram,
+			Help:       "A histogram of latencies for queries.",
+			Type:       "histogram",
+			LabelNames: []string{"url", "code"},
+			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
+		},
 	}
 }
 
@@ -151,7 +161,7 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 
 	c.droppedCutoffCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
 	c.droppedInvalidConfig = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
-	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "network_err")
+	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", networkError)
 	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
 	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
 	c.renewalTimeGauge = m.NewGauge(ConsumerRenewalTimeGauge).With("url", c.id)
@@ -159,4 +169,8 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
 	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
 	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
+}
+
+func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
+	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
 }

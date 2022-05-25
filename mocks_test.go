@@ -17,6 +17,7 @@
 package main
 
 import (
+	"time"
 	"unicode/utf8"
 
 	"github.com/go-kit/kit/metrics"
@@ -95,6 +96,25 @@ func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
 	return args.Get(0).(metrics.Gauge)
 }
 
+// mockHistogram provides the mock implementation of the metrics.Histogram object
+type mockHistogram struct {
+	mock.Mock
+}
+
+func (m *mockHistogram) Observe(value float64) {
+	m.Called(value)
+}
+
+func (m *mockHistogram) With(labelValues ...string) metrics.Histogram {
+	for _, v := range labelValues {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+	}
+	m.Called(labelValues)
+	return m
+}
+
 // mockCaduceusMetricsRegistry provides the mock implementation of the
 // CaduceusMetricsRegistry  object
 type mockCaduceusMetricsRegistry struct {
@@ -109,4 +129,21 @@ func (m *mockCaduceusMetricsRegistry) NewCounter(name string) metrics.Counter {
 func (m *mockCaduceusMetricsRegistry) NewGauge(name string) metrics.Gauge {
 	args := m.Called(name)
 	return args.Get(0).(metrics.Gauge)
+}
+
+func (m *mockCaduceusMetricsRegistry) NewHistogram(name string, buckets int) metrics.Histogram {
+	args := m.Called(name)
+	return args.Get(0).(metrics.Histogram)
+}
+
+// mockTime provides two mock time values
+func mockTime(one, two time.Time) func() time.Time {
+	var called bool
+	return func() time.Time {
+		if called {
+			return two
+		}
+		called = true
+		return one
+	}
 }

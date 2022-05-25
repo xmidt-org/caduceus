@@ -18,7 +18,6 @@ package main
 
 import (
 	"errors"
-	"net/http"
 	"sync"
 	"time"
 
@@ -61,7 +60,7 @@ type SenderWrapperFactory struct {
 	Logger log.Logger
 
 	// The http client Do() function to share with OutboundSenders.
-	Sender func(*http.Request) (*http.Response, error)
+	Sender httpClient
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -79,7 +78,7 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              func(*http.Request) (*http.Response, error)
+	sender              httpClient
 	numWorkersPerSender int
 	queueSizePerSender  int
 	deliveryRetries     int
@@ -91,6 +90,7 @@ type CaduceusSenderWrapper struct {
 	senders             map[string]OutboundSender
 	metricsRegistry     CaduceusMetricsRegistry
 	eventType           metrics.Counter
+	queryLatency        metrics.Histogram
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 	customPIDs          []string
@@ -120,6 +120,7 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		return
 	}
 
+	caduceusSenderWrapper.queryLatency = NewMetricWrapperMeasures(swf.MetricsRegistry)
 	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
 
 	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
@@ -148,6 +149,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
+		QueryLatency:      sw.queryLatency,
 	}
 
 	ids := make([]struct {
@@ -167,6 +169,12 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
 			osf.Listener = inValue.Listener
+			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
+
+			if err != nil {
+				continue
+			}
+			osf.ClientMiddleware = metricWrapper.roundTripper
 			obs, err := osf.New()
 			if nil == err {
 				sw.senders[inValue.ID] = obs

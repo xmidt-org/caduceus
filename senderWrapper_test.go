@@ -76,6 +76,14 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeGauge).
 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeGauge)
 
+	// Fake Latency
+	fakeLatency := new(mockHistogram)
+	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo", "code", "200"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo", "code", "200"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeLatency)
+	fakeLatency.On("Observe", 1.0).Return()
+
 	fakeIgnore := new(mockCounter)
 	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeIgnore).
@@ -120,6 +128,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
+	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,
@@ -169,7 +178,7 @@ func TestSwSimple(t *testing.T) {
 	trans := &swTransport{}
 
 	swf := getFakeFactory()
-	swf.Sender = trans.RoundTrip
+	swf.Sender = doerFunc((&http.Client{}).Do)
 
 	swf.Linger = 1 * time.Second
 	sw, err := swf.New()
