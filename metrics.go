@@ -25,6 +25,7 @@ const (
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
 	QueryDurationSecondsHistogram   = "query_duration_seconds_histogram"
+	IncomingQueueLatencyHistogram   = "incoming_queue_latency_histogram"
 )
 
 const (
@@ -145,6 +146,13 @@ func Metrics() []xmetrics.Metric {
 			Help:       "A histogram of latencies for queries.",
 			Type:       "histogram",
 			LabelNames: []string{"url", "code"},
+			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
+		},
+		{
+			Name:       IncomingQueueLatencyHistogram,
+			Help:       "A histogram of latencies for the incoming queue.",
+			Type:       "histogram",
+			LabelNames: []string{"code"},
 			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		},
 	}
