@@ -42,11 +42,11 @@ type ServerHandler struct {
 	incomingQueueDepth       int64
 	maxOutstanding           int64
 	incomingQueueLatency     metrics.Histogram
-	startTime                time.Time
+	now                      func() time.Time
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	sh.startTime = time.Now()
+	startTime := sh.now()
 	eventType := "Unknown"
 	logger := logging.GetLogger(request.Context())
 	if logger == logging.DefaultLogger() {
@@ -61,15 +61,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	infoLog.Log(messageKey, "Receiving incoming request...")
 
+	// find time difference, add to metric after function finishes
+	defer addToHistogram(sh, eventType, startTime)
+
 	if len(request.Header["Content-Type"]) != 1 || request.Header["Content-Type"][0] != "application/msgpack" {
 		//return a 415
 		response.WriteHeader(http.StatusUnsupportedMediaType)
 		response.Write([]byte("Invalid Content-Type header(s). Expected application/msgpack. \n"))
 		debugLog.Log(messageKey, "Invalid Content-Type header(s). Expected application/msgpack. \n")
-
-		// find time difference, add to metric
-		latency := time.Since(sh.startTime)
-		sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
 		return
 	}
 
@@ -81,10 +80,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusServiceUnavailable)
 		response.Write([]byte("Incoming queue is full.\n"))
 		debugLog.Log(messageKey, "Incoming queue is full.\n")
-
-		// find time difference, add to metric
-		latency := time.Since(sh.startTime)
-		sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
 		return
 	}
 
@@ -96,10 +91,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		sh.errorRequests.Add(1.0)
 		errorLog.Log(messageKey, "Unable to retrieve the request body.", errorKey, err.Error)
 		response.WriteHeader(http.StatusBadRequest)
-
-		// find time difference, add to metric
-		latency := time.Since(sh.startTime)
-		sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
 		return
 	}
 
@@ -108,10 +99,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		errorLog.Log(messageKey, "Empty payload.", errorKey)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Empty payload.\n"))
-
-		// find time difference, add to metric
-		latency := time.Since(sh.startTime)
-		sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
 		return
 	}
 
@@ -130,9 +117,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			response.Write([]byte("Invalid MessageType.\n"))
 			debugLog.Log(messageKey, "Invalid MessageType.")
 		}
-		// find time difference, add to metric
-		latency := time.Since(sh.startTime)
-		sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
 		return
 	}
 
@@ -143,13 +127,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
 		debugLog.Log(messageKey, "Strings must be UTF-8.")
-
-		// find time difference, add to metric
-		latency := time.Since(sh.startTime)
-		sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
 		return
 	}
-	eventType = "UTF-8"
+	eventType = msg.FindEventStringSubMatch()
 
 	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
@@ -157,13 +137,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
 
-	// find time difference, add to metric
-	latency := time.Since(sh.startTime)
-	sh.incomingQueueLatency.With("event type", eventType).Observe(latency.Seconds())
-
 	debugLog.Log(messageKey, "event passed to senders.",
 		"event", msg,
 	)
+}
+
+func addToHistogram(sh *ServerHandler, eventType string, startTime time.Time) {
+	endTime := sh.now()
+	sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
