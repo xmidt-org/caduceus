@@ -84,7 +84,7 @@ func TestRoundTripper(t *testing.T) {
 			fakeTime := mockTime(tc.startTime, tc.endTime)
 			fakeHandler := new(mockHandler)
 			fakeHist := new(mockHistogram)
-			histogramFunctionCall := []string{"code", tc.expectedCode}
+			histogramFunctionCall := []string{"code", tc.request.RequestURI + "-" + tc.expectedCode}
 			fakeLatency := date2.Sub(date1)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
 			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()

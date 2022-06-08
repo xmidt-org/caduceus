@@ -57,6 +57,9 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 			code = strconv.Itoa(resp.StatusCode)
 		}
 
+		// Adding request URI to identify the webhook in latency metric
+		code = req.RequestURI + "-" + code
+
 		// find time difference, add to metric
 		var latency = endTime.Sub(startTime)
 		m.queryLatency.With("code", code).Observe(latency.Seconds())
