@@ -47,7 +47,7 @@ type ServerHandler struct {
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	startTime := sh.now()
-	eventType := "Unknown"
+	eventType := unknownEventType
 	logger := logging.GetLogger(request.Context())
 	if logger == logging.DefaultLogger() {
 		logger = sh.Logger
@@ -62,7 +62,10 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	infoLog.Log(messageKey, "Receiving incoming request...")
 
 	// find time difference, add to metric after function finishes
-	defer addToHistogram(sh, eventType, startTime)
+	defer func() {
+		endTime := sh.now()
+		sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
+	}()
 
 	if len(request.Header["Content-Type"]) != 1 || request.Header["Content-Type"][0] != "application/msgpack" {
 		//return a 415
@@ -140,11 +143,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	debugLog.Log(messageKey, "event passed to senders.",
 		"event", msg,
 	)
-}
-
-func addToHistogram(sh *ServerHandler, eventType string, startTime time.Time) {
-	endTime := sh.now()
-	sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {

@@ -33,6 +33,7 @@ const (
 	emptyUUIDReason        = "empty_uuid"
 	bothEmptyReason        = "empty_uuid_and_content_type"
 	networkError           = "network_err"
+	unknownEventType       = "unknown"
 )
 
 func Metrics() []xmetrics.Metric {
