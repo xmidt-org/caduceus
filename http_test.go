@@ -262,6 +262,7 @@ func TestServerHandlerFull(t *testing.T) {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
 		}
+		fakeHist.AssertExpectations(t)
 	})
 }
 
@@ -315,6 +316,7 @@ func TestServerEmptyPayload(t *testing.T) {
 			io.Copy(ioutil.Discard, resp.Body)
 			resp.Body.Close()
 		}
+		fakeHist.AssertExpectations(t)
 	})
 }
 
@@ -371,6 +373,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 			resp.Body.Close()
 		}
 	})
+	fakeHist.AssertExpectations(t)
 }
 
 func TestServerInvalidBody(t *testing.T) {
@@ -426,13 +429,13 @@ func TestServerInvalidBody(t *testing.T) {
 			resp.Body.Close()
 		}
 	})
+	fakeHist.AssertExpectations(t)
 }
 
 func TestHandlerUnsupportedMediaType(t *testing.T) {
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
-	fakeHist := new(mockHistogram)
 	histogramFunctionCall := []string{"event", unknownEventType}
 	fakeLatency := date2.Sub(date1)
 
@@ -448,8 +451,6 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 		caduceusHandler:          fakeHandler,
 		incomingQueueDepthMetric: fakeQueueDepth,
 		maxOutstanding:           1,
-		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
 	}
 	testCases := []struct {
 		name    string
@@ -468,6 +469,9 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			fakeHist := new(mockHistogram)
+			serverWrapper.incomingQueueLatency = fakeHist
+			serverWrapper.now = mockTime(date1, date2)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
 			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
