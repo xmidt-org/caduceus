@@ -45,6 +45,10 @@ _testmain.go
 # IDE files
 .idea/*
 
+# VSCode
+*.code-workspace
+.vscode/*
+
 caduceus
 .ignore
 
