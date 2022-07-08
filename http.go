@@ -46,8 +46,12 @@ type ServerHandler struct {
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	startTime := sh.now()
 	eventType := unknownEventType
+	// find time difference, add to metric after function finishes
+	defer func() {
+		sh.recordQueueLatencyToHistogram(sh.now(), eventType)
+	}()
+
 	logger := logging.GetLogger(request.Context())
 	if logger == logging.DefaultLogger() {
 		logger = sh.Logger
@@ -60,12 +64,6 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	errorKey := logging.ErrorKey()
 
 	infoLog.Log(messageKey, "Receiving incoming request...")
-
-	// find time difference, add to metric after function finishes
-	defer func() {
-		endTime := sh.now()
-		sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
-	}()
 
 	if len(request.Header["Content-Type"]) != 1 || request.Header["Content-Type"][0] != "application/msgpack" {
 		//return a 415
@@ -143,6 +141,11 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	debugLog.Log(messageKey, "event passed to senders.",
 		"event", msg,
 	)
+}
+
+func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
+	endTime := sh.now()
+	sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {

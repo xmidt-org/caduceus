@@ -18,7 +18,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -69,7 +68,6 @@ func exampleRequest(msgType int, list ...string) *http.Request {
 }
 
 func TestServerHandler(t *testing.T) {
-	fmt.Print("TestingeServerHandler")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
@@ -156,7 +154,6 @@ func TestServerHandler(t *testing.T) {
 }
 
 func TestServerHandlerFixWrp(t *testing.T) {
-	fmt.Printf("TestServerHandlerFixWrp")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
@@ -218,7 +215,6 @@ func TestServerHandlerFixWrp(t *testing.T) {
 }
 
 func TestServerHandlerFull(t *testing.T) {
-	fmt.Printf("TestServerHandlerFull")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
@@ -267,7 +263,6 @@ func TestServerHandlerFull(t *testing.T) {
 }
 
 func TestServerEmptyPayload(t *testing.T) {
-	fmt.Printf("TestServerEmptyPayLoad")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
@@ -321,7 +316,6 @@ func TestServerEmptyPayload(t *testing.T) {
 }
 
 func TestServerUnableToReadBody(t *testing.T) {
-	fmt.Printf("TestServerUnableToReadBody")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
@@ -377,7 +371,6 @@ func TestServerUnableToReadBody(t *testing.T) {
 }
 
 func TestServerInvalidBody(t *testing.T) {
-	fmt.Printf("TestServerInvalidBody")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
