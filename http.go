@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -40,9 +41,17 @@ type ServerHandler struct {
 	modifiedWRPCount         metrics.Counter
 	incomingQueueDepth       int64
 	maxOutstanding           int64
+	incomingQueueLatency     metrics.Histogram
+	now                      func() time.Time
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	eventType := unknownEventType
+	// find time difference, add to metric after function finishes
+	defer func() {
+		sh.recordQueueLatencyToHistogram(sh.now(), eventType)
+	}()
+
 	logger := logging.GetLogger(request.Context())
 	if logger == logging.DefaultLogger() {
 		logger = sh.Logger
@@ -121,15 +130,22 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		debugLog.Log(messageKey, "Strings must be UTF-8.")
 		return
 	}
+	eventType = msg.FindEventStringSubMatch()
 
 	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
+
 	debugLog.Log(messageKey, "event passed to senders.",
 		"event", msg,
 	)
+}
+
+func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
+	endTime := sh.now()
+	sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
