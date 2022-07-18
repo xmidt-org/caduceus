@@ -169,7 +169,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
+	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
 
 	return &OutboundSenderFactory{
 		Listener:        w,

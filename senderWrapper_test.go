@@ -128,7 +128,7 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
+	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,

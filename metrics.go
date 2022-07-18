@@ -143,14 +143,14 @@ func Metrics() []xmetrics.Metric {
 			LabelNames: []string{"url"},
 		},
 		{
-			Name:       QueryDurationSecondsHistogram,
+			Name:       QueryDurationHistogram,
 			Help:       "A histogram of latencies for queries.",
 			Type:       "histogram",
 			LabelNames: []string{"url", "code"},
 			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		},
 		{
-			Name:       IncomingQueueLatencySecondsHistogram,
+			Name:       IncomingQueueLatencyHistogram,
 			Help:       "A histogram of latencies for the incoming queue.",
 			Type:       "histogram",
 			LabelNames: []string{"code"},
@@ -181,5 +181,5 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 }
 
 func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
-	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
+	return m.NewHistogram(QueryDurationHistogram, 11)
 }
