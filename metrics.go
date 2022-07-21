@@ -6,26 +6,26 @@ import (
 )
 
 const (
-	ErrorRequestBodyCounter               = "error_request_body_count"
-	EmptyRequestBodyCounter               = "empty_request_body_count"
-	ModifiedWRPCounter                    = "modified_wrp_count"
-	DeliveryCounter                       = "delivery_count"
-	DeliveryRetryCounter                  = "delivery_retry_count"
-	DeliveryRetryMaxGauge                 = "delivery_retry_max"
-	SlowConsumerDroppedMsgCounter         = "slow_consumer_dropped_message_count"
-	SlowConsumerCounter                   = "slow_consumer_cut_off_count"
-	IncomingQueueDepth                    = "incoming_queue_depth"
-	IncomingEventTypeCounter              = "incoming_event_type_count"
-	DropsDueToInvalidPayload              = "drops_due_to_invalid_payload"
-	OutgoingQueueDepth                    = "outgoing_queue_depths"
-	DropsDueToPanic                       = "drops_due_to_panic"
-	ConsumerRenewalTimeGauge              = "consumer_renewal_time"
-	ConsumerDeliverUntilGauge             = "consumer_deliver_until"
-	ConsumerDropUntilGauge                = "consumer_drop_until"
-	ConsumerDeliveryWorkersGauge          = "consumer_delivery_workers"
-	ConsumerMaxDeliveryWorkersGauge       = "consumer_delivery_workers_max"
-	QueryDurationSecondsHistogram         = "query_duration_seconds_histogram"
-	IncomingQueueLatencyHistogram_seconds = "incoming_queue_latency_histogram"
+	ErrorRequestBodyCounter         = "error_request_body_count"
+	EmptyRequestBodyCounter         = "empty_request_body_count"
+	ModifiedWRPCounter              = "modified_wrp_count"
+	DeliveryCounter                 = "delivery_count"
+	DeliveryRetryCounter            = "delivery_retry_count"
+	DeliveryRetryMaxGauge           = "delivery_retry_max"
+	SlowConsumerDroppedMsgCounter   = "slow_consumer_dropped_message_count"
+	SlowConsumerCounter             = "slow_consumer_cut_off_count"
+	IncomingQueueDepth              = "incoming_queue_depth"
+	IncomingEventTypeCounter        = "incoming_event_type_count"
+	DropsDueToInvalidPayload        = "drops_due_to_invalid_payload"
+	OutgoingQueueDepth              = "outgoing_queue_depths"
+	DropsDueToPanic                 = "drops_due_to_panic"
+	ConsumerRenewalTimeGauge        = "consumer_renewal_time"
+	ConsumerDeliverUntilGauge       = "consumer_deliver_until"
+	ConsumerDropUntilGauge          = "consumer_drop_until"
+	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
+	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
+	QueryDurationHistogram          = "query_duration_histogram_seconds"
+	IncomingQueueLatencyHistogram   = "incoming_queue_latency_histogram_seconds"
 )
 
 const (
@@ -143,14 +143,14 @@ func Metrics() []xmetrics.Metric {
 			LabelNames: []string{"url"},
 		},
 		{
-			Name:       QueryDurationSecondsHistogram,
+			Name:       QueryDurationHistogram,
 			Help:       "A histogram of latencies for queries.",
 			Type:       "histogram",
 			LabelNames: []string{"url", "code"},
 			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		},
 		{
-			Name:       IncomingQueueLatencyHistogram_seconds,
+			Name:       IncomingQueueLatencyHistogram,
 			Help:       "A histogram of latencies for the incoming queue.",
 			Type:       "histogram",
 			LabelNames: []string{"code"},
@@ -181,5 +181,5 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 }
 
 func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
-	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
+	return m.NewHistogram(QueryDurationHistogram, 11)
 }

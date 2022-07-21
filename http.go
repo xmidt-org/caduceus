@@ -48,9 +48,9 @@ type ServerHandler struct {
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	eventType := unknownEventType
 	// find time difference, add to metric after function finishes
-	defer func() {
-		sh.recordQueueLatencyToHistogram(sh.now(), eventType)
-	}()
+	defer func(s time.Time) {
+		sh.recordQueueLatencyToHistogram(s, eventType)
+	}(sh.now())
 
 	logger := logging.GetLogger(request.Context())
 	if logger == logging.DefaultLogger() {
