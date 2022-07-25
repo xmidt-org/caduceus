@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Added latency metric, which Tracks the time spent waiting on outbound client URLs to respond. [#312](https://github.com/xmidt-org/caduceus/pull/312)
+- Dependency update, note vulnerabilities
+  - github.com/hashicorp/consul/api v1.13.1 // indirect
+    Wasn't able to find much info about this one besides the following dep vulns
+    - golang.org/x/net
+      - https://nvd.nist.gov/vuln/detail/CVE-2021-33194
+      - https://nvd.nist.gov/vuln/detail/CVE-2021-31525
+      - https://nvd.nist.gov/vuln/detail/CVE-2021-44716
+  - Introduces new vuln https://www.mend.io/vulnerability-database/CVE-2022-29526
+  -  guardrails says github.com/gorilla/websocket v1.5.0 has a high vulnerability but no vulnerabilities have been filed
 
 ## [v0.6.6]
 - Fix a missing return after an invalid utf8 string is handled.  [#315](https://github.com/xmidt-org/caduceus/pull/315)
