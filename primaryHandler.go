@@ -2,12 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"regexp"
+	"syscall"
 
+	"emperror.dev/emperror"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
@@ -17,7 +22,7 @@ import (
 	"github.com/xmidt-org/bascule"
 	bchecks "github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/bascule/basculehttp"
-	"github.com/xmidt-org/bascule/key"
+	"github.com/xmidt-org/clortho"
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
 	"github.com/xmidt-org/webpa-common/v2/logging"
@@ -41,7 +46,7 @@ type CapabilityConfig struct {
 // JWTValidator provides a convenient way to define jwt validator through config files
 type JWTValidator struct {
 	// Keys is used to create the key.Resolver for JWT verification keys
-	Keys key.ResolverFactory `json:"key"`
+	Config clortho.Config `json:"config"`
 
 	// Leeway is used to set the amount of time buffer should be given to JWT
 	// time values, such as nbf
@@ -103,20 +108,60 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 
 	var jwtVal JWTValidator
 	v.UnmarshalKey("jwtValidator", &jwtVal)
-	if jwtVal.Keys.URI != "" {
-		resolver, err := jwtVal.Keys.NewResolver()
-		if err != nil {
-			return &alice.Chain{}, fmt.Errorf("failed to create resolver: %v", err)
-		}
-
-		options = append(options, basculehttp.WithTokenFactory("Bearer", basculehttp.BearerTokenFactory{
-			DefaultKeyID: defaultKeyID,
-			Resolver:     resolver,
-			Parser:       bascule.DefaultJWTParser,
-			Leeway:       jwtVal.Leeway,
-		}))
+	kr := clortho.NewKeyRing()
+	p, err := clortho.NewParser(
+		clortho.WithFormats(
+			clortho.JWKSetParser{},
+			clortho.MediaTypeJSON,
+			"application/json;charset=UTF-8",
+			"application/json;charset=utf-8",
+		),
+	)
+	if err != nil {
+		return &alice.Chain{}, emperror.With(err, "failed to create clorth parser")
 	}
 
+	f, err := clortho.NewFetcher(
+		clortho.WithParser(p),
+	)
+	if err != nil {
+		return &alice.Chain{}, emperror.With(err, "failed to create clorth fetcher")
+	}
+
+	ref, err := clortho.NewRefresher(
+		clortho.WithConfig(jwtVal.Config),
+		clortho.WithFetcher(f),
+	)
+	if err != nil {
+		return &alice.Chain{}, emperror.With(err, "failed to create clorth refresher")
+	}
+
+	resolver, err := clortho.NewResolver(
+		clortho.WithConfig(jwtVal.Config),
+		clortho.WithKeyRing(kr),
+		clortho.WithFetcher(f),
+	)
+	if err != nil {
+		return &alice.Chain{}, emperror.With(err, "failed to create clorth resolver")
+	}
+
+	ref.AddListener(kr)
+	// context.Background() is for the unused `context.Context` argument in refresher.Start
+	ref.Start(context.Background())
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		// context.Background() is for the unused `context.Context` argument in refresher.Stop
+		ref.Stop(context.Background())
+	}()
+
+	options = append(options, basculehttp.WithTokenFactory("Bearer", basculehttp.BearerTokenFactory{
+		DefaultKeyID: defaultKeyID,
+		Resolver:     resolver,
+		Parser:       bascule.DefaultJWTParser,
+		Leeway:       jwtVal.Leeway,
+	}))
 	authConstructor := basculehttp.NewConstructor(append([]basculehttp.COption{
 		basculehttp.WithParseURLFunc(basculehttp.CreateRemovePrefixURLFunc("/"+apiBase+"/", basculehttp.DefaultParseURLFunc)),
 	}, options...)...)
@@ -124,7 +169,6 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		basculehttp.WithParseURLFunc(basculehttp.CreateRemovePrefixURLFunc("/api/"+prevAPIVersion+"/", basculehttp.DefaultParseURLFunc)),
 		basculehttp.WithCErrorHTTPResponseFunc(basculehttp.LegacyOnErrorHTTPResponse),
 	}, options...)...)
-
 	bearerRules := bascule.Validators{
 		bchecks.NonEmptyPrincipal(),
 		bchecks.NonEmptyType(),
