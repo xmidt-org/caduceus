@@ -161,21 +161,27 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Webhook.Measures = *ancla.NewMeasures(metricsRegistry)
+	caduceusConfig.Listener.Measures = *ancla.NewMeasures(metricsRegistry)
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
 		return 1
 	}
 
-	caduceusConfig.Webhook.Argus.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
-	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, getLogger, logging.WithLogger, caduceusSenderWrapper)
+	caduceusConfig.Webhook.BasicClientConfig.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
+	svc, err := ancla.NewService(caduceusConfig.Webhook, getLogger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
-	level.Info(logger).Log(logging.MessageKey(), "Webhook service enabled")
 
+	stopWatches, err := svc.StartListener(caduceusConfig.Listener, logging.WithLogger, caduceusSenderWrapper)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Webhook service start listener error: %v\n", err)
+		return 1
+	}
+
+	level.Info(logger).Log(logging.MessageKey(), "Webhook service enabled")
 	rootRouter := mux.NewRouter()
 	rootRouter.Use(
 		recovery.Middleware(

@@ -217,12 +217,21 @@ log:
 # kid values and their associated information (expiration, etc) for JWTs
 # used as authorization.
 # (Optional)
-# jwtValidator:
-#   keys:
-#     factory:
-#       uri: "https://jwt.example.com/keys/{keyId}"
-#     purpose: 0
-#     updateInterval: 604800000000000
+jwtValidator:
+  Config:
+    Resolve:
+      # Template is a URI template used to fetch keys.  This template may
+	    # use a single parameter named keyID, e.g. http://keys.com/{keyID}.
+      # This field is required and has no default.
+      Template: "http://localhost/{keyID}"
+    Refresh:
+      Sources:
+        # URI is the location where keys are served.  By default, clortho supports
+        # file://, http://, and https:// URIs, as well as standard file system paths
+        # such as /etc/foo/bar.jwk.
+        #
+        # This field is required and has no default.
+        - URI: "http://localhost"
 
 # authHeader provides the list of basic auth headers that caduceus will accept
 # as authorization
@@ -274,7 +283,7 @@ webhook:
   # Raw: parser assumes all of the token payload == JWT token
   # (Optional). Defaults to 'simple'.
   JWTParserType: "raw"
-  argus: 
+  BasicClientConfig: 
     # listen is the subsection that configures the listening feature of the argus client
     # (Optional)
     listen:
@@ -285,7 +294,7 @@ webhook:
     bucket: "webhooks"
 
     # address is Argus' network location.
-    address: "http://localhost:6600"
+    address: "https://argus-cd-asa-0z9z0y1u01hcycft-000.xmidt.comcast.net:443"
 
     # auth the authentication method for argus.
     auth:
