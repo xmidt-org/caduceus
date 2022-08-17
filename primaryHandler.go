@@ -140,7 +140,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 
 	promReg, ok := registry.(prometheus.Registerer)
 	if !ok {
-		return alice.Chain{}, errors.New("failed to get prometheus registerer")
+		return &alice.Chain{}, errors.New("failed to get prometheus registerer")
 	}
 
 	var (
