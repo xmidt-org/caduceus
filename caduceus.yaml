@@ -117,7 +117,6 @@ metric:
     # (Optional)
     subsystem: "caduceus"
 
-
 touchstone:
   # DefaultNamespace is the prometheus namespace to apply when a metric has no namespace
   defaultNamespace: "xmidt"

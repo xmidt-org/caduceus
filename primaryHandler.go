@@ -51,7 +51,7 @@ type CapabilityConfig struct {
 
 // JWTValidator provides a convenient way to define jwt validator through config files
 type JWTValidator struct {
-	// Keys is used to create the key.Resolver for JWT verification keys
+	// Config is used to create the clortho Resolver & Refresher for JWT verification keys
 	Config clortho.Config `json:"config"`
 
 	// Leeway is used to set the amount of time buffer should be given to JWT
