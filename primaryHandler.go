@@ -17,16 +17,22 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule"
 	bchecks "github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/clortho"
+	"github.com/xmidt-org/clortho/clorthometrics"
+	"github.com/xmidt-org/clortho/clorthozap"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap"
 )
 
 const (
@@ -145,6 +151,35 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		return &alice.Chain{}, emperror.With(err, "failed to create clorth resolver")
 	}
 
+	promReg, ok := registry.(prometheus.Registerer)
+	if !ok {
+		return alice.Chain{}, errors.New("failed to get prometheus registerer")
+	}
+
+	var (
+		tsConfig touchstone.Config
+		zConfig  sallust.Config
+	)
+	v.UnmarshalKey("touchstone", &tsConfig)
+	v.UnmarshalKey("zap", &zConfig)
+	zlogger := zap.Must(zConfig.Build())
+	tf := touchstone.NewFactory(tsConfig, zlogger, promReg)
+	cml, err := clorthometrics.NewListener(clorthometrics.WithFactory(tf))
+	if err != nil {
+		return &alice.Chain{}, emperror.With(err, "failed to create clorth metrics listener")
+	}
+
+	czl, err := clorthozap.NewListener(
+		clorthozap.WithLogger(zlogger),
+	)
+	if err != nil {
+		return &alice.Chain{}, emperror.With(err, "failed to create clorth zap logger listener")
+	}
+
+	resolver.AddListener(cml)
+	resolver.AddListener(czl)
+	ref.AddListener(cml)
+	ref.AddListener(czl)
 	ref.AddListener(kr)
 	// context.Background() is for the unused `context.Context` argument in refresher.Start
 	ref.Start(context.Background())
