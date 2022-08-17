@@ -115,21 +115,8 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 	var jwtVal JWTValidator
 	v.UnmarshalKey("jwtValidator", &jwtVal)
 	kr := clortho.NewKeyRing()
-	p, err := clortho.NewParser(
-		clortho.WithFormats(
-			clortho.JWKSetParser{},
-			clortho.MediaTypeJSON,
-			"application/json;charset=UTF-8",
-			"application/json;charset=utf-8",
-		),
-	)
-	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clorth parser")
-	}
 
-	f, err := clortho.NewFetcher(
-		clortho.WithParser(p),
-	)
+	f, err := clortho.NewFetcher()
 	if err != nil {
 		return &alice.Chain{}, emperror.With(err, "failed to create clorth fetcher")
 	}
