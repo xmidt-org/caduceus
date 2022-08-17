@@ -329,7 +329,7 @@ webhook:
     bucket: "webhooks"
 
     # address is Argus' network location.
-    address: "https://argus-cd-asa-0z9z0y1u01hcycft-000.xmidt.comcast.net:443"
+    address: "http://localhost:6600"
 
     # auth the authentication method for argus.
     auth:
