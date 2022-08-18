@@ -158,6 +158,9 @@ func caduceus(arguments []string) int {
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
+		// 0 is for the unused `buckets` argument in xmetrics.Registry.NewHistogram
+		incomingQueueLatency: metricsRegistry.NewHistogram(IncomingQueueLatencyHistogram, 0),
+		now:                  time.Now,
 	}
 
 	caduceusConfig.Webhook.Logger = logger
