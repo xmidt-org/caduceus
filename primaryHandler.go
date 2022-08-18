@@ -120,7 +120,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 	// Instantiate a fetcher for refresher and resolver to share
 	f, err := clortho.NewFetcher()
 	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clorth fetcher")
+		return &alice.Chain{}, emperror.With(err, "failed to create clortho fetcher")
 	}
 
 	ref, err := clortho.NewRefresher(
@@ -128,7 +128,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		clortho.WithFetcher(f),
 	)
 	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clorth refresher")
+		return &alice.Chain{}, emperror.With(err, "failed to create clortho refresher")
 	}
 
 	resolver, err := clortho.NewResolver(
@@ -137,7 +137,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		clortho.WithFetcher(f),
 	)
 	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clorth resolver")
+		return &alice.Chain{}, emperror.With(err, "failed to create clortho resolver")
 	}
 
 	promReg, ok := registry.(prometheus.Registerer)
@@ -157,7 +157,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 	// Instantiate a metric listener for refresher and resolver to share
 	cml, err := clorthometrics.NewListener(clorthometrics.WithFactory(tf))
 	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clorth metrics listener")
+		return &alice.Chain{}, emperror.With(err, "failed to create clortho metrics listener")
 	}
 
 	// Instantiate a logging listener for refresher and resolver to share
@@ -165,7 +165,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		clorthozap.WithLogger(zlogger),
 	)
 	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clorth zap logger listener")
+		return &alice.Chain{}, emperror.With(err, "failed to create clortho zap logger listener")
 	}
 
 	resolver.AddListener(cml)
