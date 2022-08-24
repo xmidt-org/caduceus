@@ -153,7 +153,7 @@ func Metrics() []xmetrics.Metric {
 			Name:       IncomingQueueLatencyHistogram,
 			Help:       "A histogram of latencies for the incoming queue.",
 			Type:       "histogram",
-			LabelNames: []string{"code"},
+			LabelNames: []string{"event"},
 			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		},
 	}
