@@ -1062,8 +1062,9 @@ go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.34
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.35.0 h1:iwuqpKwor0rXX9kR8Nw64YVBfZ9HhHcDZPUqv5KWWao=
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.35.0/go.mod h1:snA/2VK6VMPcJTjCwqVxnnYam1zZ/aZeRjUyJIyj6ek=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.19.0/go.mod h1:7RDsakVbjb124lYDEjKuHTuzdqf04hLMEvPv/ufmqMs=
-go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0 h1:9NkMW03wwEzPtP/KciZ4Ozu/Uz5ZA7kfqXJIObnrjGU=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0/go.mod h1:548ZsYzmT4PL4zWKRd8q/N4z0Wxzn/ZxUE+lkEpwWQA=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.0 h1:Ajldaqhxqw/gNzQA45IKFWLdG7jZuXX/wBW1d5qvbUI=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.0/go.mod h1:9NiG9I2aHTKkcxqCILhjtyNA1QEiCjdBACv4IvrFQ+c=
 go.opentelemetry.io/contrib/propagators v0.19.0/go.mod h1:4QOdZClXISU5S43xZxk5tYaWcpb+lehqfKtE6PK6msE=
 go.opentelemetry.io/otel v0.19.0/go.mod h1:j9bF567N9EfomkSidSfmMwIwIBuP37AMAIzVW85OxSg=
 go.opentelemetry.io/otel v0.20.0/go.mod h1:Y3ugLH2oa81t5QO+Lty+zXf8zC9L26ax4Nzoxm/dooo=
