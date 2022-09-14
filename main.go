@@ -27,8 +27,10 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 
+	// nolint:staticcheck
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/spf13/pflag"
@@ -36,10 +38,16 @@ import (
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/concurrent"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/server"
 	"github.com/xmidt-org/webpa-common/v2/service/servicecfg"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
@@ -233,7 +241,7 @@ func caduceus(arguments []string) int {
 	level.Info(logger).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
 
 	signals := make(chan os.Signal, 10)
-	signal.Notify(signals, os.Kill, os.Interrupt)
+	signal.Notify(signals, syscall.SIGTERM, os.Interrupt)
 	for exit := false; !exit; {
 		select {
 		case s := <-signals:

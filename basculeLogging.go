@@ -5,8 +5,11 @@ import (
 	"net/http"
 	"strings"
 
+	// nolint:staticcheck
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/candlelight"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 

@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/ancla"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -40,7 +42,6 @@ type result struct {
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type swTransport struct {
 	i       int32
-	fn      func(*http.Request, int) (*http.Response, error)
 	results []result
 	mutex   sync.Mutex
 }
@@ -159,7 +160,7 @@ func TestInvalidLinger(t *testing.T) {
 func TestSwSimple(t *testing.T) {
 	assert := assert.New(t)
 
-	wrpMessage := wrp.SimpleRequestResponse{
+	wrpMessage := wrp.Message{
 		Source:          "mac:112233445566",
 		Destination:     "event:wrp",
 		TransactionUUID: "12345",

@@ -13,7 +13,9 @@ import (
 	"syscall"
 
 	"emperror.dev/emperror"
+	// nolint:staticcheck
 	"github.com/go-kit/kit/log"
+	// nolint:staticcheck
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
@@ -28,9 +30,15 @@ import (
 	"github.com/xmidt-org/clortho/clorthozap"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/zap"
 )
@@ -62,6 +70,7 @@ type JWTValidator struct {
 func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
 	auth, err := authenticationMiddleware(v, l, registry)
 	if err != nil {
+		// nolint:errorlint
 		return nil, fmt.Errorf("unable to build authentication middleware: %v", err)
 	}
 
@@ -210,6 +219,8 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		var endpoints []*regexp.Regexp
 		c, err := basculechecks.NewEndpointRegexCheck(capabilityCheck.Prefix, capabilityCheck.AcceptAllMethod)
 		if err != nil {
+
+			// nolint:errorlint
 			return nil, fmt.Errorf("failed to create capability check: %v", err)
 		}
 		for _, e := range capabilityCheck.EndpointBuckets {
