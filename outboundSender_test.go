@@ -21,8 +21,7 @@ import (
 	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla"
@@ -30,7 +29,6 @@ import (
 
 	//"github.com/stretchr/testify/mock"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -831,7 +829,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		assert.Equal("POST", req.Method)
 		assert.Equal([]string{wrp.MimeTypeJson}, req.Header["Content-Type"])
 		assert.Nil(req.Header["X-Webpa-Signature"])
-		payload, _ := ioutil.ReadAll(req.Body)
+		payload, _ := io.ReadAll(req.Body)
 		// There is a timestamp in the body, so it's not worth trying to do a string comparison
 		assert.NotNil(payload)
 
@@ -878,7 +876,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		assert.Equal([]string{wrp.MimeTypeJson}, req.Header["Content-Type"])
 		// There is a timestamp in the body, so it's not worth trying to do a string comparison
 		assert.NotNil(req.Header["X-Webpa-Signature"])
-		payload, _ := ioutil.ReadAll(req.Body)
+		payload, _ := io.ReadAll(req.Body)
 		assert.NotNil(payload)
 
 		resp = &http.Response{Status: "200 OK",

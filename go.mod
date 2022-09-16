@@ -6,6 +6,7 @@ require (
 	emperror.dev/emperror v0.33.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-kit/kit v0.12.0
+	github.com/go-kit/log v0.2.1
 	github.com/gorilla/mux v1.8.0
 	github.com/justinas/alice v1.2.0
 	github.com/prometheus/client_golang v1.13.0

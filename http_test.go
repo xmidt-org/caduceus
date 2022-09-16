@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -146,7 +145,7 @@ func TestServerHandler(t *testing.T) {
 
 			assert.Equal(tc.expectedResponse, resp.StatusCode)
 			if nil != resp.Body {
-				io.Copy(ioutil.Discard, resp.Body)
+				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 			}
 			fakeHandler.AssertExpectations(t)
@@ -208,7 +207,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 
 		assert.Equal(http.StatusAccepted, resp.StatusCode)
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 		fakeHandler.AssertExpectations(t)
@@ -257,7 +256,7 @@ func TestServerHandlerFull(t *testing.T) {
 
 		assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 		fakeHist.AssertExpectations(t)
@@ -310,7 +309,7 @@ func TestServerEmptyPayload(t *testing.T) {
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 		fakeHist.AssertExpectations(t)
@@ -365,7 +364,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	})
@@ -420,7 +419,7 @@ func TestServerInvalidBody(t *testing.T) {
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	})
@@ -481,7 +480,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 
 			assert.Equal(http.StatusUnsupportedMediaType, resp.StatusCode)
 			if nil != resp.Body {
-				io.Copy(ioutil.Discard, resp.Body)
+				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 			}
 		})

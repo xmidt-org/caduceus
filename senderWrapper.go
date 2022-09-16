@@ -21,9 +21,8 @@ import (
 	"sync"
 	"time"
 
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/log"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 )

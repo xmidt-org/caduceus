@@ -17,15 +17,14 @@
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sync/atomic"
 	"time"
 
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log"
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/metrics"
 	uuid "github.com/satori/go.uuid"
 
@@ -91,7 +90,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	sh.incomingQueueDepthMetric.Add(1.0)
 	defer sh.incomingQueueDepthMetric.Add(-1.0)
 
-	payload, err := ioutil.ReadAll(request.Body)
+	payload, err := io.ReadAll(request.Body)
 	if err != nil {
 		sh.errorRequests.Add(1.0)
 		errorLog.Log(messageKey, "Unable to retrieve the request body.", errorKey, err.Error)

@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -37,10 +36,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log"
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/device"
@@ -692,7 +690,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		// read until the response is complete before closing to allow
 		// connection reuse
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	}
@@ -780,7 +778,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	// Success
 
 	if nil != resp.Body {
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
 	}

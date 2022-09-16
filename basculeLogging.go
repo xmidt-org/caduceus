@@ -5,8 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	// nolint:staticcheck
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/xmidt-org/candlelight"
 
 	// nolint:staticcheck
