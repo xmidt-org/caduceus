@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -37,11 +36,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/device"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
@@ -249,6 +251,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 	}
 
 	// Create and validate the event regex objects
+	// nolint:prealloc
 	var events []*regexp.Regexp
 	for _, event := range wh.Webhook.Events {
 		var re *regexp.Regexp
@@ -259,7 +262,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 		events = append(events, re)
 	}
 	if len(events) < 1 {
-		err = errors.New("Events must not be empty.")
+		err = errors.New("events must not be empty.")
 		return
 	}
 
@@ -274,7 +277,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("Invalid matcher item: '%s'", item)
+			err = fmt.Errorf("invalid matcher item: '%s'", item)
 			return
 		}
 		matcher = append(matcher, re)
@@ -515,6 +518,7 @@ Loop:
 		// Always pull a new queue in case we have been cutoff or are shutting
 		// down.
 		msgQueue := obs.queue.Load().(chan *wrp.Message)
+		// nolint:gosimple
 		select {
 		// The dispatcher cannot get stuck blocking here forever (caused by an
 		// empty queue that is replaced and then Queue() starts adding to the
@@ -686,7 +690,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		// read until the response is complete before closing to allow
 		// connection reuse
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	}
@@ -774,7 +778,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	// Success
 
 	if nil != resp.Body {
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
 	}

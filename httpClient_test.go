@@ -20,7 +20,6 @@ package main
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -105,7 +104,7 @@ func TestRoundTripper(t *testing.T) {
 			if tc.expectedErr == nil {
 				// Read and close response body
 				if resp.Body != nil {
-					io.Copy(ioutil.Discard, resp.Body)
+					io.Copy(io.Discard, resp.Body)
 					resp.Body.Close()
 				}
 				assert.NoError(t, err)

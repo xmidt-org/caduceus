@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )

@@ -19,10 +19,13 @@ package main
 import (
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )

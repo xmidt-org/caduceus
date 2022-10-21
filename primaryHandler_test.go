@@ -6,7 +6,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
