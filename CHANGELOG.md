@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.10]
+- Dependency updates with no vulnerabilities patched.
+- Fix linting related issues.
+- Restore building docker images.
+
 ## [v0.6.9]
 - Added latency metric, which Tracks the time spent waiting on outbound client URLs to respond. [#312](https://github.com/xmidt-org/caduceus/pull/312)
 - Dependency update, note vulnerabilities
@@ -205,7 +210,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.9...HEAD
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.10...HEAD
+[v0.6.10]: https://github.com/xmidt-org/caduceus/compare/v0.6.9...v0.6.10
 [v0.6.9]: https://github.com/xmidt-org/caduceus/compare/v0.6.6...v0.6.9
 [v0.6.6]: https://github.com/xmidt-org/caduceus/compare/v0.6.5...v0.6.6
 [v0.6.5]: https://github.com/xmidt-org/caduceus/compare/v0.6.4...v0.6.5
