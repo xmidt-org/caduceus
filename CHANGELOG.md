@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.11]
+- Fix the docker container so it has configuration in the right place.
+
 ## [v0.6.10]
 - Dependency updates with no vulnerabilities patched.
 - Fix linting related issues.
