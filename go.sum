@@ -1128,8 +1128,9 @@ github.com/xmidt-org/bascule v0.8.0/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbK
 github.com/xmidt-org/bascule v0.8.1/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
 github.com/xmidt-org/bascule v0.9.0/go.mod h1:C64nSBtUTTK/f2/mCvvp/qJhav5raD0T+by68DCp/gU=
 github.com/xmidt-org/bascule v0.10.1/go.mod h1:unqyDUxjulfGFnx4kYWbonTGkVHGWPUjUrBkUi1sjWw=
-github.com/xmidt-org/bascule v0.11.0 h1:A5RoGFA3XqF7Az1FBF9uEBqhUQ3dLvyhefpS7UkNAvA=
 github.com/xmidt-org/bascule v0.11.0/go.mod h1:6JnrbmFjVueyUL496MidJYBDotPpuGTGsPOBnCATvQ8=
+github.com/xmidt-org/bascule v0.11.1 h1:nEPOYhRfOUFlKenwSlRgCG4XRZLi9cfKJgYhqhRJZvM=
+github.com/xmidt-org/bascule v0.11.1/go.mod h1:sxAIjlCBKRGgr3QanuceIDGpqZkgoeqEQyNb8xfTEy4=
 github.com/xmidt-org/candlelight v0.0.5/go.mod h1:j9Q2tzrOAywm+JvvVJjlOmlPJvdlRrOyFjLz33SaU1Y=
 github.com/xmidt-org/candlelight v0.0.10/go.mod h1:Vy5vSLpwDkphgJ2lOOLBlKOjcgSWq3lA8e0yyVzQCJg=
 github.com/xmidt-org/candlelight v0.0.12 h1:euj97KWqR6HSPuLgbtNWWDeJ8AZY8Fbdpp2YRHiCj9c=
