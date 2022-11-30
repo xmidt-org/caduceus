@@ -27,6 +27,6 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.36.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.4
 	go.opentelemetry.io/otel/exporters/stdout v0.20.0 // indirect
-	go.uber.org/zap v1.23.0
+	go.uber.org/zap v1.24.0
 
 )
