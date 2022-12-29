@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Updated tracing configuration documentation in argus.yaml to reflect changes in Candlelight [#372](https://github.com/xmidt-org/caduceus/pull/372)
+- Updated tracing configuration documentation in caduceus.yaml to reflect changes in Candlelight [#372](https://github.com/xmidt-org/caduceus/pull/372)
 
 ## [v0.6.12]
 - Remove several unused build files and update the docker images to work. [#360](https://github.com/xmidt-org/caduceus/pull/360)
