@@ -5,7 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.6.13]
 - Updated tracing configuration documentation in caduceus.yaml to reflect changes in Candlelight [#372](https://github.com/xmidt-org/caduceus/pull/372)
+- Updated bascule config in docker env [#388] (https://github.com/xmidt-org/caduceus/pull/388/files)
 
 ## [v0.6.12]
 - Remove several unused build files and update the docker images to work. [#360](https://github.com/xmidt-org/caduceus/pull/360)
@@ -217,7 +220,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.12...HEAD
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.13...HEAD
+[v0.6.13]: https://github.com/xmidt-org/caduceus/compare/v0.6.12...v0.6.13
 [v0.6.12]: https://github.com/xmidt-org/caduceus/compare/v0.6.11...v0.6.12
 [v0.6.11]: https://github.com/xmidt-org/caduceus/compare/v0.6.10...v0.6.11
 [v0.6.10]: https://github.com/xmidt-org/caduceus/compare/v0.6.9...v0.6.10

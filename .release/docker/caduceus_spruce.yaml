@@ -259,11 +259,9 @@ zap:
 # used as authorization.
 # (Optional)
 jwtValidator:
-  keys:
-    factory:
-      uri: "https://jwt.example.com/keys/{keyId}"
-    purpose: 0
-    updateInterval: 604800000000000
+  Config:
+    Resolve:
+      Template: (( grab $THEMIS_ENDPOINT || "http://themis:6500/keys/{keyID}" ))
 
 # authHeader provides the list of basic auth headers that caduceus will accept
 # as authorization
