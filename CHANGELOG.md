@@ -220,7 +220,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.12...HEAD
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.13...HEAD
+[v0.6.13]: https://github.com/xmidt-org/caduceus/compare/v0.6.12...v0.6.13
 [v0.6.12]: https://github.com/xmidt-org/caduceus/compare/v0.6.11...v0.6.12
 [v0.6.11]: https://github.com/xmidt-org/caduceus/compare/v0.6.10...v0.6.11
 [v0.6.10]: https://github.com/xmidt-org/caduceus/compare/v0.6.9...v0.6.10
