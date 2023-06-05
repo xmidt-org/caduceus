@@ -59,7 +59,7 @@ type jwtAcquireParser struct {
 	expiration acquire.ParseExpiration
 }
 
-type HelperListenerConfig struct {
+type HelperListenerConfig struct { 
 	Config chrysom.ListenerClientConfig
 
 	// Logger for this package.
