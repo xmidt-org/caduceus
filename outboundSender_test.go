@@ -21,11 +21,12 @@ import (
 	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	//"github.com/stretchr/testify/mock"
 	"io"
@@ -47,8 +48,15 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.fn(req, int(i))
 }
 
-func getNewTestOutputLogger(out io.Writer) log.Logger {
-	return log.NewLogfmtLogger(out)
+func getNewTestOutputLogger(out io.Writer) *zap.Logger {
+	var b bytes.Buffer
+
+	return zap.New(
+		zapcore.NewCore(zapcore.NewJSONEncoder(
+			zapcore.EncoderConfig{
+				MessageKey: "message",
+			}), zapcore.AddSync(&b), zapcore.ErrorLevel),
+	)
 }
 
 func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (OutboundSender, error) {
@@ -178,7 +186,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		QueueSize:       10,
 		DeliveryRetries: 1,
 		MetricsRegistry: fakeRegistry,
-		Logger:          log.NewNopLogger(),
+		Logger:          zap.NewNop(),
 	}
 }
 
@@ -592,7 +600,7 @@ func TestInvalidEventRegex(t *testing.T) {
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     log.NewNopLogger(),
+		Logger:     zap.NewNop(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -618,7 +626,7 @@ func TestInvalidUrl(t *testing.T) {
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     log.NewNopLogger(),
+		Logger:     zap.NewNop(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -636,7 +644,7 @@ func TestInvalidUrl(t *testing.T) {
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     log.NewNopLogger(),
+		Logger:     zap.NewNop(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)

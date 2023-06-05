@@ -7,15 +7,13 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
-	// nolint:staticcheck
+	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 func TestNewPrimaryHandler(t *testing.T) {
 	var (
-		l                  = logging.New(nil)
+		l                  = adapter.DefaultLogger().Logger
 		viper              = viper.New()
 		sw                 = &ServerHandler{}
 		expectedAuthHeader = []string{"Basic xxxxxxx"}

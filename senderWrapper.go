@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/log"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
@@ -57,7 +57,7 @@ type SenderWrapperFactory struct {
 	EventType metrics.Counter
 
 	// The logger implementation to share with OutboundSenders.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// The http client Do() function to share with OutboundSenders.
 	Sender httpClient
@@ -85,7 +85,7 @@ type CaduceusSenderWrapper struct {
 	deliveryInterval    time.Duration
 	cutOffPeriod        time.Duration
 	linger              time.Duration
-	logger              log.Logger
+	logger              *zap.Logger
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
 	metricsRegistry     CaduceusMetricsRegistry

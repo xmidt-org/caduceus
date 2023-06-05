@@ -4,12 +4,11 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/go-kit/log"
 	"github.com/xmidt-org/candlelight"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 func sanitizeHeaders(headers http.Header) (filtered http.Header) {
@@ -24,19 +23,19 @@ func sanitizeHeaders(headers http.Header) (filtered http.Header) {
 	return
 }
 
-func setLogger(logger log.Logger) func(delegate http.Handler) http.Handler {
+func setLogger(logger *zap.Logger) func(delegate http.Handler) http.Handler {
 	return func(delegate http.Handler) http.Handler {
 		return http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				kvs := []interface{}{"requestHeaders", sanitizeHeaders(r.Header), "requestURL", r.URL.EscapedPath(), "method", r.Method}
 				kvs, _ = candlelight.AppendTraceInfo(r.Context(), kvs)
-				ctx := r.WithContext(logging.WithLogger(r.Context(), log.With(logger, kvs...)))
+				ctx := r.WithContext(sallust.With(r.Context(), logger))
 				delegate.ServeHTTP(w, ctx)
 			})
 	}
 }
 
-func getLogger(ctx context.Context) log.Logger {
-	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+func getLogger(ctx context.Context) *zap.Logger {
+	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
 	return logger
 }

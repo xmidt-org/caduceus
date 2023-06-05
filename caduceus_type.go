@@ -19,14 +19,11 @@ package main
 import (
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
+	"go.uber.org/zap"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
 
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -70,12 +67,10 @@ type RequestHandler interface {
 
 type CaduceusHandler struct {
 	senderWrapper SenderWrapper
-	log.Logger
+	*zap.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
-	ch.Log(level.Key(), level.InfoValue(), "workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
-		" to sender")
-
+	ch.Logger.Info("Worker received a request, now passing to sender", zap.Int("workerId", workerID))
 	ch.senderWrapper.Queue(msg)
 }
