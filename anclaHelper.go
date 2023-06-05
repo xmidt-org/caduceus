@@ -44,6 +44,16 @@ var (
 	errUnexpectedCasting = errors.New("unexpected casting error")
 )
 
+const errFmt = "%w: %v"
+
+var (
+	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
+	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
+	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
+	errFailedItemConversion    = errors.New("failed to convert argus item to webhook")
+	errFailedWebhooksFetch     = errors.New("failed to fetch webhooks")
+)
+
 type jwtAcquireParser struct {
 	token      acquire.TokenParser
 	expiration acquire.ParseExpiration
@@ -59,17 +69,17 @@ type HelperListenerConfig struct {
 
 	// Measures for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
-	Measures Measures
+	Measures HelperMeasures
 }
 
-type Measures struct {
+type HelperMeasures struct {
 	WebhookListSizeGauge     metrics.Gauge
 	ChrysomPollsTotalCounter *prometheus.CounterVec
 }
 
 // NewMeasures realizes desired metrics.
-func NewMeasures(p xmetrics.Registry) *Measures {
-	return &Measures{
+func NewMeasures(p xmetrics.Registry) *HelperMeasures {
+	return &HelperMeasures{
 		WebhookListSizeGauge:     p.NewGauge(WebhookListSizeGauge),
 		ChrysomPollsTotalCounter: p.NewCounterVec(ChrysomPollsTotalCounter),
 	}
@@ -211,4 +221,41 @@ func rawTokenExpirationParser(data []byte) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return time.Unix(exp, 0), nil
+}
+
+func (s *helperservice) Add(ctx context.Context, owner string, iw ancla.InternalWebhook) error {
+	item, err := ancla.InternalWebhookToItem(s.now, iw)
+	if err != nil {
+		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
+	}
+	result, err := s.argus.PushItem(ctx, owner, item)
+	if err != nil {
+		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
+	}
+
+	if result == chrysom.CreatedPushResult || result == chrysom.UpdatedPushResult {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
+}
+
+// GetAll returns all webhooks found on the configured webhooks partition
+// of Argus.
+func (s *helperservice) GetAll(ctx context.Context) ([]ancla.InternalWebhook, error) {
+	items, err := s.argus.GetItems(ctx, "")
+	if err != nil {
+		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
+	}
+
+	iws := make([]ancla.InternalWebhook, len(items))
+
+	for i, item := range items {
+		webhook, err := ancla.ItemToInternalWebhook(item)
+		if err != nil {
+			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
+		}
+		iws[i] = webhook
+	}
+
+	return iws, nil
 }
