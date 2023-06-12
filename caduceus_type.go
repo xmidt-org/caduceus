@@ -36,7 +36,7 @@ type CaduceusConfig struct {
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
 	Webhook          ancla.Config
-	Listener         HelperListenerConfig
+	Listener         ancla.ListenerConfig
 	AllowInsecureTLS bool
 }
 

@@ -36,6 +36,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
@@ -82,7 +83,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, AnclaMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -168,7 +169,7 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Listener.Measures = *NewMeasures(metricsRegistry)
+	caduceusConfig.Listener.Measures = ancla.NewHelperMeasures()
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
@@ -176,12 +177,12 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusConfig.Webhook.BasicClientConfig.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
-	svc, err := NewHelperService(caduceusConfig.Webhook, getLogger)
+	svc, err := ancla.NewService(caduceusConfig.Webhook, getLogger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
-	stopWatches, err := svc.StartHelperListener(caduceusConfig.Listener, setLoggerInContext(), caduceusSenderWrapper)
+	stopWatches, err := svc.StartListener(caduceusConfig.Listener, setLoggerInContext(), caduceusSenderWrapper)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service start listener error: %v\n", err)
 		return 1
