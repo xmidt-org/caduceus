@@ -20,7 +20,7 @@ require (
 	github.com/xmidt-org/httpaux v0.3.2
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.2
-	github.com/xmidt-org/webpa-common/v2 v2.1.2
+	github.com/xmidt-org/webpa-common/v2 v2.1.4
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.40.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
@@ -53,7 +53,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.1 // indirect
-	github.com/hashicorp/consul/api v1.20.0 // indirect
+	github.com/hashicorp/consul/api v1.21.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.4.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
@@ -106,8 +106,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/dig v1.16.1 // indirect
-	go.uber.org/fx v1.19.3 // indirect
+	go.uber.org/dig v1.17.0 // indirect
+	go.uber.org/fx v1.20.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
@@ -120,5 +120,3 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/xmidt-org/ancla => /Users/mforti446/Documents/work/untouched-repos/ancla

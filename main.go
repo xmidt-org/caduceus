@@ -83,7 +83,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -169,7 +169,7 @@ func caduceus(arguments []string) int {
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Listener.Measures = ancla.NewHelperMeasures()
+	caduceusConfig.Listener.Measures = NewHelperMeasures(metricsRegistry)
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
