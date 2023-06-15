@@ -13,8 +13,6 @@ import (
 	"syscall"
 
 	"emperror.dev/emperror"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
@@ -22,7 +20,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule"
-	bchecks "github.com/xmidt-org/bascule/basculechecks"
+	"github.com/xmidt-org/bascule/basculechecks"
+	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/clortho"
 	"github.com/xmidt-org/clortho/clorthometrics"
@@ -30,13 +29,6 @@ import (
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
 
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/basculechecks"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/zap"
@@ -66,7 +58,7 @@ type JWTValidator struct {
 	Leeway bascule.Leeway
 }
 
-func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
+func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
 	auth, err := authenticationMiddleware(v, l, registry)
 	if err != nil {
 		// nolint:errorlint
@@ -86,31 +78,31 @@ func NewPrimaryHandler(l log.Logger, v *viper.Viper, registry xmetrics.Registry,
 }
 
 // authenticationMiddleware configures the authorization requirements for requests to reach the main handler
-func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetrics.Registry) (*alice.Chain, error) {
+func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetrics.Registry) (*alice.Chain, error) {
 	if registry == nil {
 		return nil, errors.New("nil registry")
 	}
 
-	basculeMeasures := basculemetrics.NewAuthValidationMeasures(registry)
-	capabilityCheckMeasures := basculechecks.NewAuthCapabilityCheckMeasures(registry)
-	listener := basculemetrics.NewMetricListener(basculeMeasures)
+	basculeMeasures := basculehelper.NewAuthValidationMeasures(registry)
+	capabilityCheckMeasures := basculehelper.NewAuthCapabilityCheckMeasures(registry)
+	listener := basculehelper.NewMetricListener(basculeMeasures)
 
 	basicAllowed := make(map[string]string)
 	basicAuth := v.GetStringSlice("authHeader")
 	for _, a := range basicAuth {
 		decoded, err := base64.StdEncoding.DecodeString(a)
 		if err != nil {
-			level.Info(logger).Log(logging.MessageKey(), "failed to decode auth header", "authHeader", a, logging.ErrorKey(), err)
+			logger.Info("failed to decode auth header", zap.String("authHeader", a), zap.Error(err))
 			continue
 		}
 
 		i := bytes.IndexByte(decoded, ':')
-		level.Debug(logger).Log(logging.MessageKey(), "decoded string", "string", decoded, "i", i)
+		logger.Debug("decoded string", zap.ByteString("string", decoded), zap.Int("i", i))
 		if i > 0 {
 			basicAllowed[string(decoded[:i])] = string(decoded[i+1:])
 		}
 	}
-	level.Debug(logger).Log(logging.MessageKey(), "Created list of allowed basic auths", "allowed", basicAllowed, "config", basicAuth)
+	logger.Debug("Created list of allowed basic auths", zap.Any("allowed", basicAllowed), zap.Any("config", basicAuth))
 
 	options := []basculehttp.COption{
 		basculehttp.WithCLogger(getLogger),
@@ -206,9 +198,9 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		basculehttp.WithCErrorHTTPResponseFunc(basculehttp.LegacyOnErrorHTTPResponse),
 	}, options...)...)
 	bearerRules := bascule.Validators{
-		bchecks.NonEmptyPrincipal(),
-		bchecks.NonEmptyType(),
-		bchecks.ValidType([]string{"jwt"}),
+		basculechecks.NonEmptyPrincipal(),
+		basculechecks.NonEmptyType(),
+		basculechecks.ValidType([]string{"jwt"}),
 	}
 
 	// only add capability check if the configuration is set
@@ -216,7 +208,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 	v.UnmarshalKey("capabilityCheck", &capabilityCheck)
 	if capabilityCheck.Type == "enforce" || capabilityCheck.Type == "monitor" {
 		var endpoints []*regexp.Regexp
-		c, err := basculechecks.NewEndpointRegexCheck(capabilityCheck.Prefix, capabilityCheck.AcceptAllMethod)
+		c, err := basculehelper.NewEndpointRegexCheck(capabilityCheck.Prefix, capabilityCheck.AcceptAllMethod)
 		if err != nil {
 
 			// nolint:errorlint
@@ -225,13 +217,13 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 		for _, e := range capabilityCheck.EndpointBuckets {
 			r, err := regexp.Compile(e)
 			if err != nil {
-				level.Error(logger).Log(logging.MessageKey(), "failed to compile regular expression", "regex", e, logging.ErrorKey(), err.Error())
+				logger.Error("failed to compile regular expression", zap.Any("regex", e), zap.Error(err))
 				continue
 			}
 			endpoints = append(endpoints, r)
 		}
-		m := basculechecks.MetricValidator{
-			C:         basculechecks.CapabilitiesValidator{Checker: c},
+		m := basculehelper.MetricValidator{
+			C:         basculehelper.CapabilitiesValidator{Checker: c},
 			Measures:  capabilityCheckMeasures,
 			Endpoints: endpoints,
 		}
@@ -241,7 +233,7 @@ func authenticationMiddleware(v *viper.Viper, logger log.Logger, registry xmetri
 	authEnforcer := basculehttp.NewEnforcer(
 		basculehttp.WithELogger(getLogger),
 		basculehttp.WithRules("Basic", bascule.Validators{
-			bchecks.AllowAll(),
+			basculechecks.AllowAll(),
 		}),
 		basculehttp.WithRules("Bearer", bearerRules),
 		basculehttp.WithEErrorResponseFunc(listener.OnErrorResponse),

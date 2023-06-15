@@ -28,8 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -103,7 +102,7 @@ func TestServerHandler(t *testing.T) {
 	for _, tc := range tcs {
 		assert := assert.New(t)
 
-		logger := logging.DefaultLogger()
+		logger := adapter.DefaultLogger().Logger
 		fakeHandler := new(mockHandler)
 		if !tc.throwStatusBadRequest {
 			fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
@@ -160,7 +159,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := logging.DefaultLogger()
+	logger := adapter.DefaultLogger().Logger
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).Return().Once()
@@ -221,7 +220,7 @@ func TestServerHandlerFull(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := logging.DefaultLogger()
+	logger := adapter.DefaultLogger().Logger
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -274,7 +273,7 @@ func TestServerEmptyPayload(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := logging.DefaultLogger()
+	logger := adapter.DefaultLogger().Logger
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -329,7 +328,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := logging.DefaultLogger()
+	logger := adapter.DefaultLogger().Logger
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -383,7 +382,7 @@ func TestServerInvalidBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := logging.DefaultLogger()
+	logger := adapter.DefaultLogger().Logger
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -435,7 +434,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := logging.DefaultLogger()
+	logger := adapter.DefaultLogger().Logger
 	fakeHandler := new(mockHandler)
 
 	fakeQueueDepth := new(mockGauge)
