@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.7.0]
+- Added zap logger and basculehelper package [#403] (https://github.com/xmidt-org/caduceus/pull/403)
+
 ## [v0.6.13]
 - Updated tracing configuration documentation in caduceus.yaml to reflect changes in Candlelight [#372](https://github.com/xmidt-org/caduceus/pull/372)
 - Updated bascule config in docker env [#388] (https://github.com/xmidt-org/caduceus/pull/388/files)
@@ -220,7 +223,8 @@ fixed build upload
 ### Added
 - Initial creation
 
-[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.6.13...HEAD
+[Unreleased]: https://github.com/xmidt-org/caduceus/compare/v0.7.0...HEAD
+[v0.7.0]: https://github.com/xmidt-org/caduceus/compare/v0.6.13...v0.7.0
 [v0.6.13]: https://github.com/xmidt-org/caduceus/compare/v0.6.12...v0.6.13
 [v0.6.12]: https://github.com/xmidt-org/caduceus/compare/v0.6.11...v0.6.12
 [v0.6.11]: https://github.com/xmidt-org/caduceus/compare/v0.6.10...v0.6.11

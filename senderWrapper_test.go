@@ -26,9 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
 
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -135,7 +134,7 @@ func getFakeFactory() *SenderWrapperFactory {
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,
-		Logger:              logging.DefaultLogger(),
+		Logger:              adapter.DefaultLogger().Logger,
 		Linger:              0 * time.Second,
 		MetricsRegistry:     fakeRegistry,
 	}
