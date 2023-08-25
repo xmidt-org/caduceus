@@ -5,7 +5,7 @@ go 1.19
 require (
 	emperror.dev/emperror v0.33.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/go-kit/kit v0.12.0
+	github.com/go-kit/kit v0.13.0
 	github.com/gorilla/mux v1.8.0
 	github.com/justinas/alice v1.2.0
 	github.com/prometheus/client_golang v1.16.0
