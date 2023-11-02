@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/caduceus/metrics"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 
 	"github.com/xmidt-org/wrp-go/v3"
@@ -114,21 +115,21 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", []string{"content_type", "other"}).Return(fakeIgnore)
 
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
-	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
-	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakeIgnore)
-	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerRenewalTimeGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerDeliverUntilGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
+	fakeRegistry.On("NewCounter", metrics.DropsDueToInvalidPayload).Return(fakeDDTIP)
+	fakeRegistry.On("NewCounter", metrics.DeliveryRetryCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", metrics.DeliveryCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", metrics.SlowConsumerCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", metrics.SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", metrics.IncomingEventTypeCounter).Return(fakeIgnore)
+	fakeRegistry.On("NewCounter", metrics.DropsDueToPanic).Return(fakeIgnore)
+	fakeRegistry.On("NewGauge", metrics.OutgoingQueueDepth).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", metrics.DeliveryRetryMaxGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", metrics.ConsumerRenewalTimeGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", metrics.ConsumerDeliverUntilGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", metrics.ConsumerDropUntilGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", metrics.ConsumerDeliveryWorkersGauge).Return(fakeGauge)
+	fakeRegistry.On("NewGauge", metrics.ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
+	fakeRegistry.On("NewHistogram", metrics.QueryDurationHistogram).Return(fakeLatency)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,

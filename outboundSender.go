@@ -38,8 +38,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/metrics"
+	kitmetrics "github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
+	metrics "github.com/xmidt-org/caduceus/metrics"
 	"github.com/xmidt-org/webpa-common/v2/device"
 
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
@@ -95,7 +96,7 @@ type OutboundSenderFactory struct {
 	DeliveryInterval time.Duration
 
 	// Metrics registry.
-	MetricsRegistry CaduceusMetricsRegistry
+	MetricsRegistry metrics.CaduceusMetricsRegistry
 
 	// The logger to use.
 	Logger *zap.Logger
@@ -107,7 +108,7 @@ type OutboundSenderFactory struct {
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
 
-	QueryLatency metrics.Histogram
+	QueryLatency kitmetrics.Histogram
 }
 
 type OutboundSender interface {
@@ -130,23 +131,23 @@ type CaduceusOutboundSender struct {
 	queueSize                        int
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
-	deliveryCounter                  metrics.Counter
-	deliveryRetryCounter             metrics.Counter
-	droppedQueueFullCounter          metrics.Counter
-	droppedCutoffCounter             metrics.Counter
-	droppedExpiredCounter            metrics.Counter
-	droppedExpiredBeforeQueueCounter metrics.Counter
-	droppedNetworkErrCounter         metrics.Counter
-	droppedInvalidConfig             metrics.Counter
-	droppedPanic                     metrics.Counter
-	cutOffCounter                    metrics.Counter
-	queueDepthGauge                  metrics.Gauge
-	renewalTimeGauge                 metrics.Gauge
-	deliverUntilGauge                metrics.Gauge
-	dropUntilGauge                   metrics.Gauge
-	maxWorkersGauge                  metrics.Gauge
-	currentWorkersGauge              metrics.Gauge
-	deliveryRetryMaxGauge            metrics.Gauge
+	deliveryCounter                  kitmetrics.Counter
+	deliveryRetryCounter             kitmetrics.Counter
+	droppedQueueFullCounter          kitmetrics.Counter
+	droppedCutoffCounter             kitmetrics.Counter
+	droppedExpiredCounter            kitmetrics.Counter
+	droppedExpiredBeforeQueueCounter kitmetrics.Counter
+	droppedNetworkErrCounter         kitmetrics.Counter
+	droppedInvalidConfig             kitmetrics.Counter
+	droppedPanic                     kitmetrics.Counter
+	cutOffCounter                    kitmetrics.Counter
+	queueDepthGauge                  kitmetrics.Gauge
+	renewalTimeGauge                 kitmetrics.Gauge
+	deliverUntilGauge                kitmetrics.Gauge
+	dropUntilGauge                   kitmetrics.Gauge
+	maxWorkersGauge                  kitmetrics.Gauge
+	currentWorkersGauge              kitmetrics.Gauge
+	deliveryRetryMaxGauge            kitmetrics.Gauge
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration
 	workers                          semaphore.Interface
@@ -471,7 +472,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 // a fresh one, counting any current messages in the queue as dropped.
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
-func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
+func (obs *CaduceusOutboundSender) Empty(droppedCounter kitmetrics.Counter) {
 	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
@@ -736,4 +737,25 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		resp.Body.Close()
 
 	}
+}
+
+func CreateOutbounderMetrics(m metrics.CaduceusMetricsRegistry, c *CaduceusOutboundSender) {
+	c.deliveryCounter = m.NewCounter(metrics.DeliveryCounter)
+	c.deliveryRetryCounter = m.NewCounter(metrics.DeliveryRetryCounter)
+	c.deliveryRetryMaxGauge = m.NewGauge(metrics.DeliveryRetryMaxGauge).With("url", c.id)
+	c.cutOffCounter = m.NewCounter(metrics.SlowConsumerCounter).With("url", c.id)
+	c.droppedQueueFullCounter = m.NewCounter(metrics.SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "queue_full")
+	c.droppedExpiredCounter = m.NewCounter(metrics.SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired")
+	c.droppedExpiredBeforeQueueCounter = m.NewCounter(metrics.SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired_before_queueing")
+
+	c.droppedCutoffCounter = m.NewCounter(metrics.SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
+	c.droppedInvalidConfig = m.NewCounter(metrics.SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
+	c.droppedNetworkErrCounter = m.NewCounter(metrics.SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", networkError)
+	c.droppedPanic = m.NewCounter(metrics.DropsDueToPanic).With("url", c.id)
+	c.queueDepthGauge = m.NewGauge(metrics.OutgoingQueueDepth).With("url", c.id)
+	c.renewalTimeGauge = m.NewGauge(metrics.ConsumerRenewalTimeGauge).With("url", c.id)
+	c.deliverUntilGauge = m.NewGauge(metrics.ConsumerDeliverUntilGauge).With("url", c.id)
+	c.dropUntilGauge = m.NewGauge(metrics.ConsumerDropUntilGauge).With("url", c.id)
+	c.currentWorkersGauge = m.NewGauge(metrics.ConsumerDeliveryWorkersGauge).With("url", c.id)
+	c.maxWorkersGauge = m.NewGauge(metrics.ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
 }

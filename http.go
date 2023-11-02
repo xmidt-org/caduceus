@@ -32,6 +32,14 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
+const (
+	emptyContentTypeReason = "empty_content_type"
+	emptyUUIDReason        = "empty_uuid"
+	bothEmptyReason        = "empty_uuid_and_content_type"
+	networkError           = "network_err"
+	unknownEventType       = "unknown"
+)
+
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
 	*zap.Logger

@@ -21,8 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	kitmetrics "github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/caduceus/metrics"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -49,12 +50,12 @@ type SenderWrapperFactory struct {
 	Linger time.Duration
 
 	// Metrics registry.
-	MetricsRegistry CaduceusMetricsRegistry
+	MetricsRegistry metrics.CaduceusMetricsRegistry
 
 	// The metrics counter for dropped messages due to invalid payloads
-	DroppedMsgCounter metrics.Counter
+	DroppedMsgCounter kitmetrics.Counter
 
-	EventType metrics.Counter
+	EventType kitmetrics.Counter
 
 	// The logger implementation to share with OutboundSenders.
 	Logger *zap.Logger
@@ -88,9 +89,9 @@ type CaduceusSenderWrapper struct {
 	logger              *zap.Logger
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
-	metricsRegistry     CaduceusMetricsRegistry
-	eventType           metrics.Counter
-	queryLatency        metrics.Histogram
+	metricsRegistry     metrics.CaduceusMetricsRegistry
+	eventType           kitmetrics.Counter
+	queryLatency        kitmetrics.Histogram
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
 	customPIDs          []string
@@ -120,8 +121,8 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 		return
 	}
 
-	caduceusSenderWrapper.queryLatency = NewMetricWrapperMeasures(swf.MetricsRegistry)
-	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
+	caduceusSenderWrapper.queryLatency = metrics.NewMetricWrapperMeasures(swf.MetricsRegistry)
+	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(metrics.IncomingEventTypeCounter)
 
 	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
 	caduceusSenderWrapper.shutdown = make(chan struct{})

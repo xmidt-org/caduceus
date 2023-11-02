@@ -15,7 +15,7 @@
  *
  */
 
-package main
+package metrics
 
 // Using Caduceus's test suite:
 //
