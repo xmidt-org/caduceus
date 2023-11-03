@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/caduceus/metrics"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -163,20 +164,20 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	//
 	// If a new metric within outboundsender is created it must be added here
 	fakeRegistry := new(mockCaduceusMetricsRegistry)
-	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeDC)
-	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
-	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeDC)
-	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
-	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
-	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakePanicDrop)
-	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerRenewalTimeGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerDeliverUntilGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
+	fakeRegistry.On("NewCounter", metrics.DeliveryRetryCounter).Return(fakeDC)
+	fakeRegistry.On("NewCounter", metrics.DeliveryCounter).Return(fakeDC)
+	fakeRegistry.On("NewCounter", metrics.OutgoingQueueDepth).Return(fakeDC)
+	fakeRegistry.On("NewCounter", metrics.SlowConsumerCounter).Return(fakeSlow)
+	fakeRegistry.On("NewCounter", metrics.SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
+	fakeRegistry.On("NewCounter", metrics.DropsDueToPanic).Return(fakePanicDrop)
+	fakeRegistry.On("NewGauge", metrics.OutgoingQueueDepth).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", metrics.DeliveryRetryMaxGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", metrics.ConsumerRenewalTimeGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", metrics.ConsumerDeliverUntilGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", metrics.ConsumerDropUntilGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", metrics.ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewGauge", metrics.ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
+	fakeRegistry.On("NewHistogram", metrics.QueryDurationHistogram).Return(fakeLatency)
 
 	return &OutboundSenderFactory{
 		Listener:        w,

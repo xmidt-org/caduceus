@@ -21,7 +21,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
 
 	"github.com/xmidt-org/wrp-go/v3"
@@ -53,12 +52,6 @@ type SenderConfig struct {
 	DeliveryInterval                time.Duration
 	CustomPIDs                      []string
 	DisablePartnerIDs               bool
-}
-
-type CaduceusMetricsRegistry interface {
-	NewCounter(name string) metrics.Counter
-	NewGauge(name string) metrics.Gauge
-	NewHistogram(name string, buckets int) metrics.Histogram
 }
 
 type RequestHandler interface {

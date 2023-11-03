@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule/basculehelper"
+	"github.com/xmidt-org/caduceus/metrics"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/sallust"
@@ -83,7 +84,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, metrics.Metrics, metrics.AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
@@ -157,19 +158,19 @@ func caduceus(arguments []string) int {
 			senderWrapper: caduceusSenderWrapper,
 			Logger:        logger,
 		},
-		errorRequests:            metricsRegistry.NewCounter(ErrorRequestBodyCounter),
-		emptyRequests:            metricsRegistry.NewCounter(EmptyRequestBodyCounter),
-		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
-		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
-		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
+		errorRequests:            metricsRegistry.NewCounter(metrics.ErrorRequestBodyCounter),
+		emptyRequests:            metricsRegistry.NewCounter(metrics.EmptyRequestBodyCounter),
+		invalidCount:             metricsRegistry.NewCounter(metrics.DropsDueToInvalidPayload),
+		incomingQueueDepthMetric: metricsRegistry.NewGauge(metrics.IncomingQueueDepth),
+		modifiedWRPCount:         metricsRegistry.NewCounter(metrics.ModifiedWRPCounter),
 		maxOutstanding:           0,
 		// 0 is for the unused `buckets` argument in xmetrics.Registry.NewHistogram
-		incomingQueueLatency: metricsRegistry.NewHistogram(IncomingQueueLatencyHistogram, 0),
+		incomingQueueLatency: metricsRegistry.NewHistogram(metrics.IncomingQueueLatencyHistogram, 0),
 		now:                  time.Now,
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Listener.Measures = NewHelperMeasures(metricsRegistry)
+	caduceusConfig.Listener.Measures = metrics.NewHelperMeasures(metricsRegistry)
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
