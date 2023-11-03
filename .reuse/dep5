@@ -1,0 +1,56 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: caduceus
+Upstream-Contact: John Bass <john_bass2@cable.comcast.com>
+Source: https://github.com/xmidt-org/caduceus
+
+Files: NOTICE
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: .gitignore
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: .whitesource
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: CONTRIBUTING.md
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: MAINTAINERS.md
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: README.md
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: go.mod
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: go.sum
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: CHANGELOG.md
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: .dockerignore
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: cpuprofile
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: .release/helm/caduceus/.helmignore
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: docs/getting_started.md
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
