@@ -20,8 +20,10 @@ RUN apk add --no-cache --no-progress \
 
 # Download spruce here to eliminate the need for curl in the final image
 RUN mkdir -p /go/bin && \
-    curl -L -o /go/bin/spruce https://github.com/geofffranks/spruce/releases/download/v1.29.0/spruce-linux-amd64 && \
-    chmod +x /go/bin/spruce
+    arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
+    curl -L -o /go/bin/spruce https://github.com/geofffranks/spruce/releases/download/v1.30.2/spruce-linux-${arch} && \
+    chmod +x /go/bin/spruce && \
+    sha1sum /go/bin/spruce
 
 COPY . .
 
