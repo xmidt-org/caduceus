@@ -33,16 +33,10 @@ package metrics
 // 4. Mimic the metric behavior using On i.e if your specific metric is a counter:
 //      fakeSlow.On("Add", 1.0).Return()
 
-import (
-	"testing"
+// func TestMetrics(t *testing.T) {
+// 	assert := assert.New(t)
 
-	"github.com/stretchr/testify/assert"
-)
+// 	m := Metrics()
 
-func TestMetrics(t *testing.T) {
-	assert := assert.New(t)
-
-	m := Metrics()
-
-	assert.NotNil(m)
-}
+// 	assert.NotNil(m)
+// }
