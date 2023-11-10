@@ -1,29 +1,15 @@
-/**
- * Copyright 2017 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"go.uber.org/zap"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -36,6 +22,7 @@ type CaduceusConfig struct {
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
 	Webhook          ancla.Config
+	Listener         ancla.ListenerConfig
 	AllowInsecureTLS bool
 }
 
@@ -66,12 +53,10 @@ type RequestHandler interface {
 
 type CaduceusHandler struct {
 	senderWrapper SenderWrapper
-	log.Logger
+	*zap.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
-	ch.Log(level.Key(), level.InfoValue(), "workerID", workerID, logging.MessageKey(), "Worker received a request, now passing"+
-		" to sender")
-
+	ch.Logger.Info("Worker received a request, now passing to sender", zap.Int("workerId", workerID))
 	ch.senderWrapper.Queue(msg)
 }

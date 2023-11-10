@@ -1,3 +1,5 @@
+## SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
+## SPDX-License-Identifier: Apache-2.0
 ---
 # The unique fully-qualified-domain-name of the server.
 # (Optional)
@@ -117,6 +119,12 @@ metric:
     # (Optional)
     subsystem: "caduceus"
 
+touchstone:
+  # DefaultNamespace is the prometheus namespace to apply when a metric has no namespace
+  defaultNamespace: "xmidt"
+  # DefaultSubsystem is the prometheus subsystem to apply when a metric has no subsystem
+  defaultSubsystem: "caduceus"
+
 ########################################
 #   Service Discovery Configuration
 ########################################
@@ -206,6 +214,35 @@ log:
   # (Optional) defaults to false
   json: true
 
+zap:
+  # OutputPaths is a list of URLs or file paths to write logging output to.
+  outputPaths:
+    - stdout
+    # - /var/log/caduceus/caduceus.log
+
+  # Level is the minimum enabled logging level. Note that this is a dynamic
+  # level, so calling Config.Level.SetLevel will atomically change the log
+  # level of all loggers descended from this config.
+  level: debug
+
+  # EncoderConfig sets options for the chosen encoder. See
+  # zapcore.EncoderConfig for details.
+  errorOutputPaths:
+    - stderr
+    # - /var/log/caduceus/caduceus.log
+
+  # EncoderConfig sets options for the chosen encoder. See
+  # zapcore.EncoderConfig for details.
+  encoderConfig:
+    messageKey: message
+    levelKey: key
+    levelEncoder: lowercase
+
+  # Encoding sets the logger's encoding. Valid values are "json" and
+  # "console", as well as any third-party encodings registered via
+  # RegisterEncoder.
+  encoding: json
+  
 ########################################
 #   Authorization Related Configuration
 ########################################
@@ -217,12 +254,21 @@ log:
 # kid values and their associated information (expiration, etc) for JWTs
 # used as authorization.
 # (Optional)
-# jwtValidator:
-#   keys:
-#     factory:
-#       uri: "https://jwt.example.com/keys/{keyId}"
-#     purpose: 0
-#     updateInterval: 604800000000000
+jwtValidator:
+  Config:
+    Resolve:
+      # Template is a URI template used to fetch keys.  This template may
+	    # use a single parameter named keyID, e.g. http://keys.com/{keyID}.
+      # This field is required and has no default.
+      Template: "http://localhost/{keyID}"
+    Refresh:
+      Sources:
+        # URI is the location where keys are served.  By default, clortho supports
+        # file://, http://, and https:// URIs, as well as standard file system paths
+        # such as /etc/foo/bar.jwk.
+        #
+        # This field is required and has no default.
+        - URI: "http://localhost"
 
 # authHeader provides the list of basic auth headers that caduceus will accept
 # as authorization
@@ -274,7 +320,7 @@ webhook:
   # Raw: parser assumes all of the token payload == JWT token
   # (Optional). Defaults to 'simple'.
   JWTParserType: "raw"
-  argus: 
+  BasicClientConfig: 
     # listen is the subsection that configures the listening feature of the argus client
     # (Optional)
     listen:
@@ -390,7 +436,7 @@ sender:
 # tracing provides configuration around traces using OpenTelemetry.
 # (Optional). By default, a 'noop' tracer provider is used and tracing is disabled.
 tracing:
-  # provider is the provider name. Currently, stdout, jaegar and zipkin are supported.
+  # provider is the name of the trace provider to use. Currently, otlp/grpc, otlp/http, stdout, jaeger and zipkin are supported.
   # 'noop' can also be used as provider to explicitly disable tracing.
   provider: "noop"
 
@@ -398,8 +444,10 @@ tracing:
   # so that trace information is not written to stdout.
   # skipTraceExport: true
 
-  # endpoint is where trace information should be routed. Applies to zipkin and jaegar.
+  # endpoint is where trace information should be routed. Applies to otlp, zipkin, and jaeger. OTLP/gRPC uses port 4317 by default.
+  # OTLP/HTTP uses port 4318 by default.
   # endpoint: "http://localhost:9411/api/v2/spans"
+
 
 # timeouts that apply to the Argus HTTP client.
 # (Optional) By default, the values below will be used.

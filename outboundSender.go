@@ -1,19 +1,5 @@
-/**
- * Copyright 2020 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
@@ -26,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -37,12 +22,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"go.uber.org/zap"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/device"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -99,7 +84,7 @@ type OutboundSenderFactory struct {
 	MetricsRegistry CaduceusMetricsRegistry
 
 	// The logger to use.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -153,7 +138,7 @@ type CaduceusOutboundSender struct {
 	workers                          semaphore.Interface
 	maxWorkers                       int
 	failureMsg                       FailureMessage
-	logger                           log.Logger
+	logger                           *zap.Logger
 	mutex                            sync.RWMutex
 	queue                            atomic.Value
 	customPIDs                       []string
@@ -186,9 +171,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return
 	}
 
-	decoratedLogger := log.With(osf.Logger,
-		"webhook.address", osf.Listener.Webhook.Address,
-	)
+	decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
 		id:               osf.Listener.Webhook.Config.URL,
@@ -249,6 +232,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 	}
 
 	// Create and validate the event regex objects
+	// nolint:prealloc
 	var events []*regexp.Regexp
 	for _, event := range wh.Webhook.Events {
 		var re *regexp.Regexp
@@ -259,7 +243,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 		events = append(events, re)
 	}
 	if len(events) < 1 {
-		err = errors.New("Events must not be empty.")
+		err = errors.New("events must not be empty.")
 		return
 	}
 
@@ -274,7 +258,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 
 		var re *regexp.Regexp
 		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("Invalid matcher item: '%s'", item)
+			err = fmt.Errorf("invalid matcher item: '%s'", item)
 			return
 		}
 		matcher = append(matcher, re)
@@ -285,8 +269,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 	for i := 0; i < urlCount; i++ {
 		_, err = url.Parse(wh.Webhook.Config.AlternativeURLs[i])
 		if err != nil {
-			obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to update url",
-				"url", wh.Webhook.Config.AlternativeURLs[i], logging.ErrorKey(), err)
+			obs.logger.Error("failed to update url", zap.Any("url", wh.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
 			return
 		}
 	}
@@ -398,8 +381,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	now := time.Now()
 
 	if !obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
-		level.Debug(obs.logger).Log(logging.MessageKey(), "invalid time window for event",
-			"now", now, "dropUntil", dropUntil, "deliverUntil", deliverUntil)
+		obs.logger.Debug("invalid time window for event", zap.Any("now", now), zap.Any("dropUntil", dropUntil), zap.Any("deliverUntil", deliverUntil))
 		return
 	}
 
@@ -409,10 +391,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 			msg.PartnerIDs = obs.customPIDs
 		}
 		if !overlaps(obs.listener.PartnerIDs, msg.PartnerIDs) {
-			level.Debug(obs.logger).Log(logging.MessageKey(), "partner id check failed",
-				"webhook.partnerIDs", obs.listener.PartnerIDs,
-				"event.partnerIDs", msg.PartnerIDs,
-			)
+			obs.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", obs.listener.PartnerIDs), zap.Strings("event.partnerIDs", msg.PartnerIDs))
 			return
 		}
 	}
@@ -428,11 +407,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		}
 	}
 	if !matchEvent {
-		level.Debug(obs.logger).Log(
-			logging.MessageKey(), "destination regex doesn't match",
-			"webhook.events", obs.listener.Webhook.Events,
-			"event.dest", msg.Destination,
-		)
+		obs.logger.Debug("destination regex doesn't match", zap.Strings("webhook.events", obs.listener.Webhook.Events), zap.String("event.dest", msg.Destination))
 		return
 	}
 
@@ -447,28 +422,16 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	}
 
 	if !matchDevice {
-		level.Debug(obs.logger).Log(
-			logging.MessageKey(), "device regex doesn't match",
-			"webhook.devices", obs.listener.Webhook.Matcher.DeviceID,
-			"event.source", msg.Source,
-		)
+		obs.logger.Debug("device regex doesn't match", zap.Strings("webhook.devices", obs.listener.Webhook.Matcher.DeviceID), zap.String("event.source", msg.Source))
 		return
 	}
 
 	select {
 	case obs.queue.Load().(chan *wrp.Message) <- msg:
 		obs.queueDepthGauge.Add(1.0)
-		level.Debug(obs.logger).Log(
-			logging.MessageKey(), "event added to outbound queue",
-			"event.source", msg.Source,
-			"event.destination", msg.Destination,
-		)
+		obs.logger.Debug("event added to outbound queue", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 	default:
-		level.Debug(obs.logger).Log(
-			logging.MessageKey(), "queue full. event dropped",
-			"event.source", msg.Source,
-			"event.destination", msg.Destination,
-		)
+		obs.logger.Debug("queue full. event dropped", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 		obs.queueOverflow()
 		obs.droppedQueueFullCounter.Add(1.0)
 	}
@@ -515,6 +478,7 @@ Loop:
 		// Always pull a new queue in case we have been cutoff or are shutting
 		// down.
 		msgQueue := obs.queue.Load().(chan *wrp.Message)
+		// nolint:gosimple
 		select {
 		// The dispatcher cannot get stuck blocking here forever (caused by an
 		// empty queue that is replaced and then Queue() starts adding to the
@@ -580,8 +544,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	defer func() {
 		if r := recover(); nil != r {
 			obs.droppedPanic.Add(1.0)
-			obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "goroutine send() panicked",
-				"id", obs.id, "panic", r)
+			obs.logger.Error("goroutine send() panicked", zap.String("id", obs.id), zap.Any("panic", r))
 		}
 		obs.workers.Release()
 		obs.currentWorkersGauge.Add(-1.0)
@@ -609,8 +572,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	if nil != err {
 		// Report drop
 		obs.droppedInvalidConfig.Add(1.0)
-		obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Invalid URL",
-			"url", urls.Value.(string), "id", obs.id, logging.ErrorKey(), err)
+		obs.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", obs.id), zap.Error(err))
 		return
 	}
 
@@ -655,19 +617,14 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
-			obs.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to update url",
-				"url", urls.Value.(string), logging.ErrorKey(), err)
+			obs.logger.Error("failed to update url", zap.String("url", urls.Value.(string)), zap.Error(err))
 			return
 		}
 		request.URL = tmp
 	}
 
 	// Send it
-	level.Debug(obs.logger).Log(
-		logging.MessageKey(), "attempting to send event",
-		"event.source", msg.Source,
-		"event.destination", msg.Destination,
-	)
+	obs.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 
 	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
 	client := obs.clientMiddleware(doerFunc(retryer))
@@ -678,7 +635,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	if nil != err {
 		// Report failure
 		obs.droppedNetworkErrCounter.Add(1.0)
-		l = log.With(l, logging.ErrorKey(), err)
+		l = obs.logger.With(zap.Error(err))
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
@@ -686,18 +643,12 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		// read until the response is complete before closing to allow
 		// connection reuse
 		if nil != resp.Body {
-			io.Copy(ioutil.Discard, resp.Body)
+			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	}
 	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
-	level.Debug(l).Log(
-		logging.MessageKey(), "event sent-ish",
-		"event.source", msg.Source,
-		"event.destination", msg.Destination,
-		"code", code,
-		"url", req.URL.String(),
-	)
+	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows:
@@ -716,10 +667,6 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	failureURL := obs.listener.Webhook.FailureURL
 	obs.mutex.Unlock()
 
-	var (
-		errorLog = log.WithPrefix(obs.logger, level.Key(), level.ErrorValue())
-	)
-
 	obs.cutOffCounter.Add(1.0)
 
 	// We empty the queue but don't close the channel, because we're not
@@ -728,8 +675,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
-		errorLog.Log(logging.MessageKey(), "Cut-off notification json.Marshal failed", "failureMessage", obs.failureMsg,
-			"for", obs.id, logging.ErrorKey(), err)
+		obs.logger.Error("Cut-off notification json.Marshal failed", zap.Any("failureMessage", obs.failureMsg), zap.String("for", obs.id), zap.Error(err))
 		return
 	}
 
@@ -743,8 +689,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	req, err := http.NewRequest("POST", failureURL, payload)
 	if nil != err {
 		// Failure
-		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-			failureURL, "for", obs.id, logging.ErrorKey(), err)
+		obs.logger.Error("Unable to send cut-off notification", zap.String("notification",
+			failureURL), zap.String("for", obs.id), zap.Error(err))
 		return
 	}
 	req.Header.Set("Content-Type", wrp.MimeTypeJson)
@@ -759,22 +705,20 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	resp, err := obs.sender.Do(req)
 	if nil != err {
 		// Failure
-		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification", "notification",
-			failureURL, "for", obs.id, logging.ErrorKey(), err)
+		obs.logger.Error("Unable to send cut-off notification", zap.String("notification", failureURL), zap.String("for", obs.id), zap.Error(err))
 		return
 	}
 
 	if nil == resp {
 		// Failure
-		errorLog.Log(logging.MessageKey(), "Unable to send cut-off notification, nil response",
-			"notification", failureURL)
+		obs.logger.Error("Unable to send cut-off notification, nil response", zap.String("notification", failureURL))
 		return
 	}
 
 	// Success
 
 	if nil != resp.Body {
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
 	}

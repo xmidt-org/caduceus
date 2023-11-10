@@ -1,7 +1,10 @@
+// SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
 	"github.com/go-kit/kit/metrics"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -24,7 +27,8 @@ const (
 	ConsumerDropUntilGauge          = "consumer_drop_until"
 	ConsumerDeliveryWorkersGauge    = "consumer_delivery_workers"
 	ConsumerMaxDeliveryWorkersGauge = "consumer_delivery_workers_max"
-	QueryDurationSecondsHistogram   = "query_duration_seconds_histogram"
+	QueryDurationHistogram          = "query_duration_histogram_seconds"
+	IncomingQueueLatencyHistogram   = "incoming_queue_latency_histogram_seconds"
 )
 
 const (
@@ -32,6 +36,7 @@ const (
 	emptyUUIDReason        = "empty_uuid"
 	bothEmptyReason        = "empty_uuid_and_content_type"
 	networkError           = "network_err"
+	unknownEventType       = "unknown"
 )
 
 func Metrics() []xmetrics.Metric {
@@ -141,10 +146,17 @@ func Metrics() []xmetrics.Metric {
 			LabelNames: []string{"url"},
 		},
 		{
-			Name:       QueryDurationSecondsHistogram,
+			Name:       QueryDurationHistogram,
 			Help:       "A histogram of latencies for queries.",
 			Type:       "histogram",
 			LabelNames: []string{"url", "code"},
+			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
+		},
+		{
+			Name:       IncomingQueueLatencyHistogram,
+			Help:       "A histogram of latencies for the incoming queue.",
+			Type:       "histogram",
+			LabelNames: []string{"event"},
 			Buckets:    []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		},
 	}
@@ -172,5 +184,5 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 }
 
 func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
-	return m.NewHistogram(QueryDurationSecondsHistogram, 11)
+	return m.NewHistogram(QueryDurationHistogram, 11)
 }

@@ -1,3 +1,5 @@
+## SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
+## SPDX-License-Identifier: Apache-2.0
 ---
 linters-settings:
   misspell:
@@ -8,7 +10,7 @@ linters:
     - bodyclose
     - dupl
     - errorlint
-    - funlen
+    # - funlen
     - goconst
     - gosec
     - misspell
@@ -23,7 +25,7 @@ issues:
     - path: _test.go
       linters:
         - dupl
-        - funlen
+        # - funlen
         
     - path: main\.go
       # Accept TLSClientConfig with InsecureSkipVerify

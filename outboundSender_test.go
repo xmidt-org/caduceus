@@ -1,19 +1,5 @@
-/**
- * Copyright 2020 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
@@ -21,15 +7,15 @@ import (
 	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	//"github.com/stretchr/testify/mock"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -48,8 +34,15 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.fn(req, int(i))
 }
 
-func getNewTestOutputLogger(out io.Writer) log.Logger {
-	return log.NewLogfmtLogger(out)
+func getNewTestOutputLogger(out io.Writer) *zap.Logger {
+	var b bytes.Buffer
+
+	return zap.New(
+		zapcore.NewCore(zapcore.NewJSONEncoder(
+			zapcore.EncoderConfig{
+				MessageKey: "message",
+			}), zapcore.AddSync(&b), zapcore.ErrorLevel),
+	)
 }
 
 func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (OutboundSender, error) {
@@ -58,19 +51,19 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 
 // simpleFactorySetup sets up a outboundSender with metrics.
 //
-// Using Caduceus's test suite
+// # Using Caduceus's test suite
 //
 // If you are testing a new metric it needs to be created in this process below.
-// 1. Create a fake, mockMetric i.e fakeEventType := new(mockCounter)
-// 2. If your metric type has yet to be included in mockCaduceusMetricRegistry within mocks.go
-//    add your metric type to mockCaduceusMetricRegistry
-// 3. Trigger the On method on that "mockMetric" with various different cases of that metric,
-//    in both senderWrapper_test.go and outboundSender_test.go
-//    i.e:
-//	    case 1: On("With", []string{"event", iot}
-//	    case 2: On("With", []string{"event", unknown}
-// 4. Mimic the metric behavior using On:
-//      fakeSlow.On("Add", 1.0).Return()
+//  1. Create a fake, mockMetric i.e fakeEventType := new(mockCounter)
+//  2. If your metric type has yet to be included in mockCaduceusMetricRegistry within mocks.go
+//     add your metric type to mockCaduceusMetricRegistry
+//  3. Trigger the On method on that "mockMetric" with various different cases of that metric,
+//     in both senderWrapper_test.go and outboundSender_test.go
+//     i.e:
+//     case 1: On("With", []string{"event", iot}
+//     case 2: On("With", []string{"event", unknown}
+//  4. Mimic the metric behavior using On:
+//     fakeSlow.On("Add", 1.0).Return()
 func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
 	if nil == trans.fn {
 		trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
@@ -169,7 +162,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
+	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
 
 	return &OutboundSenderFactory{
 		Listener:        w,
@@ -179,7 +172,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		QueueSize:       10,
 		DeliveryRetries: 1,
 		MetricsRegistry: fakeRegistry,
-		Logger:          log.NewNopLogger(),
+		Logger:          zap.NewNop(),
 	}
 }
 
@@ -593,7 +586,7 @@ func TestInvalidEventRegex(t *testing.T) {
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     log.NewNopLogger(),
+		Logger:     zap.NewNop(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -619,7 +612,7 @@ func TestInvalidUrl(t *testing.T) {
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     log.NewNopLogger(),
+		Logger:     zap.NewNop(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -637,7 +630,7 @@ func TestInvalidUrl(t *testing.T) {
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
-		Logger:     log.NewNopLogger(),
+		Logger:     zap.NewNop(),
 	}.New()
 	assert.Nil(obs)
 	assert.NotNil(err)
@@ -830,7 +823,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		assert.Equal("POST", req.Method)
 		assert.Equal([]string{wrp.MimeTypeJson}, req.Header["Content-Type"])
 		assert.Nil(req.Header["X-Webpa-Signature"])
-		payload, _ := ioutil.ReadAll(req.Body)
+		payload, _ := io.ReadAll(req.Body)
 		// There is a timestamp in the body, so it's not worth trying to do a string comparison
 		assert.NotNil(payload)
 
@@ -877,7 +870,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		assert.Equal([]string{wrp.MimeTypeJson}, req.Header["Content-Type"])
 		// There is a timestamp in the body, so it's not worth trying to do a string comparison
 		assert.NotNil(req.Header["X-Webpa-Signature"])
-		payload, _ := ioutil.ReadAll(req.Body)
+		payload, _ := io.ReadAll(req.Body)
 		assert.NotNil(payload)
 
 		resp = &http.Response{Status: "200 OK",

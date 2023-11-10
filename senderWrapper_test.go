@@ -1,19 +1,5 @@
-/**
- * Copyright 2017 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
@@ -26,7 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
+
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -40,7 +27,6 @@ type result struct {
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type swTransport struct {
 	i       int32
-	fn      func(*http.Request, int) (*http.Response, error)
 	results []result
 	mutex   sync.Mutex
 }
@@ -128,13 +114,13 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
 	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewHistogram", QueryDurationSecondsHistogram).Return(fakeLatency)
+	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,
-		Logger:              logging.DefaultLogger(),
+		Logger:              adapter.DefaultLogger().Logger,
 		Linger:              0 * time.Second,
 		MetricsRegistry:     fakeRegistry,
 	}
@@ -159,7 +145,7 @@ func TestInvalidLinger(t *testing.T) {
 func TestSwSimple(t *testing.T) {
 	assert := assert.New(t)
 
-	wrpMessage := wrp.SimpleRequestResponse{
+	wrpMessage := wrp.Message{
 		Source:          "mac:112233445566",
 		Destination:     "event:wrp",
 		TransactionUUID: "12345",

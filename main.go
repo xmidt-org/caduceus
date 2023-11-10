@@ -1,23 +1,10 @@
-/**
- * Copyright 2017 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 //
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -27,19 +14,25 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 
-	"github.com/go-kit/kit/log/level"
+	"go.uber.org/zap"
+
 	"github.com/gorilla/mux"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
-	"github.com/xmidt-org/webpa-common/v2/basculechecks"
-	"github.com/xmidt-org/webpa-common/v2/basculemetrics"
+	"github.com/xmidt-org/sallust"
+
+	"github.com/xmidt-org/webpa-common/v2/adapter"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/concurrent"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/server"
 	"github.com/xmidt-org/webpa-common/v2/service/servicecfg"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
@@ -76,16 +69,14 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, ancla.Metrics, basculechecks.Metrics, basculemetrics.Metrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
 	)
 
 	if parseErr, done := printVersion(f, arguments); done {
 		// if we're done, we're exiting no matter what
 		if parseErr != nil {
 			friendlyError := fmt.Sprintf("failed to parse arguments. detailed error: %s", parseErr)
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.ErrorKey(), friendlyError)
+			logger.Error(friendlyError)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -96,7 +87,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	level.Info(logger).Log("configurationFile", v.ConfigFileUsed())
+	logger.Info("viper environment successfully initialized", zap.Any("configurationFile", v.ConfigFileUsed()))
 
 	caduceusConfig := new(CaduceusConfig)
 	err = v.Unmarshal(caduceusConfig)
@@ -110,7 +101,7 @@ func caduceus(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
 		return 1
 	}
-	level.Info(logger).Log(logging.MessageKey(), "tracing status", "enabled", !tracing.IsNoop())
+	logger.Info("tracing status", zap.Bool("enabled", !tracing.IsNoop()))
 
 	var tr http.RoundTripper = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: caduceusConfig.Sender.DisableClientHostnameValidation},
@@ -158,24 +149,32 @@ func caduceus(arguments []string) int {
 		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
 		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
 		maxOutstanding:           0,
+		// 0 is for the unused `buckets` argument in xmetrics.Registry.NewHistogram
+		incomingQueueLatency: metricsRegistry.NewHistogram(IncomingQueueLatencyHistogram, 0),
+		now:                  time.Now,
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Webhook.Measures = *ancla.NewMeasures(metricsRegistry)
+	caduceusConfig.Listener.Measures = NewHelperMeasures(metricsRegistry)
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
 		return 1
 	}
 
-	caduceusConfig.Webhook.Argus.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
-	svc, stopWatches, err := ancla.Initialize(caduceusConfig.Webhook, getLogger, logging.WithLogger, caduceusSenderWrapper)
+	caduceusConfig.Webhook.BasicClientConfig.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
+	svc, err := ancla.NewService(caduceusConfig.Webhook, getLogger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
 		return 1
 	}
-	level.Info(logger).Log(logging.MessageKey(), "Webhook service enabled")
+	stopWatches, err := svc.StartListener(caduceusConfig.Listener, setLoggerInContext(), caduceusSenderWrapper)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Webhook service start listener error: %v\n", err)
+		return 1
+	}
 
+	logger.Info("Webhook service enabled")
 	rootRouter := mux.NewRouter()
 	rootRouter.Use(
 		recovery.Middleware(
@@ -208,30 +207,33 @@ func caduceus(arguments []string) int {
 	// Now, initialize the service discovery infrastructure
 	//
 	if !v.IsSet("service") {
-		level.Info(logger).Log(logging.MessageKey(), "no service discovery configured")
+		logger.Info("no service discovery configured")
 	} else {
-		e, err := servicecfg.NewEnvironment(logger, v.Sub("service"))
+		var log = &adapter.Logger{
+			Logger: logger,
+		}
+		e, err := servicecfg.NewEnvironment(log, v.Sub("service"))
 		if err != nil {
-			level.Error(logger).Log(logging.MessageKey(), "Unable to initialize service discovery environment", logging.ErrorKey(), err)
+			logger.Error("Unable to initialize service discovery environment", zap.Error(err))
 			return 4
 		}
 
 		defer e.Close()
-		level.Info(logger).Log("configurationFile", v.ConfigFileUsed())
+		logger.Info("service discovery environment successfully initialized", zap.Any("configurationFile", v.ConfigFileUsed()))
 		e.Register()
 	}
 
-	level.Info(logger).Log(logging.MessageKey(), "Caduceus is up and running!", "elapsedTime", time.Since(beginCaduceus))
+	logger.Info("Caduceus is up and running!", zap.Any("elapsedTime", time.Since(beginCaduceus)))
 
 	signals := make(chan os.Signal, 10)
-	signal.Notify(signals, os.Kill, os.Interrupt)
+	signal.Notify(signals, syscall.SIGTERM, os.Interrupt)
 	for exit := false; !exit; {
 		select {
 		case s := <-signals:
-			level.Error(logger).Log(logging.MessageKey(), "exiting due to signal", "signal", s)
+			logger.Error("exiting due to signal", zap.Any("signal", s))
 			exit = true
 		case <-done:
-			level.Error(logger).Log(logging.MessageKey(), "one or more servers exited")
+			logger.Error("one or more servers exited")
 			exit = true
 		}
 	}
@@ -243,6 +245,12 @@ func caduceus(arguments []string) int {
 	caduceusSenderWrapper.Shutdown(true)
 	stopWatches()
 	return 0
+}
+
+func setLoggerInContext() func(context.Context, *zap.Logger) context.Context {
+	return func(parent context.Context, logger *zap.Logger) context.Context {
+		return sallust.With(parent, logger)
+	}
 }
 
 func loadTracing(v *viper.Viper, appName string) (candlelight.Tracing, error) {

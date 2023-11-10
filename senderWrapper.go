@@ -1,19 +1,5 @@
-/**
- * Copyright 2017 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
@@ -21,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
@@ -57,7 +43,7 @@ type SenderWrapperFactory struct {
 	EventType metrics.Counter
 
 	// The logger implementation to share with OutboundSenders.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// The http client Do() function to share with OutboundSenders.
 	Sender httpClient
@@ -85,7 +71,7 @@ type CaduceusSenderWrapper struct {
 	deliveryInterval    time.Duration
 	cutOffPeriod        time.Duration
 	linger              time.Duration
-	logger              log.Logger
+	logger              *zap.Logger
 	mutex               sync.RWMutex
 	senders             map[string]OutboundSender
 	metricsRegistry     CaduceusMetricsRegistry
