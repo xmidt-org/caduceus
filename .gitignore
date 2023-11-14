@@ -48,6 +48,7 @@ _testmain.go
 # VSCode
 *.code-workspace
 .vscode/*
+.dev/*
 
 caduceus
 .ignore
