@@ -187,34 +187,7 @@ service:
 #   Logging Related Configuration
 ########################################
 
-# log configures the logging subsystem details
-log:
-  # file is the name of the most recent log file.  If set to "stdout" this
-  # will log to os.Stdout.
-  # (Optional) defaults to os.TempDir()
-  file: "stdout"
-
-  # level is the logging level to use - INFO, DEBUG, WARN, ERROR
-  # (Optional) defaults to ERROR
-  level: "DEBUG"
-
-  # maxsize is the maximum file size in MB
-  # (Optional) defaults to max 100MB
-  maxsize: 50
-
-  # maxage is the maximum number of days to retain old log files
-  # (Optional) defaults to ignore age limit (0)
-  maxage: 30
-
-  # maxbackups is the maximum number of old log files to retain
-  # (Optional) defaults to retain all (0)
-  maxbackups: 10
-
-  # json is a flag indicating whether JSON logging output should be used.
-  # (Optional) defaults to false
-  json: true
-
-zap:
+logging:
   # OutputPaths is a list of URLs or file paths to write logging output to.
   outputPaths:
     - stdout
