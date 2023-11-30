@@ -6,32 +6,65 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/goschtalt/goschtalt"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/arrange/arrangehttp"
-	"github.com/xmidt-org/arrange/arrangepprof"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
 	"gopkg.in/dealancer/validate.v2"
 )
 
-type CLI struct {
-	Dev   bool     `optional:"" short:"d" help:"Run in development mode."`
-	Show  bool     `optional:"" short:"s" help:"Show the configuration and exit."`
-	Graph string   `optional:"" short:"g" help:"Output the dependency graph to the specified file."`
-	Files []string `optional:"" short:"f" help:"Specific configuration files or directories."`
-}
-
-// Config is the top level configuration for the notus service.  Everything
+// Config is the top level configuration for the caduceus service.  Everything
 // is contained in this structure or it will intentially cause a failure.
 type Config struct {
-	Logging    sallust.Config
-	Tracing    candlelight.Config
-	Prometheus touchstone.Config
-	Servers    Servers
+	Logging                sallust.Config
+	Tracing                candlelight.Config
+	Prometheus             touchstone.Config
+	Servers                Servers
+	ArgusClientTimeout     HttpClientTimeout
+	JWTValidator           JWTValidator
+	Webhook                ancla.Config
+	Sender                 SenderConfig
+	Service                Service
+	AuthHeader             []string
+	Server                 string
+	FQDN                   string
+	Build                  string
+	Flavor                 string
+	PreviousVersionSupport bool
+	Region                 string
 }
 
+type Service struct {
+	Consul
+}
+type Consul struct {
+	Client            ConsulClient
+	Registrations     []Registration
+	DisableGenerateId bool
+}
+type ConsulClient struct {
+	Address  string
+	Scheme   string
+	WaitTime string
+}
+type Registration struct {
+	Id      string
+	Name    string
+	Tags    []string
+	Address string
+	Port    int
+	Checks  []Check
+}
+
+type Check struct {
+	CheckId                        string
+	Ttl                            string
+	DeregisterCriticalServiceAfter string
+}
 type Servers struct {
 	Health    HealthServer
 	Metrics   MetricsServer
@@ -42,17 +75,12 @@ type Servers struct {
 
 type HealthServer struct {
 	HTTP arrangehttp.ServerConfig
-	Path HealthPath `validate:"empty=false"`
 }
-
-type HealthPath string
 
 type MetricsServer struct {
-	HTTP arrangehttp.ServerConfig
-	Path MetricsPath `validate:"empty=false"`
+	HTTP           arrangehttp.ServerConfig
+	MetricsOptions MetricsOption
 }
-
-type MetricsPath string
 
 type PrimaryServer struct {
 	HTTP arrangehttp.ServerConfig
@@ -65,12 +93,26 @@ type PprofServer struct {
 
 type PprofPathPrefix string
 
+// httpClientTimeout contains timeouts for an HTTP client and its requests.
+type HttpClientTimeout struct {
+	// ClientTimeout is HTTP Client Timeout.
+	ClientTimeout time.Duration
+
+	// NetDialerTimeout is the net dialer timeout
+	NetDialerTimeout time.Duration
+}
+
+type MetricsOption struct {
+	Namespace string
+	Subsystem string
+}
+
 // Collect and process the configuration files and env vars and
 // produce a configuration object.
 func provideConfig(cli *CLI) (*goschtalt.Config, error) {
 	gs, err := goschtalt.New(
 		goschtalt.StdCfgLayout(applicationName, cli.Files...),
-		goschtalt.ConfigIs("two_words"),
+		goschtalt.ConfigIs("twoWords"),
 		goschtalt.DefaultUnmarshalOptions(
 			goschtalt.WithValidator(
 				goschtalt.ValidatorFunc(validate.Validate),
@@ -134,21 +176,18 @@ var defaultConfig = Config{
 				Network: "tcp",
 				Address: ":80",
 			},
-			Path: HealthPath("/"),
 		},
 		Metrics: MetricsServer{
 			HTTP: arrangehttp.ServerConfig{
 				Network: "tcp",
 				Address: "127.0.0.1:9361",
 			},
-			Path: MetricsPath("/metrics"),
 		},
 		Pprof: PprofServer{
 			HTTP: arrangehttp.ServerConfig{
 				Network: "tcp",
 				Address: "127.0.0.1:9999",
 			},
-			Path: arrangepprof.DefaultPathPrefix,
 		},
 		Primary: PrimaryServer{
 			HTTP: arrangehttp.ServerConfig{
@@ -171,3 +210,4 @@ var defaultConfig = Config{
 		ApplicationName: applicationName,
 	},
 }
+

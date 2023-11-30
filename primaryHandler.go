@@ -187,7 +187,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 	}()
 
 	options = append(options, basculehttp.WithTokenFactory("Bearer", basculehttp.BearerTokenFactory{
-		DefaultKeyID: defaultKeyID,
+		DefaultKeyID: "current",
 		Resolver:     resolver,
 		Parser:       bascule.DefaultJWTParser,
 		Leeway:       jwtVal.Leeway,
