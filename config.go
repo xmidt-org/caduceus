@@ -75,12 +75,18 @@ type Servers struct {
 
 type HealthServer struct {
 	HTTP arrangehttp.ServerConfig
+	Path HealthPath `validate:"empty=false"`
 }
+
+type HealthPath string
 
 type MetricsServer struct {
 	HTTP           arrangehttp.ServerConfig
 	MetricsOptions MetricsOption
+	Path           MetricsPath `validate:"empty=false"`
 }
+
+type MetricsPath string
 
 type PrimaryServer struct {
 	HTTP arrangehttp.ServerConfig
@@ -210,4 +216,3 @@ var defaultConfig = Config{
 		ApplicationName: applicationName,
 	},
 }
-

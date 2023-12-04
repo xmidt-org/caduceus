@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/go-kit/kit/metrics"
+	"go.uber.org/fx"
 	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
@@ -185,4 +186,10 @@ func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSende
 
 func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
 	return m.NewHistogram(QueryDurationHistogram, 11)
+}
+
+func ProvideMetrics() fx.Option{
+	return fx.Provide(
+		
+	)
 }

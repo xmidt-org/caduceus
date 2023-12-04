@@ -80,6 +80,9 @@ func caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[Service]("service"),
 			goschtalt.UnmarshalFunc[[]string]("authHeader"),
 			goschtalt.UnmarshalFunc[bool]("previousVersionSupport"),
+			goschtalt.UnmarshalFunc[HealthPath]("servers.health.path"),
+			goschtalt.UnmarshalFunc[MetricsPath]("servers.metrics.path"),
+			goschtalt.UnmarshalFunc[PprofPathPrefix]("servers.pprof.path"),
 			fx.Annotated{
 				Name:   "server",
 				Target: goschtalt.UnmarshalFunc[string]("server"),
@@ -122,6 +125,11 @@ func caduceus(arguments []string, run bool) error {
 			},
 			candlelight.New,
 		),
+
+		providePprofEndpoint(),
+		provideMetricEndpoint(),
+		provideHealthCheck(),
+
 		touchstone.Provide(),
 		touchhttp.Provide(),
 	)

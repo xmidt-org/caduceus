@@ -6,6 +6,7 @@ require (
 	emperror.dev/emperror v0.33.0
 	github.com/alecthomas/kong v0.8.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-kit/kit v0.13.0
 	github.com/gorilla/mux v1.8.0
 	github.com/goschtalt/goschtalt v0.22.1
@@ -17,10 +18,11 @@ require (
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
 	github.com/xmidt-org/ancla v0.3.11
-	github.com/xmidt-org/arrange v0.4.0
+	github.com/xmidt-org/arrange v0.5.1-0.20230914215531-f02b8651b631
 	github.com/xmidt-org/bascule v0.11.5
 	github.com/xmidt-org/candlelight v0.0.16
 	github.com/xmidt-org/clortho v0.0.4
+	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.3
 	github.com/xmidt-org/webpa-common/v2 v2.2.2
@@ -84,7 +86,6 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/xmidt-org/argus v0.9.10 // indirect
 	github.com/xmidt-org/chronon v0.1.1 // indirect
-	github.com/xmidt-org/httpaux v0.4.0 // indirect
 	go.opentelemetry.io/otel v1.14.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.14.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.14.0 // indirect
