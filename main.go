@@ -132,6 +132,7 @@ func caduceus(arguments []string, run bool) error {
 
 		touchstone.Provide(),
 		touchhttp.Provide(),
+		ProvideMetrics(),
 	)
 
 	if cli != nil && cli.Graph != "" {
