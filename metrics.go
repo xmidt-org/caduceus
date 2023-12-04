@@ -74,6 +74,7 @@ func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
 	return m.NewHistogram(QueryDurationHistogram, 11)
 }
 
+// TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
 func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		touchstone.Gauge(prometheus.GaugeOpts{
