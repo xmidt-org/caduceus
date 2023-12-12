@@ -14,8 +14,6 @@ import (
 	_ "github.com/goschtalt/yaml-decoder"
 	_ "github.com/goschtalt/yaml-encoder"
 	"github.com/xmidt-org/arrange/arrangehttp"
-	"github.com/xmidt-org/bascule/basculechecks"
-	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
@@ -140,8 +138,7 @@ func caduceus(arguments []string, run bool) error {
 		touchhttp.Provide(),
 		ProvideMetrics(),
 		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
-		basculechecks.ProvideMetrics(),
-		basculehttp.ProvideMetrics(),
+
 	)
 
 	if cli != nil && cli.Graph != "" {
