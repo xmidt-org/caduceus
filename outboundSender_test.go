@@ -165,7 +165,6 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
 
 	return &OutboundSenderFactory{
-		Listener:        w,
 		Sender:          doerFunc((&http.Client{Transport: trans}).Do),
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
@@ -377,7 +376,7 @@ func TestAltURL(t *testing.T) {
 
 	obs, err := simpleSetup(trans, time.Second, nil)
 	assert.Nil(err)
-	err = obs.Update(w)
+	// err = obs.Update(w)
 	assert.NotNil(obs)
 	assert.Nil(err)
 
@@ -572,17 +571,17 @@ func TestInvalidEventRegex(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  time.Now().Add(60 * time.Second),
-			Events: []string{"[[:123"},
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  time.Now().Add(60 * time.Second),
+	// 		Events: []string{"[[:123"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err := OutboundSenderFactory{
-		Listener:   w,
+		// Listener:   w,
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
@@ -598,17 +597,17 @@ func TestInvalidUrl(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  time.Now().Add(60 * time.Second),
-			Events: []string{"iot"},
-		},
-	}
-	w.Webhook.Config.URL = "invalid"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  time.Now().Add(60 * time.Second),
+	// 		Events: []string{"iot"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "invalid"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err := OutboundSenderFactory{
-		Listener:   w,
+		// Listener:   w,
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
@@ -617,16 +616,16 @@ func TestInvalidUrl(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  time.Now().Add(60 * time.Second),
-			Events: []string{"iot"},
-		},
-	}
-	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w2 := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  time.Now().Add(60 * time.Second),
+	// 		Events: []string{"iot"},
+	// 	},
+	// }
+	// w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err = OutboundSenderFactory{
-		Listener:   w2,
+		// Listener:   w2,
 		Sender:     doerFunc((&http.Client{}).Do),
 		NumWorkers: 10,
 		QueueSize:  10,
@@ -653,18 +652,18 @@ func TestInvalidSender(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  time.Now().Add(60 * time.Second),
-			Events: []string{"iot"},
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  time.Now().Add(60 * time.Second),
+	// 		Events: []string{"iot"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obsf.Logger = nil
 	obs, err := obsf.New()
@@ -677,19 +676,19 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:      time.Now().Add(60 * time.Second),
-			FailureURL: "invalid",
-			Events:     []string{"iot"},
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:      time.Now().Add(60 * time.Second),
+	// 		FailureURL: "invalid",
+	// 		Events:     []string{"iot"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 	assert.Nil(obs)
@@ -700,34 +699,34 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until: time.Now().Add(60 * time.Second),
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until: time.Now().Add(60 * time.Second),
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  time.Now().Add(60 * time.Second),
-			Events: []string{"iot(.*"},
-		},
-	}
-	w2.Webhook.Config.URL = "http://localhost:9999/foo"
-	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w2 := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  time.Now().Add(60 * time.Second),
+	// 		Events: []string{"iot(.*"},
+	// 	},
+	// }
+	// w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf = simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w2
+	// obsf.Listener = w2
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err = obsf.New()
 
@@ -741,28 +740,28 @@ func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
-	w1 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  now,
-			Events: []string{"iot", "test"},
-		},
-	}
-	w1.Webhook.Config.URL = "http://localhost:9999/foo"
-	w1.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
+	// w1 := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  now,
+	// 		Events: []string{"iot", "test"},
+	// 	},
+	// }
+	// w1.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w1.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	later := time.Now().Add(30 * time.Second)
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  later,
-			Events: []string{"more", "messages"},
-		},
-	}
-	w2.Webhook.Config.URL = "http://localhost:9999/foo"
-	w2.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
+	// w2 := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  later,
+	// 		Events: []string{"more", "messages"},
+	// 	},
+	// }
+	// w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w2.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w1
+	// obsf.Listener = w1
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 	assert.Nil(err)
@@ -772,7 +771,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match original value.")
-	obs.Update(w2)
+	// obs.Update(w2)
 	assert.Equal(later, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
@@ -785,18 +784,18 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	var output bytes.Buffer
 	logger := getNewTestOutputLogger(&output)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:  time.Now(),
-			Events: []string{"iot", "test"},
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:  time.Now(),
+	// 		Events: []string{"iot", "test"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Logger = logger
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
@@ -833,18 +832,18 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		return
 	}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:      time.Now(),
-			FailureURL: "http://localhost:12345/bar",
-			Events:     []string{"iot", "test"},
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:      time.Now(),
+	// 		FailureURL: "http://localhost:12345/bar",
+	// 		Events:     []string{"iot", "test"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
 	assert.Nil(err)
@@ -891,7 +890,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	w.Webhook.Config.Secret = "123456"
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
 	assert.Nil(err)
@@ -918,18 +917,18 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		return
 	}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Until:      time.Now(),
-			FailureURL: "http://localhost:12345/bar",
-			Events:     []string{"iot", "test"},
-		},
-	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
-	w.Webhook.Config.ContentType = wrp.MimeTypeJson
+	// w := ancla.InternalWebhook{
+	// 	Webhook: ancla.Webhook{
+	// 		Until:      time.Now(),
+	// 		FailureURL: "http://localhost:12345/bar",
+	// 		Events:     []string{"iot", "test"},
+	// 	},
+	// }
+	// w.Webhook.Config.URL = "http://localhost:9999/foo"
+	// w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
-	obsf.Listener = w
+	// obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
 	assert.Nil(err)

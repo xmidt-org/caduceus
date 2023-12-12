@@ -13,7 +13,6 @@ import (
 	_ "github.com/goschtalt/goschtalt/pkg/typical"
 	_ "github.com/goschtalt/yaml-decoder"
 	_ "github.com/goschtalt/yaml-encoder"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/bascule/basculehttp"
@@ -78,7 +77,6 @@ func caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[candlelight.Config]("tracing"),
 			goschtalt.UnmarshalFunc[touchstone.Config]("prometheus"),
 			goschtalt.UnmarshalFunc[SenderConfig]("sender"),
-			goschtalt.UnmarshalFunc[ancla.Config]("webhook"),
 			goschtalt.UnmarshalFunc[Service]("service"),
 			goschtalt.UnmarshalFunc[[]string]("authHeader"),
 			goschtalt.UnmarshalFunc[bool]("previousVersionSupport"),
@@ -141,7 +139,7 @@ func caduceus(arguments []string, run bool) error {
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		ProvideMetrics(),
-		ancla.ProvideMetrics(),
+		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
 		basculechecks.ProvideMetrics(),
 		basculehttp.ProvideMetrics(),
 	)

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bytes"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -11,10 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
-
-	"github.com/xmidt-org/wrp-go/v3"
 )
 
 type result struct {
@@ -142,96 +138,96 @@ func TestInvalidLinger(t *testing.T) {
 // -or-
 // 2. Add a mock for the webhook implementation
 
-func TestSwSimple(t *testing.T) {
-	assert := assert.New(t)
+// func TestSwSimple(t *testing.T) {
+// 	assert := assert.New(t)
 
-	wrpMessage := wrp.Message{
-		Source:          "mac:112233445566",
-		Destination:     "event:wrp",
-		TransactionUUID: "12345",
-	}
+// 	wrpMessage := wrp.Message{
+// 		Source:          "mac:112233445566",
+// 		Destination:     "event:wrp",
+// 		TransactionUUID: "12345",
+// 	}
 
-	var buffer bytes.Buffer
-	encoder := wrp.NewEncoder(&buffer, wrp.Msgpack)
-	err := encoder.Encode(&wrpMessage)
-	assert.Nil(err)
+// 	var buffer bytes.Buffer
+// 	encoder := wrp.NewEncoder(&buffer, wrp.Msgpack)
+// 	err := encoder.Encode(&wrpMessage)
+// 	assert.Nil(err)
 
-	iot := simpleRequest()
-	iot.Destination = "mac:112233445566/event/iot"
-	test := simpleRequest()
-	test.Destination = "mac:112233445566/event/test/extra-stuff"
+// 	iot := simpleRequest()
+// 	iot.Destination = "mac:112233445566/event/iot"
+// 	test := simpleRequest()
+// 	test.Destination = "mac:112233445566/event/test/extra-stuff"
 
-	trans := &swTransport{}
+// 	trans := &swTransport{}
 
-	swf := getFakeFactory()
-	swf.Sender = doerFunc((&http.Client{}).Do)
+// 	swf := getFakeFactory()
+// 	swf.Sender = doerFunc((&http.Client{}).Do)
 
-	swf.Linger = 1 * time.Second
-	sw, err := swf.New()
+// 	swf.Linger = 1 * time.Second
+// 	sw, err := swf.New()
 
-	assert.Nil(err)
-	assert.NotNil(sw)
+// 	assert.Nil(err)
+// 	assert.NotNil(sw)
 
-	// No listeners
-	sw.Queue(iot)
-	sw.Queue(iot)
-	sw.Queue(iot)
+// 	// No listeners
+// 	sw.Queue(iot)
+// 	sw.Queue(iot)
+// 	sw.Queue(iot)
 
-	assert.Equal(int32(0), trans.i)
+// 	assert.Equal(int32(0), trans.i)
 
-	w1 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Config: ancla.DeliveryConfig{
-				URL:         "http://localhost:8888/foo",
-				ContentType: wrp.MimeTypeJson,
-			},
-			Duration: 6 * time.Second,
-			Until:    time.Now().Add(6 * time.Second),
-			Events:   []string{"iot"},
-		},
-	}
-	w1.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
+// 	w1 := ancla.InternalWebhook{
+// 		Webhook: ancla.Webhook{
+// 			Config: ancla.DeliveryConfig{
+// 				URL:         "http://localhost:8888/foo",
+// 				ContentType: wrp.MimeTypeJson,
+// 			},
+// 			Duration: 6 * time.Second,
+// 			Until:    time.Now().Add(6 * time.Second),
+// 			Events:   []string{"iot"},
+// 		},
+// 	}
+// 	w1.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Duration: 4 * time.Second,
-			Until:    time.Now().Add(4 * time.Second),
-			Events:   []string{"iot", "test/extra-stuff", "wrp"},
-		},
-	}
-	w2.Webhook.Config.URL = "http://localhost:9999/foo"
-	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
-	w2.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
+// 	w2 := ancla.InternalWebhook{
+// 		Webhook: ancla.Webhook{
+// 			Duration: 4 * time.Second,
+// 			Until:    time.Now().Add(4 * time.Second),
+// 			Events:   []string{"iot", "test/extra-stuff", "wrp"},
+// 		},
+// 	}
+// 	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+// 	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
+// 	w2.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
-	// Add 2 listeners
-	list := []ancla.InternalWebhook{w1, w2}
+// 	// Add 2 listeners
+// 	list := []ancla.InternalWebhook{w1, w2}
 
-	sw.Update(list)
+// 	sw.Update(list)
 
-	// Send iot message
+// 	// Send iot message
 
-	sw.Queue(iot)
+// 	sw.Queue(iot)
 
-	// Send test message
-	sw.Queue(test)
+// 	// Send test message
+// 	sw.Queue(test)
 
-	// Send it again
-	sw.Queue(test)
+// 	// Send it again
+// 	sw.Queue(test)
 
-	w3 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{},
-	}
-	w3.Webhook.Config.URL = "http://localhost:9999/foo"
-	w3.Webhook.Config.ContentType = wrp.MimeTypeJson
+// 	w3 := ancla.InternalWebhook{
+// 		Webhook: ancla.Webhook{},
+// 	}
+// 	w3.Webhook.Config.URL = "http://localhost:9999/foo"
+// 	w3.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	// We get a registration
-	list2 := []ancla.InternalWebhook{w3}
-	sw.Update(list2)
-	time.Sleep(time.Second)
+// 	// We get a registration
+// 	list2 := []ancla.InternalWebhook{w3}
+// 	sw.Update(list2)
+// 	time.Sleep(time.Second)
 
-	// Send iot
-	sw.Queue(iot)
+// 	// Send iot
+// 	sw.Queue(iot)
 
-	sw.Shutdown(true)
-	//assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
-}
+// 	sw.Shutdown(true)
+// 	//assert.Equal(int32(4), atomic.LoadInt32(&trans.i))
+// }

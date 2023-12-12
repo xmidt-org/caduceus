@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/goschtalt/goschtalt"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/arrange/arrangehttp"
+	"github.com/xmidt-org/arrange/arrangepprof"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
@@ -20,13 +20,13 @@ import (
 // Config is the top level configuration for the caduceus service.  Everything
 // is contained in this structure or it will intentially cause a failure.
 type Config struct {
-	Logging                sallust.Config
-	Tracing                candlelight.Config
-	Prometheus             touchstone.Config
-	Servers                Servers
-	ArgusClientTimeout     HttpClientTimeout
-	JWTValidator           JWTValidator
-	Webhook                ancla.Config
+	Logging            sallust.Config
+	Tracing            candlelight.Config
+	Prometheus         touchstone.Config
+	Servers            Servers
+	ArgusClientTimeout HttpClientTimeout
+	JWTValidator       JWTValidator
+	// Webhook                ancla.Config //@TODO: need to fix the ancla/argus dependency issue 
 	Sender                 SenderConfig
 	Service                Service
 	AuthHeader             []string
@@ -182,18 +182,21 @@ var defaultConfig = Config{
 				Network: "tcp",
 				Address: ":80",
 			},
+			Path: HealthPath("/"),
 		},
 		Metrics: MetricsServer{
 			HTTP: arrangehttp.ServerConfig{
 				Network: "tcp",
 				Address: "127.0.0.1:9361",
 			},
+			Path: MetricsPath("/metrics"),
 		},
 		Pprof: PprofServer{
 			HTTP: arrangehttp.ServerConfig{
 				Network: "tcp",
 				Address: "127.0.0.1:9999",
 			},
+			Path: arrangepprof.DefaultPathPrefix,
 		},
 		Primary: PrimaryServer{
 			HTTP: arrangehttp.ServerConfig{

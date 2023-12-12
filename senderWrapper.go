@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -57,7 +56,7 @@ type SenderWrapperFactory struct {
 }
 
 type SenderWrapper interface {
-	Update([]ancla.InternalWebhook)
+	// Update([]ancla.InternalWebhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -119,57 +118,58 @@ func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
 	return
 }
 
+//Commenting out while until ancla/argus dependency issue is fixed.
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
-	// We'll like need this, so let's get one ready
-	osf := OutboundSenderFactory{
-		Sender:            sw.sender,
-		CutOffPeriod:      sw.cutOffPeriod,
-		NumWorkers:        sw.numWorkersPerSender,
-		QueueSize:         sw.queueSizePerSender,
-		MetricsRegistry:   sw.metricsRegistry,
-		DeliveryRetries:   sw.deliveryRetries,
-		DeliveryInterval:  sw.deliveryInterval,
-		Logger:            sw.logger,
-		CustomPIDs:        sw.customPIDs,
-		DisablePartnerIDs: sw.disablePartnerIDs,
-		QueryLatency:      sw.queryLatency,
-	}
+// func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
+// 	// We'll like need this, so let's get one ready
+// 	osf := OutboundSenderFactory{
+// 		Sender:            sw.sender,
+// 		CutOffPeriod:      sw.cutOffPeriod,
+// 		NumWorkers:        sw.numWorkersPerSender,
+// 		QueueSize:         sw.queueSizePerSender,
+// 		MetricsRegistry:   sw.metricsRegistry,
+// 		DeliveryRetries:   sw.deliveryRetries,
+// 		DeliveryInterval:  sw.deliveryInterval,
+// 		Logger:            sw.logger,
+// 		CustomPIDs:        sw.customPIDs,
+// 		DisablePartnerIDs: sw.disablePartnerIDs,
+// 		QueryLatency:      sw.queryLatency,
+// 	}
 
-	ids := make([]struct {
-		Listener ancla.InternalWebhook
-		ID       string
-	}, len(list))
+// 	ids := make([]struct {
+// 		Listener ancla.InternalWebhook
+// 		ID       string
+// 	}, len(list))
 
-	for i, v := range list {
-		ids[i].Listener = v
-		ids[i].ID = v.Webhook.Config.URL
-	}
+// 	for i, v := range list {
+// 		ids[i].Listener = v
+// 		ids[i].ID = v.Webhook.Config.URL
+// 	}
 
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
+// 	sw.mutex.Lock()
+// 	defer sw.mutex.Unlock()
 
-	for _, inValue := range ids {
-		sender, ok := sw.senders[inValue.ID]
-		if !ok {
-			osf.Listener = inValue.Listener
-			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
+// 	for _, inValue := range ids {
+// 		sender, ok := sw.senders[inValue.ID]
+// 		if !ok {
+// 			osf.Listener = inValue.Listener
+// 			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
 
-			if err != nil {
-				continue
-			}
-			osf.ClientMiddleware = metricWrapper.roundTripper
-			obs, err := osf.New()
-			if nil == err {
-				sw.senders[inValue.ID] = obs
-			}
-			continue
-		}
-		sender.Update(inValue.Listener)
-	}
-}
+// 			if err != nil {
+// 				continue
+// 			}
+// 			osf.ClientMiddleware = metricWrapper.roundTripper
+// 			obs, err := osf.New()
+// 			if nil == err {
+// 				sw.senders[inValue.ID] = obs
+// 			}
+// 			continue
+// 		}
+// 		sender.Update(inValue.Listener)
+// 	}
+// }
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
