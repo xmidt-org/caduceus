@@ -43,11 +43,25 @@ func provideCoreEndpoints() fx.Option {
 		},
 		func(in RoutesIn) RoutesOut {
 			return RoutesOut{
-				// Primary:   provideCoreOption("primary", in),
-				// Alternate: provideCoreOption("alternate", in),
+				Primary:   provideCoreOption("primary", in),
+				Alternate: provideCoreOption("alternate", in),
 			}
 		},
 	)
+}
+
+func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Server] {
+	return arrangehttp.AsOption[http.Server](
+		func(s *http.Server) {
+			mux := chi.NewMux()
+			if server == "primary" {
+				s.Handler = in.PrimaryMetrics.Then(mux)
+			} else {
+				s.Handler = in.AlternateMetrics.Then(mux)
+			}
+		},
+	)
+
 }
 
 func provideHealthCheck() fx.Option {

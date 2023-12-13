@@ -76,7 +76,7 @@ func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
 func ProvideMetrics() fx.Option {
-	return fx.Provide(
+	return fx.Options(
 		touchstone.Gauge(prometheus.GaugeOpts{
 			Name: IncomingQueueDepth,
 			Help: "The depth of the queue behind the incoming handlers.",
