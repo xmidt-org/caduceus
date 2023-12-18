@@ -4,20 +4,28 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/arrange/arrangepprof"
+	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux"
+	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/touchstone/touchhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+
 	"go.uber.org/fx"
 )
 
 type RoutesIn struct {
 	fx.In
-	PrimaryMetrics   touchhttp.ServerInstrumenter `name:"servers.primary.metrics"`
-	AlternateMetrics touchhttp.ServerInstrumenter `name:"servers.alternate.metrics"`
+	PrimaryMetrics         touchhttp.ServerInstrumenter `name:"servers.primary.metrics"`
+	AlternateMetrics       touchhttp.ServerInstrumenter `name:"servers.alternate.metrics"`
+	Handler                *ServerHandler
+	Tracing                candlelight.Tracing
+	PreviousVersionSupport bool
 }
 
 type RoutesOut struct {
@@ -53,8 +61,22 @@ func provideCoreEndpoints() fx.Option {
 func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Server] {
 	return arrangehttp.AsOption[http.Server](
 		func(s *http.Server) {
+			urlPrefix := fmt.Sprintf("/%s", apiBase)
+			if in.PreviousVersionSupport {
+				urlPrefix = fmt.Sprintf("/%s", apiBaseDualVersion)
+			}
 			mux := chi.NewMux()
+			// TODO: should probably customize things a bit
+			mux.Use(recovery.Middleware(recovery.WithStatusCode(555)))
 			if server == "primary" {
+				options := []otelmux.Option{
+					otelmux.WithTracerProvider(in.Tracing.TracerProvider()),
+					otelmux.WithPropagators(in.Tracing.Propagator()),
+				}
+				mux.Use(otelmux.Middleware("server_primary", options...),
+					candlelight.EchoFirstTraceNodeInfo(in.Tracing.Propagator(), true))
+
+				mux.Method("POST", urlPrefix+"/notify", in.Handler)
 				s.Handler = in.PrimaryMetrics.Then(mux)
 			} else {
 				s.Handler = in.AlternateMetrics.Then(mux)

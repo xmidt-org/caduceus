@@ -113,6 +113,10 @@ func ProvideMetrics() fx.Option {
 			Name: SlowConsumerCounter,
 			Help: "Count of the number of times a consumer has been deemed too slow and is cut off.",
 		}, UrlLabel),
+		touchstone.Counter(prometheus.CounterOpts{
+			Name: DropsDueToInvalidPayload,
+			Help: "Count of dropped messages dues to an invalid payload",
+		}),
 		touchstone.GaugeVec(prometheus.GaugeOpts{
 			Name: OutgoingQueueDepth,
 			Help: "The depth of the queue per outgoing url.",
@@ -125,6 +129,7 @@ func ProvideMetrics() fx.Option {
 			Name: DropsDueToPanic,
 			Help: "The outgoing message delivery pipeline panicked.",
 		}, UrlLabel),
+
 		touchstone.GaugeVec(prometheus.GaugeOpts{
 			Name: ConsumerRenewalTimeGauge,
 			Help: "Time when the consumer data was updated.",

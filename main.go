@@ -127,6 +127,7 @@ func caduceus(arguments []string, run bool) error {
 		providePprofEndpoint(),
 		provideMetricEndpoint(),
 		provideHealthCheck(),
+		provideCoreEndpoints(),
 
 		arrangehttp.ProvideServer("servers.health"),
 		arrangehttp.ProvideServer("servers.metrics"),
@@ -134,6 +135,7 @@ func caduceus(arguments []string, run bool) error {
 		arrangehttp.ProvideServer("servers.primary"),
 		arrangehttp.ProvideServer("servers.alternate"),
 
+		HandlerModule,
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		ProvideMetrics(),
