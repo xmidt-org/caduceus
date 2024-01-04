@@ -37,10 +37,8 @@ type ServerHandler struct {
 	telemetry          *HandlerTelemetry
 	incomingQueueDepth int64
 	maxOutstanding     int64
-
-	now func() time.Time
+	now                func() time.Time
 }
-
 type HandlerTelemetryIn struct {
 	fx.In
 	ErrorRequests            prometheus.Counter      `name:"error_request_body_counter"`
@@ -211,5 +209,6 @@ func New(log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDept
 		telemetry:          t,
 		maxOutstanding:     maxOutstanding,
 		incomingQueueDepth: incomingQueueDepth,
+		now:                time.Now,
 	}, nil
 }
