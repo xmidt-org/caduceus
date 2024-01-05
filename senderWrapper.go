@@ -44,21 +44,42 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
+	// The http client Do() function to share with OutboundSenders.
 	sender              httpClient
+	// The number of workers to assign to each OutboundSender created.
 	numWorkersPerSender int
+
+	// The queue size to assign to each OutboundSender created.
 	queueSizePerSender  int
+
+	// Number of delivery retries before giving up
 	deliveryRetries     int
+
+	// Time in between delivery retries
 	deliveryInterval    time.Duration
+
+	// The cut off time to assign to each OutboundSender created.
 	cutOffPeriod        time.Duration
+
+	// The amount of time to let expired OutboundSenders linger before
+	// shutting them down and cleaning up the resources associated with them.
 	linger              time.Duration
+
+	// The logger implementation to share with OutboundSenders.
 	logger              *zap.Logger
+
 	mutex               *sync.RWMutex
 	senders             map[string]OutboundSender
 	eventType           prometheus.CounterVec
 	queryLatency        prometheus.HistogramVec
 	wg                  sync.WaitGroup
 	shutdown            chan struct{}
+
+	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
+	// has no partner IDs.
 	customPIDs          []string
+	
+	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	disablePartnerIDs   bool
 }
 
