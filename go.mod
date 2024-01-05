@@ -28,6 +28,7 @@ require (
 	github.com/xmidt-org/webpa-common/v2 v2.2.2
 	github.com/xmidt-org/wrp-go/v3 v3.2.1
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.46.1
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1
 	go.uber.org/fx v1.20.1
 	go.uber.org/zap v1.26.0
 	gopkg.in/dealancer/validate.v2 v2.1.0
