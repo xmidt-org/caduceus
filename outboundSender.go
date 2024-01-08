@@ -21,9 +21,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/xmidt-org/webpa-common/v2/device"
 
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
@@ -49,49 +51,123 @@ type FailureMessage struct {
 	Workers      int    `json:"worker_count"`
 }
 
-// OutboundSenderFactory is a configurable factory for OutboundSender objects.
-type OutboundSenderFactory struct {
+type OutBoundSenderIn struct {
+	fx.In
+	SenderWrapper *CaduceusSenderWrapper
 	// The WebHookListener to service
 	// Listener ancla.InternalWebhook  //TODO: add back in once ancla/argus dependency issue is fixed.
 
-	// The http client Do() function to use for outbound requests.
-	// Sender func(*http.Request) (*http.Response, error)
-	Sender httpClient
-
 	//
+	// Id               string // hard coding Id for now until ancla/argus dependency issue is fixed.
 	ClientMiddleware func(httpClient) httpClient
+}
 
-	// The number of delivery workers to create and use.
-	NumWorkers int
+type OutBoundSenderOut struct {
+	fx.Out
+	OutBoundSender *CaduceusOutboundSender
+}
 
-	// The queue depth to buffer events before we declare overflow, shut
-	// off the message delivery, and basically put the endpoint in "timeout."
-	QueueSize int
+type OutBoundSenderMetricsIn struct {
+	fx.In
+	DeliveryCounter       prometheus.CounterVec `name:"delivery_count"`
+	DeliveryRetryCounter  prometheus.CounterVec `name:"delivery_retry_count"`
+	DeliveryRetryMaxGauge prometheus.GaugeVec   `name:"delivery_retry_max"`
+	CutOffCounter         prometheus.CounterVec `name:"slow_consumer_cut_off_count"`
+	//TODO: Do I have to create multiple SlowConsumerDroppedMsg counters annotated with different names for the various reasons?
+	//Or can I just use the one?
+	SlowConsumerDroppedMsg          prometheus.CounterVec `name:"slow_consumer_dropped_message_count"`
+	DropsDueToPanic                 prometheus.CounterVec `name:"drops_due_to_panic"`
+	DropsDueToInvalidPayload        prometheus.Counter    `name:"drops_due_to_invalid_payload"`
+	OutgoingQueueDepth              prometheus.GaugeVec   `name:"outgoing_queue_depths"`
+	ConsumerRenewalTimeGauge        prometheus.GaugeVec   `name:"consumer_renewal_time"`
+	ConsumerDeliverUntilGauge       prometheus.GaugeVec   `name:"consumer_deliver_until"`
+	ConsumerDropUntilGauge          prometheus.GaugeVec   `name:"consumer_drop_until"`
+	ConsumerDeliveryWorkersGauge    prometheus.GaugeVec   `name:"consumer_delivery_workers"`
+	ConsumerMaxDeliveryWorkersGauge prometheus.GaugeVec   `name:"consumer_delivery_workers_max"`
+}
 
-	// The amount of time to cut off the consumer if they don't keep up.
-	// Must be greater then 0 seconds
-	CutOffPeriod time.Duration
+// New creates a new OutboundSender object from the factory, or returns an error.
+func NewOutBoundSenderWrapper(in OutBoundSenderIn) (osw *CaduceusOutboundSender, err error) {
+	//TODO: add back in after ancla/argus refactored
+	// if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
+	// 	return
+	// }
+	if in.ClientMiddleware == nil {
+		osw.clientMiddleware = nopHTTPClient
+	} else {
+		osw.clientMiddleware = in.ClientMiddleware
+	}
 
-	// Number of delivery retries before giving up
-	DeliveryRetries int
+	if in.SenderWrapper.sender == nil {
+		err = errors.New("nil Sender()")
+		return
+	}
 
-	// Time in between delivery retries
-	DeliveryInterval time.Duration
+	if in.SenderWrapper.logger == nil {
+		err = errors.New("Logger required")
+		return
+	}
 
-	// Metrics registry.
-	MetricsRegistry CaduceusMetricsRegistry
+	//TODO: add back in once ancla/argus refactored
+	// decoratedLogger := in.Sender.logger.With(zap.String("webhook.address", in.Factory.Listener.Webhook.Address))
+	//osw.id = in.Factory.Listener.Webhook.Config.URL,
+	//osw.listender = in.Factory.Listener
+	//osw.deliverUnit = in.Factory.Listener.Webhook.Until
+	//osw.logger = decoratedLogger
 
-	// The logger to use.
-	Logger *zap.Logger
+	osw.sender = in.SenderWrapper.sender
+	osw.queueSize = in.SenderWrapper.queueSizePerSender
+	osw.cutOffPeriod = in.SenderWrapper.cutOffPeriod
+	osw.deliveryRetries = in.SenderWrapper.deliveryRetries
+	osw.maxWorkers = in.SenderWrapper.numWorkersPerSender
+	osw.failureMsg = FailureMessage{
+		//TODO: add back in once ancla/argus refactored
+		//Original: in.Factory.Listener
+		Text:         failureText,
+		CutOffPeriod: in.SenderWrapper.cutOffPeriod.String(),
+		QueueSize:    in.SenderWrapper.queueSizePerSender,
+		Workers:      in.SenderWrapper.numWorkersPerSender,
+	}
+	osw.customPIDs = in.SenderWrapper.customPIDs
+	osw.disablePartnerIDs = in.SenderWrapper.disablePartnerIDs
 
-	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
-	// has no partner IDs.
-	CustomPIDs []string
+	//TODO: add back in once ancla/argus refactored
+	// Don't share the secret with others when there is an error.
+	// osw.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
-	DisablePartnerIDs bool
+	//Add metrics
 
-	QueryLatency metrics.Histogram
+	osw.queue.Store(make(chan *wrp.Message, in.SenderWrapper.queueSizePerSender))
+
+	osw.workers = semaphore.New(osw.maxWorkers)
+	osw.wg.Add(1)
+	go osw.dispatcher()
+
+	return
+}
+
+func ProvideOutBoundSenderMetrics(in OutBoundSenderMetricsIn, osw *CaduceusOutboundSender) {
+	osw.deliveryCounter = in.DeliveryCounter
+	osw.deliveryRetryCounter = in.DeliveryRetryCounter
+	osw.deliveryRetryMaxGauge = in.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.cutOffCounter = in.CutOffCounter.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.droppedQueueFullCounter = in.SlowConsumerDroppedMsg.With(prometheus.Labels{UrlLabel: osw.id, ReasonLabel: "queue_full"})
+	osw.droppedExpiredCounter = in.SlowConsumerDroppedMsg.With(prometheus.Labels{UrlLabel: osw.id, ReasonLabel: "expired"})
+	osw.droppedExpiredBeforeQueueCounter = in.SlowConsumerDroppedMsg.With(prometheus.Labels{UrlLabel: osw.id, ReasonLabel: "expired_before_queuing"})
+	osw.droppedCutoffCounter = in.SlowConsumerDroppedMsg.With(prometheus.Labels{UrlLabel: osw.id, ReasonLabel: "cut_off"})
+	osw.droppedInvalidConfig = in.SlowConsumerDroppedMsg.With(prometheus.Labels{UrlLabel: osw.id, ReasonLabel: "invalid_config"})
+	osw.droppedNetworkErrCounter = in.SlowConsumerDroppedMsg.With(prometheus.Labels{UrlLabel: osw.id, ReasonLabel: networkError})
+	osw.droppedPanic = in.DropsDueToPanic.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.queueDepthGauge = in.OutgoingQueueDepth.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.renewalTimeGauge = in.ConsumerRenewalTimeGauge.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.deliverUntilGauge = in.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.dropUntilGauge = in.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.currentWorkersGauge = in.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: osw.id})
+	osw.maxWorkersGauge = in.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: osw.id})
+
+	osw.queueDepthGauge.Set(0)
+	osw.currentWorkersGauge.Set(0)
+
 }
 
 type OutboundSender interface {
@@ -103,7 +179,7 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	id   string
+	id   string //using string for now - but needs to be changed: osf.Listener.Webhook.Config.URL,
 	urls *ring.Ring
 	// listener                         ancla.InternalWebhook //TODO: add back in once ancla/argus dependency issue is fixed
 	deliverUntil                     time.Time
@@ -114,23 +190,23 @@ type CaduceusOutboundSender struct {
 	queueSize                        int
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
-	deliveryCounter                  metrics.Counter
-	deliveryRetryCounter             metrics.Counter
-	droppedQueueFullCounter          metrics.Counter
-	droppedCutoffCounter             metrics.Counter
-	droppedExpiredCounter            metrics.Counter
-	droppedExpiredBeforeQueueCounter metrics.Counter
-	droppedNetworkErrCounter         metrics.Counter
-	droppedInvalidConfig             metrics.Counter
-	droppedPanic                     metrics.Counter
-	cutOffCounter                    metrics.Counter
-	queueDepthGauge                  metrics.Gauge
-	renewalTimeGauge                 metrics.Gauge
-	deliverUntilGauge                metrics.Gauge
-	dropUntilGauge                   metrics.Gauge
-	maxWorkersGauge                  metrics.Gauge
-	currentWorkersGauge              metrics.Gauge
-	deliveryRetryMaxGauge            metrics.Gauge
+	deliveryCounter                  prometheus.CounterVec
+	deliveryRetryCounter             prometheus.CounterVec
+	droppedQueueFullCounter          prometheus.Counter
+	droppedCutoffCounter             prometheus.Counter
+	droppedExpiredCounter            prometheus.Counter
+	droppedExpiredBeforeQueueCounter prometheus.Counter
+	droppedNetworkErrCounter         prometheus.Counter
+	droppedInvalidConfig             prometheus.Counter
+	droppedPanic                     prometheus.Counter
+	cutOffCounter                    prometheus.Counter
+	queueDepthGauge                  prometheus.Gauge
+	renewalTimeGauge                 prometheus.Gauge
+	deliverUntilGauge                prometheus.Gauge
+	dropUntilGauge                   prometheus.Gauge
+	maxWorkersGauge                  prometheus.Gauge
+	currentWorkersGauge              prometheus.Gauge
+	deliveryRetryMaxGauge            prometheus.Gauge
 	wg                               sync.WaitGroup
 	cutOffPeriod                     time.Duration
 	workers                          semaphore.Interface
@@ -142,80 +218,6 @@ type CaduceusOutboundSender struct {
 	customPIDs                       []string
 	disablePartnerIDs                bool
 	clientMiddleware                 func(httpClient) httpClient
-}
-
-// New creates a new OutboundSender object from the factory, or returns an error.
-func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
-	// if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
-	// 	return
-	// }
-
-	if nil == osf.ClientMiddleware {
-		osf.ClientMiddleware = nopHTTPClient
-	}
-
-	if nil == osf.Sender {
-		err = errors.New("nil Sender()")
-		return
-	}
-
-	if 0 == osf.CutOffPeriod.Nanoseconds() {
-		err = errors.New("Invalid CutOffPeriod")
-		return
-	}
-
-	if nil == osf.Logger {
-		err = errors.New("Logger required")
-		return
-	}
-
-	// decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
-
-	caduceusOutboundSender := &CaduceusOutboundSender{
-		// id:               osf.Listener.Webhook.Config.URL,
-		// listener:         osf.Listener,
-		sender:       osf.Sender,
-		queueSize:    osf.QueueSize,
-		cutOffPeriod: osf.CutOffPeriod,
-		// deliverUntil:     osf.Listener.Webhook.Until,
-		// logger:           decoratedLogger,
-		deliveryRetries:  osf.DeliveryRetries,
-		deliveryInterval: osf.DeliveryInterval,
-		maxWorkers:       osf.NumWorkers,
-		failureMsg: FailureMessage{
-			// Original:     osf.Listener,
-			Text:         failureText,
-			CutOffPeriod: osf.CutOffPeriod.String(),
-			QueueSize:    osf.QueueSize,
-			Workers:      osf.NumWorkers,
-		},
-		customPIDs:        osf.CustomPIDs,
-		disablePartnerIDs: osf.DisablePartnerIDs,
-		clientMiddleware:  osf.ClientMiddleware,
-	}
-
-	// Don't share the secret with others when there is an error.
-	// caduceusOutboundSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
-
-	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
-
-	// update queue depth and current workers gauge to make sure they start at 0
-	caduceusOutboundSender.queueDepthGauge.Set(0)
-	caduceusOutboundSender.currentWorkersGauge.Set(0)
-
-	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
-
-	// if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
-	// 	return
-	// }
-
-	caduceusOutboundSender.workers = semaphore.New(caduceusOutboundSender.maxWorkers)
-	caduceusOutboundSender.wg.Add(1)
-	go caduceusOutboundSender.dispatcher()
-
-	obs = caduceusOutboundSender
-
-	return
 }
 
 // Update applies user configurable values for the outbound sender when a
@@ -456,7 +458,7 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 // a fresh one, counting any current messages in the queue as dropped.
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
-func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
+func (obs *CaduceusOutboundSender) Empty(droppedCounter prometheus.Counter) {
 	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
@@ -601,11 +603,14 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	// find the event "short name"
 	event := msg.FindEventStringSubMatch()
 
+	//TODO: should this be replaced by the new `retry` repo?
+	//Looked through `retry` repo: no `Counter` in the config options
+	//also  could not find UpdateRequest
 	retryOptions := xhttp.RetryOptions{
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
-		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
+		// Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
 		// Always retry on failures up to the max count.
 		ShouldRetry:       xhttp.ShouldRetry,
 		ShouldRetryStatus: xhttp.RetryCodes,
@@ -646,7 +651,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			resp.Body.Close()
 		}
 	}
-	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
+	obs.deliveryCounter.With(prometheus.Labels{UrlLabel: obs.id, CodeLabel: code, EventLabel: event}).Add(1.0)
 	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 

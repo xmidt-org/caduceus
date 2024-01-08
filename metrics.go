@@ -3,7 +3,6 @@
 package main
 
 import (
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 
@@ -48,31 +47,6 @@ const (
 	EventLabel  = "event"
 	CodeLabel   = "code"
 )
-
-func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSender) {
-	c.deliveryCounter = m.NewCounter(DeliveryCounter)
-	c.deliveryRetryCounter = m.NewCounter(DeliveryRetryCounter)
-	c.deliveryRetryMaxGauge = m.NewGauge(DeliveryRetryMaxGauge).With("url", c.id)
-	c.cutOffCounter = m.NewCounter(SlowConsumerCounter).With("url", c.id)
-	c.droppedQueueFullCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "queue_full")
-	c.droppedExpiredCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired")
-	c.droppedExpiredBeforeQueueCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired_before_queueing")
-
-	c.droppedCutoffCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
-	c.droppedInvalidConfig = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
-	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", networkError)
-	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
-	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
-	c.renewalTimeGauge = m.NewGauge(ConsumerRenewalTimeGauge).With("url", c.id)
-	c.deliverUntilGauge = m.NewGauge(ConsumerDeliverUntilGauge).With("url", c.id)
-	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
-	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
-	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
-}
-
-func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
-	return m.NewHistogram(QueryDurationHistogram, 11)
-}
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
 func ProvideMetrics() fx.Option {
