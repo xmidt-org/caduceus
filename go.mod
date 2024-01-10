@@ -7,7 +7,6 @@ toolchain go1.21.1
 require (
 	emperror.dev/emperror v0.33.0
 	github.com/alecthomas/kong v0.8.1
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-kit/kit v0.13.0
 	github.com/gorilla/mux v1.8.0
@@ -19,7 +18,6 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
-	github.com/xmidt-org/ancla v0.3.11
 	github.com/xmidt-org/arrange v0.5.1-0.20230914215531-f02b8651b631
 	github.com/xmidt-org/bascule v0.11.7
 	github.com/xmidt-org/candlelight v0.0.19
@@ -41,6 +39,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
@@ -85,7 +84,6 @@ require (
 	github.com/stretchr/objx v0.5.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
-	github.com/xmidt-org/argus v0.9.12 // indirect
 	github.com/xmidt-org/chronon v0.1.1 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect

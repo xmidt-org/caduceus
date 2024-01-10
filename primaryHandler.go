@@ -20,7 +20,6 @@ import (
 	"github.com/justinas/alice"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/bascule/basculehelper"
@@ -60,7 +59,7 @@ type JWTValidator struct {
 	Leeway bascule.Leeway
 }
 
-func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
+func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
 	auth, err := authenticationMiddleware(v, l, registry)
 	if err != nil {
 		// nolint:errorlint
