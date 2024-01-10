@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -26,9 +25,9 @@ type mockSenderWrapper struct {
 	mock.Mock
 }
 
-func (m *mockSenderWrapper) Update(list []ancla.InternalWebhook) {
-	m.Called(list)
-}
+// func (m *mockSenderWrapper) Update(list []ancla.InternalWebhook) {
+// 	m.Called(list)
+// }
 
 func (m *mockSenderWrapper) Queue(msg *wrp.Message) {
 	m.Called(msg)

@@ -25,7 +25,7 @@ func TestNewPrimaryHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	viper.Set("authHeader", expectedAuthHeader)
-	if _, err := NewPrimaryHandler(l, viper, r, sw, nil, mux.NewRouter(), true); err != nil {
+	if _, err := NewPrimaryHandler(l, viper, r, sw, mux.NewRouter(), true); err != nil {
 		t.Fatalf("NewPrimaryHandler failed: %v", err)
 	}
 
