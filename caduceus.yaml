@@ -37,89 +37,94 @@ flavor: "mint"
 
 # primary defines the details needed for the primary endpoint.  The
 # primary endpoint accepts the events from talaria (typically).
-primary:
-  # address provides the port number for the endpoint to bind to.
-  # ":443" is ideal, but may require some special handling due to it being
-  # a reserved (by the kernel) port.
-  address: ":6000"
-  # HTTPS/TLS
-  #
-  # certificateFile provides the public key and CA chain in PEM format if
-  # TLS is used.  Note: the certificate needs to match the fqdn for clients
-  # to accept without issue.
-  #
-  # keyFile provides the private key that matches the certificateFile
+servers:
+  primary:
+    http:
+      # address provides the port number for the endpoint to bind to.
+      # ":443" is ideal, but may require some special handling due to it being
+      # a reserved (by the kernel) port.
+      address: ":6000"
+      # HTTPS/TLS
+      #
+      # certificateFile provides the public key and CA chain in PEM format if
+      # TLS is used.  Note: the certificate needs to match the fqdn for clients
+      # to accept without issue.
+      #
+      # keyFile provides the private key that matches the certificateFile
+      # (Optional)
+      # certificateFile: "/etc/caduceus/public.pem"
+      # keyFile: "/etc/caduceus/private.pem"
+
+  ########################################
+  #   health endpoint Configuration
+  ########################################
+
+  # health defines the details needed for the health check endpoint.  The
+  # health check endpoint is generally used by services (like AWS Route53
+  # or consul) to determine if this particular machine is healthy or not.
+  health:
+    http:
+      # address provides the port number for the endpoint to bind to.
+      # ":80" is ideal, but may require some special handling due to it being
+      # a reserved (by the kernel) port.
+      address: ":6001"
+
+      # logInterval appears to be present from before we had formal metrics
+      # (Deprecated)
+      # logInterval: "60s"
+      # options appears to be present from before we had formal metrics
+      # (Deprecated)
+      # options:
+      #  - "PayloadsOverZero"
+      #  - "PayloadsOverHundred"
+      #  - "PayloadsOverThousand"
+      #  - "PayloadsOverTenThousand"
+
+  ########################################
+  #   Debugging/pprof Configuration
+  ########################################
+
+  # pprof defines the details needed for the pprof debug endpoint.
   # (Optional)
-  # certificateFile: "/etc/caduceus/public.pem"
-  # keyFile: "/etc/caduceus/private.pem"
+  pprof:
+    http:
+      # address provides the port number for the endpoint to bind to.
+      address: ":6002"
 
-########################################
-#   health endpoint Configuration
-########################################
+  ########################################
+  #   Metrics Configuration
+  ########################################
 
-# health defines the details needed for the health check endpoint.  The
-# health check endpoint is generally used by services (like AWS Route53
-# or consul) to determine if this particular machine is healthy or not.
-health:
-  # address provides the port number for the endpoint to bind to.
-  # ":80" is ideal, but may require some special handling due to it being
-  # a reserved (by the kernel) port.
-  address: ":6001"
-
-  # logInterval appears to be present from before we had formal metrics
-  # (Deprecated)
-  # logInterval: "60s"
-  # options appears to be present from before we had formal metrics
-  # (Deprecated)
-  # options:
-  #  - "PayloadsOverZero"
-  #  - "PayloadsOverHundred"
-  #  - "PayloadsOverThousand"
-  #  - "PayloadsOverTenThousand"
-
-########################################
-#   Debugging/pprof Configuration
-########################################
-
-# pprof defines the details needed for the pprof debug endpoint.
-# (Optional)
-pprof:
-  # address provides the port number for the endpoint to bind to.
-  address: ":6002"
-
-########################################
-#   Metrics Configuration
-########################################
-
-# metric defines the details needed for the prometheus metrics endpoint
-# (Optional)
-metric:
-  # address provides the port number for the endpoint to bind to.  Port 9389
-  # was chosen because it does not conflict with any of the other prometheus
-  # metrics or other machines in the xmidt cluster.  You may use any port you
-  # wish.
-  address: ":9389"
-
-  # metricsOptions provides the details needed to configure the prometheus
-  # metric data.  Metrics generally have the form:
-  #
-  # {namespace}_{subsystem}_{metric}
-  #
-  # so if you use the suggested value below, your metrics are prefixed like
-  # this:
-  #
-  # xmidt_caduceus_{metric}
-  #
+  # metric defines the details needed for the prometheus metrics endpoint
   # (Optional)
-  metricsOptions:
-    # namespace is the namespace of the metrics provided
-    # (Optional)
-    namespace: "xmidt"
-    # subsystem is the subsystem of the metrics provided
-    # (Optional)
-    subsystem: "caduceus"
+  metrics:
+    http:
+      # address provides the port number for the endpoint to bind to.  Port 9389
+      # was chosen because it does not conflict with any of the other prometheus
+      # metrics or other machines in the xmidt cluster.  You may use any port you
+      # wish.
+      address: ":9389"
 
-touchstone:
+      # metricsOptions provides the details needed to configure the prometheus
+      # metric data.  Metrics generally have the form:
+      #
+      # {namespace}_{subsystem}_{metric}
+      #
+      # so if you use the suggested value below, your metrics are prefixed like
+      # this:
+      #
+      # xmidt_caduceus_{metric}
+      #
+      # (Optional)
+    metricsOptions:
+      # namespace is the namespace of the metrics provided
+      # (Optional)
+      namespace: "xmidt"
+      # subsystem is the subsystem of the metrics provided
+      # (Optional)
+      subsystem: "caduceus"
+
+prometheus:
   # DefaultNamespace is the prometheus namespace to apply when a metric has no namespace
   defaultNamespace: "xmidt"
   # DefaultSubsystem is the prometheus subsystem to apply when a metric has no subsystem
@@ -151,7 +156,7 @@ service:
       waitTime: "30s"
 
     # disableGenerateID is TBD
-    disableGenerateID: true
+    disableGenerateId: true
 
     # registrations defines what services caduceus should register with
     # consul
@@ -179,7 +184,7 @@ service:
         address: "caduceus-instance-123.example.com"
         port: 6001
         checks:
-          - checkID: "caduceus-instance-123.example.com:ttl"
+          - checkId: "caduceus-instance-123.example.com:ttl"
             ttl: "30s"
             deregisterCriticalServiceAfter: "70s"
 
@@ -187,34 +192,7 @@ service:
 #   Logging Related Configuration
 ########################################
 
-# log configures the logging subsystem details
-log:
-  # file is the name of the most recent log file.  If set to "stdout" this
-  # will log to os.Stdout.
-  # (Optional) defaults to os.TempDir()
-  file: "stdout"
-
-  # level is the logging level to use - INFO, DEBUG, WARN, ERROR
-  # (Optional) defaults to ERROR
-  level: "DEBUG"
-
-  # maxsize is the maximum file size in MB
-  # (Optional) defaults to max 100MB
-  maxsize: 50
-
-  # maxage is the maximum number of days to retain old log files
-  # (Optional) defaults to ignore age limit (0)
-  maxage: 30
-
-  # maxbackups is the maximum number of old log files to retain
-  # (Optional) defaults to retain all (0)
-  maxbackups: 10
-
-  # json is a flag indicating whether JSON logging output should be used.
-  # (Optional) defaults to false
-  json: true
-
-zap:
+logging:
   # OutputPaths is a list of URLs or file paths to write logging output to.
   outputPaths:
     - stdout
@@ -236,7 +214,6 @@ zap:
   encoderConfig:
     messageKey: message
     levelKey: key
-    levelEncoder: lowercase
 
   # Encoding sets the logger's encoding. Valid values are "json" and
   # "console", as well as any third-party encodings registered via
@@ -255,20 +232,20 @@ zap:
 # used as authorization.
 # (Optional)
 jwtValidator:
-  Config:
-    Resolve:
+  config:
+    resolve:
       # Template is a URI template used to fetch keys.  This template may
 	    # use a single parameter named keyID, e.g. http://keys.com/{keyID}.
       # This field is required and has no default.
-      Template: "http://localhost/{keyID}"
-    Refresh:
-      Sources:
+      template: "http://localhost/{keyID}"
+    refresh:
+      sources:
         # URI is the location where keys are served.  By default, clortho supports
         # file://, http://, and https:// URIs, as well as standard file system paths
         # such as /etc/foo/bar.jwk.
         #
         # This field is required and has no default.
-        - URI: "http://localhost"
+        - uri: "http://localhost"
 
 # authHeader provides the list of basic auth headers that caduceus will accept
 # as authorization
@@ -319,13 +296,13 @@ webhook:
   # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
   # Raw: parser assumes all of the token payload == JWT token
   # (Optional). Defaults to 'simple'.
-  JWTParserType: "raw"
-  BasicClientConfig: 
+  jwtParserType: "raw"
+  basicClientConfig:
     # listen is the subsection that configures the listening feature of the argus client
     # (Optional)
-    listen:
-      # pullInterval provides how often the current webhooks list gets refreshed.
-      pullInterval: 5s
+    # listen:
+    #   # pullInterval provides how often the current webhooks list gets refreshed.
+    #   pullInterval: 5s
 
     # bucket is the partition name where webhooks will be stored.
     bucket: "webhooks"
@@ -414,11 +391,11 @@ sender:
   # customPIDs is a custom list of allowed PartnerIDs that will be used if a message 
   # has no partner IDs.  When empty, a message with no partner IDs will not be sent 
   # to any listeners when enforcing the partner ID check.
-  customPIDs: []
+  customPids: []
 
   # disablePartnerIDs dictates whether or not to enforce the partnerID check
   # Defaults to 'false'.
-  disablePartnerIDs: false
+  disablePartnerIds: false
 
 # (Deprecated)
 # profilerFrequency: 15
