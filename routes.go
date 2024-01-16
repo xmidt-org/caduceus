@@ -67,6 +67,7 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 			}
 			
 			mux := chi.NewMux()
+			
 			// TODO: should probably customize things a bit
 			mux.Use(recovery.Middleware(recovery.WithStatusCode(555)))
 
