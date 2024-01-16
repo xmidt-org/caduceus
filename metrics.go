@@ -129,7 +129,6 @@ func ProvideMetrics() fx.Option {
 			Name: DropsDueToPanic,
 			Help: "The outgoing message delivery pipeline panicked.",
 		}, UrlLabel),
-
 		touchstone.GaugeVec(prometheus.GaugeOpts{
 			Name: ConsumerRenewalTimeGauge,
 			Help: "Time when the consumer data was updated.",
