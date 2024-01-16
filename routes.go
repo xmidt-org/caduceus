@@ -65,6 +65,7 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 			if in.PreviousVersionSupport {
 				urlPrefix = fmt.Sprintf("/%s", apiBaseDualVersion)
 			}
+			
 			mux := chi.NewMux()
 			// TODO: should probably customize things a bit
 			mux.Use(recovery.Middleware(recovery.WithStatusCode(555)))
