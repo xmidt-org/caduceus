@@ -20,13 +20,12 @@ import (
 // Config is the top level configuration for the caduceus service.  Everything
 // is contained in this structure or it will intentially cause a failure.
 type Config struct {
-	Logging            sallust.Config
-	Tracing            candlelight.Config
-	Prometheus         touchstone.Config
-	Servers            Servers
-	ArgusClientTimeout HttpClientTimeout
-	JWTValidator       JWTValidator
-	// Webhook                ancla.Config //@TODO: need to fix the ancla/argus dependency issue 
+	Logging                sallust.Config
+	Tracing                candlelight.Config
+	Prometheus             touchstone.Config
+	Servers                Servers
+	ArgusClientTimeout     HttpClientTimeout
+	JWTValidator           JWTValidator
 	Sender                 SenderConfig
 	Service                Service
 	AuthHeader             []string
@@ -36,6 +35,8 @@ type Config struct {
 	Flavor                 string
 	PreviousVersionSupport bool
 	Region                 string
+	// Webhook                ancla.Config //@TODO: need to fix the ancla/argus dependency issue
+
 }
 
 type Service struct {

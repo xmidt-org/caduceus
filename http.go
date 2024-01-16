@@ -8,9 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/xmidt-org/sallust"
@@ -18,19 +19,42 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
+type ServerHandlerIn struct {
+	fx.In
+	Logger    *zap.Logger
+	Telemetry *HandlerTelemetry
+}
+
+type ServerHandlerOut struct {
+	fx.Out
+	Handler *ServerHandler
+}
+
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	*zap.Logger
-	caduceusHandler          RequestHandler
-	errorRequests            metrics.Counter
-	emptyRequests            metrics.Counter
-	invalidCount             metrics.Counter
-	incomingQueueDepthMetric metrics.Gauge
-	modifiedWRPCount         metrics.Counter
-	incomingQueueDepth       int64
-	maxOutstanding           int64
-	incomingQueueLatency     metrics.Histogram
-	now                      func() time.Time
+	log *zap.Logger
+	// caduceusHandler RequestHandler
+	telemetry          *HandlerTelemetry
+	incomingQueueDepth int64
+	maxOutstanding     int64
+	now                func() time.Time
+}
+type HandlerTelemetryIn struct {
+	fx.In
+	ErrorRequests            prometheus.Counter      `name:"error_request_body_counter"`
+	EmptyRequests            prometheus.Counter      `name:"empty_request_boyd_counter"`
+	InvalidCount             prometheus.Counter      `name:"drops_due_to_invalid_payload"`
+	IncomingQueueDepthMetric prometheus.Gauge        `name:"incoming_queue_depth"`
+	ModifiedWRPCount         prometheus.CounterVec   `name:"modified_wrp_count"`
+	IncomingQueueLatency     prometheus.HistogramVec `name:"incoming_queue_latency_histogram_seconds"`
+}
+type HandlerTelemetry struct {
+	errorRequests            prometheus.Counter
+	emptyRequests            prometheus.Counter
+	invalidCount             prometheus.Counter
+	incomingQueueDepthMetric prometheus.Gauge
+	modifiedWRPCount         prometheus.CounterVec
+	incomingQueueLatency     prometheus.HistogramVec
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -42,7 +66,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	logger := sallust.Get(request.Context())
 	if logger == adapter.DefaultLogger().Logger {
-		logger = sh.Logger
+		logger = sh.log
 	}
 
 	logger.Info("Receiving incoming request...")
@@ -66,19 +90,19 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
-	sh.incomingQueueDepthMetric.Add(1.0)
-	defer sh.incomingQueueDepthMetric.Add(-1.0)
+	sh.telemetry.incomingQueueDepthMetric.Add(1.0)
+	defer sh.telemetry.incomingQueueDepthMetric.Add(-1.0)
 
 	payload, err := io.ReadAll(request.Body)
 	if err != nil {
-		sh.errorRequests.Add(1.0)
+		sh.telemetry.errorRequests.Add(1.0)
 		logger.Error("Unable to retrieve the request body.", zap.Error(err))
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(payload) == 0 {
-		sh.emptyRequests.Add(1.0)
+		sh.telemetry.emptyRequests.Add(1.0)
 		logger.Error("Empty payload.")
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Empty payload.\n"))
@@ -91,7 +115,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = decoder.Decode(msg)
 	if err != nil || msg.MessageType() != 4 {
 		// return a 400
-		sh.invalidCount.Add(1.0)
+		sh.telemetry.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			response.Write([]byte("Invalid payload format.\n"))
@@ -106,7 +130,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = wrp.UTF8(msg)
 	if err != nil {
 		// return a 400
-		sh.invalidCount.Add(1.0)
+		sh.telemetry.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
 		logger.Debug("Strings must be UTF-8.")
@@ -114,7 +138,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	}
 	eventType = msg.FindEventStringSubMatch()
 
-	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
+	// sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
@@ -125,7 +149,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
+	sh.telemetry.incomingQueueLatency.With(prometheus.Labels{"event": eventType}).Observe(float64(endTime.Sub(startTime).Seconds()))
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -134,13 +158,13 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 
 	// Default to "application/json" if there is no content type, otherwise
 	// use the one the source specified.
-	if "" == msg.ContentType {
+	if msg.ContentType == "" {
 		msg.ContentType = wrp.MimeTypeJson
 		reason = emptyContentTypeReason
 	}
 
 	// Ensure there is a transaction id even if we make one up
-	if "" == msg.TransactionUUID {
+	if msg.TransactionUUID == "" {
 		msg.TransactionUUID = uuid.NewV4().String()
 		if reason == "" {
 			reason = emptyUUIDReason
@@ -150,8 +174,41 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	}
 
 	if reason != "" {
-		sh.modifiedWRPCount.With("reason", reason).Add(1.0)
+		sh.telemetry.modifiedWRPCount.With(prometheus.Labels{"reason": reason}).Add(1.0)
 	}
 
 	return msg
+}
+
+var HandlerModule = fx.Module("server",
+	fx.Provide(
+		func(in HandlerTelemetryIn) *HandlerTelemetry {
+			return &HandlerTelemetry{
+				errorRequests:            in.ErrorRequests,
+				emptyRequests:            in.EmptyRequests,
+				invalidCount:             in.InvalidCount,
+				incomingQueueDepthMetric: in.IncomingQueueDepthMetric,
+				modifiedWRPCount:         in.ModifiedWRPCount,
+				incomingQueueLatency:     in.IncomingQueueLatency,
+			}
+		}),
+	fx.Provide(
+		func(in ServerHandlerIn) (ServerHandlerOut, error) {
+			//Hard coding maxOutstanding and incomingQueueDepth for now
+			handler, err := New(in.Logger, in.Telemetry, 0.0, 0.0)
+			return ServerHandlerOut{
+				Handler: handler,
+			}, err
+		},
+	),
+)
+
+func New(log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+	return &ServerHandler{
+		log:                log,
+		telemetry:          t,
+		maxOutstanding:     maxOutstanding,
+		incomingQueueDepth: incomingQueueDepth,
+		now:                time.Now,
+	}, nil
 }
