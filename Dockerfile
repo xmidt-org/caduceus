@@ -15,9 +15,8 @@ RUN apk add --no-cache --no-progress \
     git \
     openssh \
     gcc \
-    libc-dev \
-    upx
-
+    libc-dev
+    
 # Download spruce here to eliminate the need for curl in the final image
 RUN mkdir -p /go/bin && \
     arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
