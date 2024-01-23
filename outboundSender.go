@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/webpa-common/v2/device"
 
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
@@ -564,7 +563,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
 
 	// Add the device id without the trailing service
-	id, _ := device.ParseID(msg.Source)
+	id, _ := wrp.ParseDeviceID(msg.Source)
 	req.Header.Set("X-Webpa-Device-Id", string(id))
 	req.Header.Set("X-Webpa-Device-Name", string(id))
 
