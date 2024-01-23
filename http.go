@@ -181,8 +181,8 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	return msg
 }
 
-var HandlerModule = fx.Module("server",
-	fx.Provide(
+func ProvideHandler() fx.Option {
+	return fx.Provide(
 		func(in HandlerTelemetryIn) *HandlerTelemetry {
 			return &HandlerTelemetry{
 				errorRequests:            in.ErrorRequests,
@@ -192,8 +192,7 @@ var HandlerModule = fx.Module("server",
 				modifiedWRPCount:         in.ModifiedWRPCount,
 				incomingQueueLatency:     in.IncomingQueueLatency,
 			}
-		}),
-	fx.Provide(
+		},
 		func(in ServerHandlerIn) (ServerHandlerOut, error) {
 			//Hard coding maxOutstanding and incomingQueueDepth for now
 			handler, err := New(in.CaduceusSenderWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
@@ -201,9 +200,8 @@ var HandlerModule = fx.Module("server",
 				Handler: handler,
 			}, err
 		},
-	),
-)
-
+	)
+}
 func New(senderWrapper *CaduceusSenderWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
 		caduceusHandler: &CaduceusHandler{

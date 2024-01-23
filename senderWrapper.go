@@ -83,19 +83,17 @@ type CaduceusSenderWrapper struct {
 	outbounderSetUp   *OutboundSenderFactory
 }
 
-var SenderWrapperModule = fx.Module("caduceusSenderWrapper",
-	fx.Provide(
+func ProvideSenderWrapper() fx.Option {
+	return fx.Provide(
 		func(in CaduceusSenderWrapperIn) http.RoundTripper {
 			return NewRoundTripper(in.SenderConfig, in.Tracing)
 		},
-	),
-	fx.Provide(
 		func(tr http.RoundTripper, in CaduceusSenderWrapperIn) (*CaduceusSenderWrapper, error) {
 			csw, err := NewSenderWrapper(tr, in)
 			return csw, err
 		},
-	),
-)
+	)
+}
 
 // New produces a new CaduceusSenderWrapper
 // based on the SenderConfig
