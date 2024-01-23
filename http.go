@@ -14,8 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/xmidt-org/sallust"
-	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -65,18 +63,13 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		sh.recordQueueLatencyToHistogram(s, eventType)
 	}(sh.now())
 
-	logger := sallust.Get(request.Context())
-	if logger == adapter.DefaultLogger().Logger {
-		logger = sh.log
-	}
-
-	logger.Info("Receiving incoming request...")
+	sh.log.Info("Receiving incoming request...")
 
 	if len(request.Header["Content-Type"]) != 1 || request.Header["Content-Type"][0] != "application/msgpack" {
 		//return a 415
 		response.WriteHeader(http.StatusUnsupportedMediaType)
 		response.Write([]byte("Invalid Content-Type header(s). Expected application/msgpack. \n"))
-		logger.Debug("Invalid Content-Type header(s). Expected application/msgpack. \n")
+		sh.log.Debug("Invalid Content-Type header(s). Expected application/msgpack. \n")
 		return
 	}
 
@@ -87,7 +80,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		// return a 503
 		response.WriteHeader(http.StatusServiceUnavailable)
 		response.Write([]byte("Incoming queue is full.\n"))
-		logger.Debug("Incoming queue is full.\n")
+		sh.log.Debug("Incoming queue is full.\n")
 		return
 	}
 
@@ -97,14 +90,14 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	payload, err := io.ReadAll(request.Body)
 	if err != nil {
 		sh.telemetry.errorRequests.Add(1.0)
-		logger.Error("Unable to retrieve the request body.", zap.Error(err))
+		sh.log.Error("Unable to retrieve the request body.", zap.Error(err))
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(payload) == 0 {
 		sh.telemetry.emptyRequests.Add(1.0)
-		logger.Error("Empty payload.")
+		sh.log.Error("Empty payload.")
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Empty payload.\n"))
 		return
@@ -120,10 +113,10 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			response.Write([]byte("Invalid payload format.\n"))
-			logger.Debug("Invalid payload format.")
+			sh.log.Debug("Invalid payload format.")
 		} else {
 			response.Write([]byte("Invalid MessageType.\n"))
-			logger.Debug("Invalid MessageType.")
+			sh.log.Debug("Invalid MessageType.")
 		}
 		return
 	}
@@ -134,7 +127,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		sh.telemetry.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
-		logger.Debug("Strings must be UTF-8.")
+		sh.log.Debug("Strings must be UTF-8.")
 		return
 	}
 	eventType = msg.FindEventStringSubMatch()
@@ -145,7 +138,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
 
-	logger.Debug("event passed to senders.", zap.Any("event", msg))
+	sh.log.Debug("event passed to senders.", zap.Any("event", msg))
 }
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
