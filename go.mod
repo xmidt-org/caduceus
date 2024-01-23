@@ -8,7 +8,6 @@ require (
 	emperror.dev/emperror v0.33.0
 	github.com/alecthomas/kong v0.8.1
 	github.com/go-chi/chi/v5 v5.0.10
-	github.com/go-kit/kit v0.13.0
 	github.com/gorilla/mux v1.8.1
 	github.com/goschtalt/goschtalt v0.22.1
 	github.com/goschtalt/yaml-decoder v0.0.1
@@ -45,6 +44,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/go-kit/kit v0.13.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
