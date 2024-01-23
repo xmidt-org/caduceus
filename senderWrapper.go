@@ -5,6 +5,7 @@ package main
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -21,26 +22,19 @@ import (
 type CaduceusSenderWrapperIn struct {
 	fx.In
 
-	Tracing      candlelight.Tracing
-	SenderConfig SenderConfig
-	Metrics      SenderMetrics
-	Logger       *zap.Logger
+	Tracing           candlelight.Tracing
+	SenderConfig      SenderConfig
+	WrapperMetrics    SenderWrapperMetrics
+	OutbounderMetrics OutboundSenderMetrics
+	Logger            *zap.Logger
+	OutbounderFactory OutboundSenderFactory
 }
 
-type CaduceusSenderWrapperOut struct {
-	fx.Out
-	CaduceusSenderWrapper *CaduceusSenderWrapper
-}
-type SenderMetricsIn struct {
-	fx.In
-	QueryLatency prometheus.HistogramVec `name:"query_duration_histogram_seconds"`
-	EventType    prometheus.CounterVec   `name:"incoming_event_type_count"`
-}
-
-type SenderMetrics struct {
+type SenderWrapperMetrics struct {
 	QueryLatency prometheus.HistogramVec
 	EventType    prometheus.CounterVec
 }
+
 type SenderWrapper interface {
 	// Update([]ancla.InternalWebhook)
 	Queue(*wrp.Message)
@@ -86,28 +80,19 @@ type CaduceusSenderWrapper struct {
 
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	disablePartnerIDs bool
+	outbounderSetUp   *OutboundSenderFactory
 }
 
 var SenderWrapperModule = fx.Module("caduceusSenderWrapper",
-	fx.Provide(
-		func(in SenderMetricsIn) SenderMetrics {
-			return SenderMetrics{
-				QueryLatency: in.QueryLatency,
-				EventType:    in.EventType,
-			}
-		},
-	),
 	fx.Provide(
 		func(in CaduceusSenderWrapperIn) http.RoundTripper {
 			return NewRoundTripper(in.SenderConfig, in.Tracing)
 		},
 	),
 	fx.Provide(
-		func(tr http.RoundTripper, in CaduceusSenderWrapperIn) (CaduceusSenderWrapperOut, error) {
+		func(tr http.RoundTripper, in CaduceusSenderWrapperIn) (*CaduceusSenderWrapper, error) {
 			csw, err := NewSenderWrapper(tr, in)
-			return CaduceusSenderWrapperOut{
-				CaduceusSenderWrapper: csw,
-			}, err
+			return csw, err
 		},
 	),
 )
@@ -125,16 +110,20 @@ func NewSenderWrapper(tr http.RoundTripper, in CaduceusSenderWrapperIn) (csw *Ca
 		logger:              in.Logger,
 		customPIDs:          in.SenderConfig.CustomPIDs,
 		disablePartnerIDs:   in.SenderConfig.DisablePartnerIDs,
-		eventType:           in.Metrics.EventType,
-		queryLatency:        in.Metrics.QueryLatency,
+		eventType:           in.WrapperMetrics.EventType,
+		queryLatency:        in.WrapperMetrics.QueryLatency,
 	}
+
+	csw.outbounderSetUp.Config = in.SenderConfig
+	csw.outbounderSetUp.Logger = in.Logger
+	csw.outbounderSetUp.Metrics = in.OutbounderMetrics
 	csw.sender = doerFunc((&http.Client{
 		Transport: tr,
 		Timeout:   in.SenderConfig.ClientTimeout,
 	}).Do)
 
 	if in.SenderConfig.Linger <= 0 {
-		err = errors.New("Linger must be positive.")
+		err = errors.New("linger must be positive")
 		csw = nil
 		return
 	}
@@ -163,58 +152,47 @@ func NewRoundTripper(config SenderConfig, tracing candlelight.Tracing) (tr http.
 	return
 }
 
-//Commenting out while until ancla/argus dependency issue is fixed.
+// Commenting out while until ancla/argus dependency issue is fixed.
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-// func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
-// 	// We'll like need this, so let's get one ready
-// 	osf := OutboundSenderFactory{
-// 		Sender:            sw.sender,
-// 		CutOffPeriod:      sw.cutOffPeriod,
-// 		NumWorkers:        sw.numWorkersPerSender,
-// 		QueueSize:         sw.queueSizePerSender,
-// 		MetricsRegistry:   sw.metricsRegistry,
-// 		DeliveryRetries:   sw.deliveryRetries,
-// 		DeliveryInterval:  sw.deliveryInterval,
-// 		Logger:            sw.logger,
-// 		CustomPIDs:        sw.customPIDs,
-// 		DisablePartnerIDs: sw.disablePartnerIDs,
-// 		QueryLatency:      sw.queryLatency,
-// 	}
+func (sw *CaduceusSenderWrapper) Update(list []ListenerStub) {
 
-// 	ids := make([]struct {
-// 		Listener ancla.InternalWebhook
-// 		ID       string
-// 	}, len(list))
+	ids := make([]struct {
+		Listener ListenerStub
+		ID       string
+	}, len(list))
 
-// 	for i, v := range list {
-// 		ids[i].Listener = v
-// 		ids[i].ID = v.Webhook.Config.URL
-// 	}
+	for i, v := range list {
+		ids[i].Listener = v
+		ids[i].ID = v.Webhook.Config.URL
+	}
 
-// 	sw.mutex.Lock()
-// 	defer sw.mutex.Unlock()
+	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
 
-// 	for _, inValue := range ids {
-// 		sender, ok := sw.senders[inValue.ID]
-// 		if !ok {
-// 			osf.Listener = inValue.Listener
-// 			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
+	for _, inValue := range ids {
+		sender, ok := sw.senders[inValue.ID]
+		if !ok {
+			osf := sw.outbounderSetUp
+			osf.Sender = sw.sender
+			osf.Listener = inValue.Listener
+			metricWrapper, err := newMetricWrapper(time.Now, sw.queryLatency, inValue.ID)
 
-// 			if err != nil {
-// 				continue
-// 			}
-// 			osf.ClientMiddleware = metricWrapper.roundTripper
-// 			obs, err := osf.New()
-// 			if nil == err {
-// 				sw.senders[inValue.ID] = obs
-// 			}
-// 			continue
-// 		}
-// 		sender.Update(inValue.Listener)
-// 	}
-// }
+			if err != nil {
+				continue
+			}
+			osf.ClientMiddleware = metricWrapper.roundTripper
+			obs, err := osf.New()
+			if nil == err {
+				sw.senders[inValue.ID] = obs
+			}
+			continue
+		}
+		fmt.Println(sender)
+		// sender.Update(inValue.Listener) //commenting out until argus/ancla fix
+	}
+}
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.

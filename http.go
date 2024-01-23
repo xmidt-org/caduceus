@@ -139,7 +139,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	}
 	eventType = msg.FindEventStringSubMatch()
 
-	// sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
+	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)

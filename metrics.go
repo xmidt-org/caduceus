@@ -3,7 +3,6 @@
 package main
 
 import (
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 
@@ -49,29 +48,22 @@ const (
 	CodeLabel   = "code"
 )
 
-func CreateOutbounderMetrics(m CaduceusMetricsRegistry, c *CaduceusOutboundSender) {
-	c.deliveryCounter = m.NewCounter(DeliveryCounter)
-	c.deliveryRetryCounter = m.NewCounter(DeliveryRetryCounter)
-	c.deliveryRetryMaxGauge = m.NewGauge(DeliveryRetryMaxGauge).With("url", c.id)
-	c.cutOffCounter = m.NewCounter(SlowConsumerCounter).With("url", c.id)
-	c.droppedQueueFullCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "queue_full")
-	c.droppedExpiredCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired")
-	c.droppedExpiredBeforeQueueCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "expired_before_queueing")
-
-	c.droppedCutoffCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "cut_off")
-	c.droppedInvalidConfig = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", "invalid_config")
-	c.droppedNetworkErrCounter = m.NewCounter(SlowConsumerDroppedMsgCounter).With("url", c.id, "reason", networkError)
-	c.droppedPanic = m.NewCounter(DropsDueToPanic).With("url", c.id)
-	c.queueDepthGauge = m.NewGauge(OutgoingQueueDepth).With("url", c.id)
-	c.renewalTimeGauge = m.NewGauge(ConsumerRenewalTimeGauge).With("url", c.id)
-	c.deliverUntilGauge = m.NewGauge(ConsumerDeliverUntilGauge).With("url", c.id)
-	c.dropUntilGauge = m.NewGauge(ConsumerDropUntilGauge).With("url", c.id)
-	c.currentWorkersGauge = m.NewGauge(ConsumerDeliveryWorkersGauge).With("url", c.id)
-	c.maxWorkersGauge = m.NewGauge(ConsumerMaxDeliveryWorkersGauge).With("url", c.id)
-}
-
-func NewMetricWrapperMeasures(m CaduceusMetricsRegistry) metrics.Histogram {
-	return m.NewHistogram(QueryDurationHistogram, 11)
+type SenderMetricsIn struct {
+	fx.In
+	QueryLatency                    prometheus.HistogramVec `name:"query_duration_histogram_seconds"`
+	EventType                       prometheus.CounterVec   `name:"incoming_event_type_count"`
+	DeliveryCounter                 prometheus.CounterVec   `name:"delivery_count"`
+	DeliveryRetryCounter            prometheus.CounterVec   `name:"DeliveryRetryCounter"`
+	DeliveryRetryMaxGauge           prometheus.GaugeVec     `name:"delivery_retry_max"`
+	CutOffCounter                   prometheus.CounterVec   `name:"slow_consumer_cut_off_count"`
+	SlowConsumerDroppedMsgCounter   prometheus.CounterVec   `name:"slow_consumer_dropped_message_count"`
+	DropsDueToPanic                 prometheus.CounterVec   `name:"drops_due_to_panic"`
+	ConsumerDeliverUntilGauge       prometheus.GaugeVec     `name:"consumer_deliver_until"`
+	ConsumerDropUntilGauge          prometheus.GaugeVec     `name:"consumer_drop_until"`
+	ConsumerDeliveryWorkersGauge    prometheus.GaugeVec     `name:"consumer_delivery_workers"`
+	ConsumerMaxDeliveryWorkersGauge prometheus.GaugeVec     `name:"consumer_delivery_workers_max"`
+	OutgoingQueueDepth              prometheus.GaugeVec     `name:"outgoing_queue_depths"`
+	ConsumerRenewalTimeGauge        prometheus.GaugeVec     `name:"consumer_renewal_time"`
 }
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
@@ -161,3 +153,32 @@ func ProvideMetrics() fx.Option {
 		}, EventLabel),
 	)
 }
+
+func ProvideSenderMetrics() fx.Option {
+	return fx.Provide(
+		func(in SenderMetricsIn) (SenderWrapperMetrics, OutboundSenderMetrics) {
+			outbounderMetrics := OutboundSenderMetrics{
+				DeliveryCounter:                 in.DeliveryCounter,
+				DeliveryRetryCounter:            in.DeliveryRetryCounter,
+				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
+				CutOffCounter:                   in.CutOffCounter,
+				SlowConsumerDroppedMsgCounter:   in.SlowConsumerDroppedMsgCounter,
+				DropsDueToPanic:                 in.DropsDueToPanic,
+				ConsumerDeliverUntilGauge:       in.ConsumerDeliverUntilGauge,
+				ConsumerDropUntilGauge:          in.ConsumerDropUntilGauge,
+				ConsumerDeliveryWorkersGauge:    in.ConsumerDeliveryWorkersGauge,
+				ConsumerMaxDeliveryWorkersGauge: in.ConsumerMaxDeliveryWorkersGauge,
+				OutgoingQueueDepth:              in.OutgoingQueueDepth,
+				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
+			}
+			wrapperMetrics := SenderWrapperMetrics{
+				QueryLatency: in.QueryLatency,
+				EventType:    in.EventType,
+			}
+
+			return wrapperMetrics, outbounderMetrics
+		},
+	)
+}
+
+

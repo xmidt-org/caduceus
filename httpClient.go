@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -33,19 +33,21 @@ func (d doerFunc) Do(req *http.Request) (*http.Response, error) {
 
 type metricWrapper struct {
 	now          func() time.Time
-	queryLatency metrics.Histogram
+	queryLatency prometheus.HistogramVec
+	id           string
 }
 
-func newMetricWrapper(now func() time.Time, queryLatency metrics.Histogram) (*metricWrapper, error) {
+func newMetricWrapper(now func() time.Time, queryLatency prometheus.HistogramVec, id string) (*metricWrapper, error) {
 	if now == nil {
 		now = time.Now
 	}
-	if queryLatency == nil {
+	if queryLatency.MetricVec == nil {
 		return nil, errNilHistogram
 	}
 	return &metricWrapper{
 		now:          now,
 		queryLatency: queryLatency,
+		id:           id,
 	}, nil
 }
 
@@ -62,7 +64,7 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 
 		// find time difference, add to metric
 		var latency = endTime.Sub(startTime)
-		m.queryLatency.With("code", code).Observe(latency.Seconds())
+		m.queryLatency.With(prometheus.Labels{UrlLabel: m.id, CodeLabel: code}).Observe(latency.Seconds())
 
 		return resp, err
 	})
