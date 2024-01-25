@@ -6,7 +6,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 
-	// nolint:staticcheck
 	"github.com/xmidt-org/touchstone"
 )
 

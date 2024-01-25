@@ -220,6 +220,6 @@ var defaultConfig = Config{
 		ApplicationName: applicationName,
 	},
 	Sender: SenderConfig{
-		Linger: time.Duration(3 * time.Minute),
+		Linger: 3 * time.Minute,
 	},
 }
