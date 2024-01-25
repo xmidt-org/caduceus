@@ -140,6 +140,7 @@ func caduceus(arguments []string, run bool) error {
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		ProvideMetrics(),
+		ProvideSenderMetrics(),
 		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
 
 	)

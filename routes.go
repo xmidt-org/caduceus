@@ -68,18 +68,17 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 
 			mux := chi.NewMux()
 
-			// TODO: should probably customize things a bit
-			mux.Use(recovery.Middleware(recovery.WithStatusCode(555)))
-
 			options := []otelmux.Option{
 				otelmux.WithTracerProvider(in.Tracing.TracerProvider()),
 				otelmux.WithPropagators(in.Tracing.Propagator()),
 			}
 
+			// TODO: should probably customize things a bit
+			mux.Use(recovery.Middleware(recovery.WithStatusCode(555)), otelmux.Middleware("server_primary", options...),
+				candlelight.EchoFirstTraceNodeInfo(in.Tracing.Propagator(), true))
+
 			mux.Method("POST", urlPrefix+"/notify", in.Handler)
 			if server == "primary" {
-				mux.Use(otelmux.Middleware("server_primary", options...),
-					candlelight.EchoFirstTraceNodeInfo(in.Tracing.Propagator(), true))
 				s.Handler = in.PrimaryMetrics.Then(mux)
 			} else {
 				s.Handler = in.AlternateMetrics.Then(mux)

@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
-// SPDX-License-Identifier: Apache-2.0
+// // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// // SPDX-License-Identifier: Apache-2.0
 package main
 
 // import (
@@ -13,8 +13,8 @@ package main
 
 // 	"github.com/stretchr/testify/assert"
 // 	"github.com/stretchr/testify/mock"
+// 	"go.uber.org/zap/zaptest"
 
-// 	"github.com/xmidt-org/webpa-common/v2/adapter"
 // 	"github.com/xmidt-org/wrp-go/v3"
 // )
 
@@ -88,7 +88,7 @@ package main
 // 	for _, tc := range tcs {
 // 		assert := assert.New(t)
 
-// 		logger := adapter.DefaultLogger().Logger
+// 		logger := zaptest.NewLogger(t)
 // 		fakeHandler := new(mockHandler)
 // 		if !tc.throwStatusBadRequest {
 // 			fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
@@ -112,7 +112,7 @@ package main
 // 		fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 // 		serverWrapper := &ServerHandler{
-// 			Logger:                   logger,
+// 			log:                   logger,
 // 			caduceusHandler:          fakeHandler,
 // 			errorRequests:            fakeErrorRequests,
 // 			emptyRequests:            fakeEmptyRequests,
@@ -145,7 +145,7 @@ package main
 
 // 	assert := assert.New(t)
 
-// 	logger := adapter.DefaultLogger().Logger
+// 	logger := zaptest.NewLogger(t)
 // 	fakeHandler := new(mockHandler)
 // 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 // 		mock.AnythingOfType("*wrp.Message")).Return().Once()
@@ -172,7 +172,7 @@ package main
 // 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 // 	serverWrapper := &ServerHandler{
-// 		Logger:                   logger,
+// 		log:                   logger,
 // 		caduceusHandler:          fakeHandler,
 // 		errorRequests:            fakeErrorRequests,
 // 		emptyRequests:            fakeEmptyRequests,
@@ -206,7 +206,7 @@ package main
 
 // 	assert := assert.New(t)
 
-// 	logger := adapter.DefaultLogger().Logger
+// 	logger := zaptest.NewLogger(t)
 // 	fakeHandler := new(mockHandler)
 // 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 // 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -221,7 +221,7 @@ package main
 // 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 // 	serverWrapper := &ServerHandler{
-// 		Logger:                   logger,
+// 		log:                   logger,
 // 		caduceusHandler:          fakeHandler,
 // 		incomingQueueDepthMetric: fakeQueueDepth,
 // 		maxOutstanding:           1,
@@ -259,7 +259,7 @@ package main
 // 	req := httptest.NewRequest("POST", "localhost:8080", r)
 // 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-// 	logger := adapter.DefaultLogger().Logger
+// 	logger := zaptest.NewLogger(t)
 // 	fakeHandler := new(mockHandler)
 // 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 // 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -276,7 +276,7 @@ package main
 // 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 // 	serverWrapper := &ServerHandler{
-// 		Logger:                   logger,
+// 		log:                   logger,
 // 		caduceusHandler:          fakeHandler,
 // 		emptyRequests:            fakeEmptyRequests,
 // 		incomingQueueDepthMetric: fakeQueueDepth,
@@ -314,7 +314,7 @@ package main
 // 	req := httptest.NewRequest("POST", "localhost:8080", r)
 // 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-// 	logger := adapter.DefaultLogger().Logger
+// 	logger := zaptest.NewLogger(t)
 // 	fakeHandler := new(mockHandler)
 // 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 // 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -331,7 +331,7 @@ package main
 // 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 // 	serverWrapper := &ServerHandler{
-// 		Logger:                   logger,
+// 		log:                   logger,
 // 		caduceusHandler:          fakeHandler,
 // 		errorRequests:            fakeErrorRequests,
 // 		incomingQueueDepthMetric: fakeQueueDepth,
@@ -368,7 +368,7 @@ package main
 // 	req := httptest.NewRequest("POST", "localhost:8080", r)
 // 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-// 	logger := adapter.DefaultLogger().Logger
+// 	logger := zaptest.NewLogger(t)
 // 	fakeHandler := new(mockHandler)
 // 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 // 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -386,7 +386,7 @@ package main
 // 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 // 	serverWrapper := &ServerHandler{
-// 		Logger:                   logger,
+// 		log:                   logger,
 // 		caduceusHandler:          fakeHandler,
 // 		invalidCount:             fakeInvalidCount,
 // 		incomingQueueDepthMetric: fakeQueueDepth,
@@ -420,13 +420,13 @@ package main
 
 // 	assert := assert.New(t)
 
-// 	logger := adapter.DefaultLogger().Logger
+// 	logger := zaptest.NewLogger(t)
 // 	fakeHandler := new(mockHandler)
 
 // 	fakeQueueDepth := new(mockGauge)
 
 // 	serverWrapper := &ServerHandler{
-// 		Logger:                   logger,
+// 		log:                   logger,
 // 		caduceusHandler:          fakeHandler,
 // 		incomingQueueDepthMetric: fakeQueueDepth,
 // 		maxOutstanding:           1,

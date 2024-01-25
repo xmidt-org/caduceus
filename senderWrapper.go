@@ -27,12 +27,11 @@ type CaduceusSenderWrapperIn struct {
 	WrapperMetrics    SenderWrapperMetrics
 	OutbounderMetrics OutboundSenderMetrics
 	Logger            *zap.Logger
-	OutbounderFactory OutboundSenderFactory
 }
 
 type SenderWrapperMetrics struct {
-	QueryLatency prometheus.HistogramVec
-	EventType    prometheus.CounterVec
+	QueryLatency prometheus.ObserverVec
+	EventType    *prometheus.CounterVec
 }
 
 type SenderWrapper interface {
@@ -69,8 +68,8 @@ type CaduceusSenderWrapper struct {
 
 	mutex        *sync.RWMutex
 	senders      map[string]OutboundSender
-	eventType    prometheus.CounterVec
-	queryLatency prometheus.HistogramVec
+	eventType    *prometheus.CounterVec
+	queryLatency prometheus.ObserverVec
 	wg           sync.WaitGroup
 	shutdown     chan struct{}
 
@@ -111,17 +110,20 @@ func NewSenderWrapper(tr http.RoundTripper, in CaduceusSenderWrapperIn) (csw *Ca
 		eventType:           in.WrapperMetrics.EventType,
 		queryLatency:        in.WrapperMetrics.QueryLatency,
 	}
-
-	csw.outbounderSetUp.Config = in.SenderConfig
-	csw.outbounderSetUp.Logger = in.Logger
-	csw.outbounderSetUp.Metrics = in.OutbounderMetrics
+	obsSetUp := &OutboundSenderFactory{
+		Config:  in.SenderConfig,
+		Logger:  in.Logger,
+		Metrics: in.OutbounderMetrics,
+	}
+	csw.outbounderSetUp = obsSetUp
 	csw.sender = doerFunc((&http.Client{
 		Transport: tr,
 		Timeout:   in.SenderConfig.ClientTimeout,
 	}).Do)
 
 	if in.SenderConfig.Linger <= 0 {
-		err = errors.New("linger must be positive")
+		linger := fmt.Sprintf("linger not positive: %v", in.SenderConfig.Linger)
+		err = errors.New(linger)
 		csw = nil
 		return
 	}

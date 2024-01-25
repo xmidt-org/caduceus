@@ -219,4 +219,7 @@ var defaultConfig = Config{
 	Tracing: candlelight.Config{
 		ApplicationName: applicationName,
 	},
+	Sender: SenderConfig{
+		Linger: time.Duration(3 * time.Minute),
+	},
 }

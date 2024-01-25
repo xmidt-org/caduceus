@@ -65,18 +65,18 @@ type OutboundSenderFactory struct {
 }
 
 type OutboundSenderMetrics struct {
-	DeliveryCounter                 prometheus.CounterVec
-	DeliveryRetryCounter            prometheus.CounterVec
-	DeliveryRetryMaxGauge           prometheus.GaugeVec
-	CutOffCounter                   prometheus.CounterVec
-	SlowConsumerDroppedMsgCounter   prometheus.CounterVec
-	DropsDueToPanic                 prometheus.CounterVec
-	ConsumerDeliverUntilGauge       prometheus.GaugeVec
-	ConsumerDropUntilGauge          prometheus.GaugeVec
-	ConsumerDeliveryWorkersGauge    prometheus.GaugeVec
-	ConsumerMaxDeliveryWorkersGauge prometheus.GaugeVec
-	OutgoingQueueDepth              prometheus.GaugeVec
-	ConsumerRenewalTimeGauge        prometheus.GaugeVec
+	DeliveryCounter                 *prometheus.CounterVec
+	DeliveryRetryCounter            *prometheus.CounterVec
+	DeliveryRetryMaxGauge           *prometheus.GaugeVec
+	CutOffCounter                   *prometheus.CounterVec
+	SlowConsumerDroppedMsgCounter   *prometheus.CounterVec
+	DropsDueToPanic                 *prometheus.CounterVec
+	ConsumerDeliverUntilGauge       *prometheus.GaugeVec
+	ConsumerDropUntilGauge          *prometheus.GaugeVec
+	ConsumerDeliveryWorkersGauge    *prometheus.GaugeVec
+	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec
+	OutgoingQueueDepth              *prometheus.GaugeVec
+	ConsumerRenewalTimeGauge        *prometheus.GaugeVec
 }
 
 // CaduceusOutboundSender is the outbound sender object.
