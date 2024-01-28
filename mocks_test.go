@@ -4,9 +4,7 @@ package main
 
 import (
 	"time"
-	"unicode/utf8"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -35,90 +33,6 @@ func (m *mockSenderWrapper) Queue(msg *wrp.Message) {
 
 func (m *mockSenderWrapper) Shutdown(gentle bool) {
 	m.Called(gentle)
-}
-
-// mockCounter provides the mock implementation of the metrics.Counter object
-type mockCounter struct {
-	mock.Mock
-}
-
-func (m *mockCounter) Add(delta float64) {
-	m.Called(delta)
-}
-
-func (m *mockCounter) With(labelValues ...string) metrics.Counter {
-	for _, v := range labelValues {
-		if !utf8.ValidString(v) {
-			panic("not UTF-8")
-		}
-	}
-	args := m.Called(labelValues)
-	return args.Get(0).(metrics.Counter)
-}
-
-// mockGauge provides the mock implementation of the metrics.Counter object
-type mockGauge struct {
-	mock.Mock
-}
-
-func (m *mockGauge) Add(delta float64) {
-	m.Called(delta)
-}
-
-func (m *mockGauge) Set(value float64) {
-	// We're setting time values & the ROI seems pretty low with this level
-	// of validation...
-	//m.Called(value)
-}
-
-func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
-	for _, v := range labelValues {
-		if !utf8.ValidString(v) {
-			panic("not UTF-8")
-		}
-	}
-	args := m.Called(labelValues)
-	return args.Get(0).(metrics.Gauge)
-}
-
-// mockHistogram provides the mock implementation of the metrics.Histogram object
-type mockHistogram struct {
-	mock.Mock
-}
-
-func (m *mockHistogram) Observe(value float64) {
-	m.Called(value)
-}
-
-func (m *mockHistogram) With(labelValues ...string) metrics.Histogram {
-	for _, v := range labelValues {
-		if !utf8.ValidString(v) {
-			panic("not UTF-8")
-		}
-	}
-	m.Called(labelValues)
-	return m
-}
-
-// mockCaduceusMetricsRegistry provides the mock implementation of the
-// CaduceusMetricsRegistry  object
-type mockCaduceusMetricsRegistry struct {
-	mock.Mock
-}
-
-func (m *mockCaduceusMetricsRegistry) NewCounter(name string) metrics.Counter {
-	args := m.Called(name)
-	return args.Get(0).(metrics.Counter)
-}
-
-func (m *mockCaduceusMetricsRegistry) NewGauge(name string) metrics.Gauge {
-	args := m.Called(name)
-	return args.Get(0).(metrics.Gauge)
-}
-
-func (m *mockCaduceusMetricsRegistry) NewHistogram(name string, buckets int) metrics.Histogram {
-	args := m.Called(name)
-	return args.Get(0).(metrics.Histogram)
 }
 
 // mockTime provides two mock time values

@@ -135,7 +135,8 @@ func caduceus(arguments []string, run bool) error {
 		arrangehttp.ProvideServer("servers.primary"),
 		arrangehttp.ProvideServer("servers.alternate"),
 
-		HandlerModule,
+		ProvideHandler(),
+		ProvideSenderWrapper(),
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		ProvideMetrics(),

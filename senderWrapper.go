@@ -3,56 +3,36 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
+	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // SenderWrapperFactory configures the CaduceusSenderWrapper for creation
-type SenderWrapperFactory struct {
-	// The number of workers to assign to each OutboundSender created.
-	NumWorkersPerSender int
+type CaduceusSenderWrapperIn struct {
+	fx.In
 
-	// The queue size to assign to each OutboundSender created.
-	QueueSizePerSender int
+	Tracing           candlelight.Tracing
+	SenderConfig      SenderConfig
+	WrapperMetrics    SenderWrapperMetrics
+	OutbounderMetrics OutboundSenderMetrics
+	Logger            *zap.Logger
+	OutbounderFactory OutboundSenderFactory
+}
 
-	// The cut off time to assign to each OutboundSender created.
-	CutOffPeriod time.Duration
-
-	// Number of delivery retries before giving up
-	DeliveryRetries int
-
-	// Time in between delivery retries
-	DeliveryInterval time.Duration
-
-	// The amount of time to let expired OutboundSenders linger before
-	// shutting them down and cleaning up the resources associated with them.
-	Linger time.Duration
-
-	// Metrics registry.
-	MetricsRegistry CaduceusMetricsRegistry
-
-	// The metrics counter for dropped messages due to invalid payloads
-	DroppedMsgCounter metrics.Counter
-
-	EventType metrics.Counter
-
-	// The logger implementation to share with OutboundSenders.
-	Logger *zap.Logger
-
-	// The http client Do() function to share with OutboundSenders.
-	Sender httpClient
-
-	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
-	// has no partner IDs.
-	CustomPIDs []string
-
-	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
-	DisablePartnerIDs bool
+type SenderWrapperMetrics struct {
+	QueryLatency prometheus.HistogramVec
+	EventType    prometheus.CounterVec
 }
 
 type SenderWrapper interface {
@@ -63,113 +43,154 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              httpClient
+	// The http client Do() function to share with OutboundSenders.
+	sender httpClient
+	// The number of workers to assign to each OutboundSender created.
 	numWorkersPerSender int
-	queueSizePerSender  int
-	deliveryRetries     int
-	deliveryInterval    time.Duration
-	cutOffPeriod        time.Duration
-	linger              time.Duration
-	logger              *zap.Logger
-	mutex               sync.RWMutex
-	senders             map[string]OutboundSender
-	metricsRegistry     CaduceusMetricsRegistry
-	eventType           metrics.Counter
-	queryLatency        metrics.Histogram
-	wg                  sync.WaitGroup
-	shutdown            chan struct{}
-	customPIDs          []string
-	disablePartnerIDs   bool
+
+	// The queue size to assign to each OutboundSender created.
+	queueSizePerSender int
+
+	// Number of delivery retries before giving up
+	deliveryRetries int
+
+	// Time in between delivery retries
+	deliveryInterval time.Duration
+
+	// The cut off time to assign to each OutboundSender created.
+	cutOffPeriod time.Duration
+
+	// The amount of time to let expired OutboundSenders linger before
+	// shutting them down and cleaning up the resources associated with them.
+	linger time.Duration
+
+	// The logger implementation to share with OutboundSenders.
+	logger *zap.Logger
+
+	mutex        *sync.RWMutex
+	senders      map[string]OutboundSender
+	eventType    prometheus.CounterVec
+	queryLatency prometheus.HistogramVec
+	wg           sync.WaitGroup
+	shutdown     chan struct{}
+
+	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
+	// has no partner IDs.
+	customPIDs []string
+
+	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
+	disablePartnerIDs bool
+	outbounderSetUp   *OutboundSenderFactory
 }
 
-// New produces a new SenderWrapper implemented by CaduceusSenderWrapper
-// based on the factory configuration.
-func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
-	caduceusSenderWrapper := &CaduceusSenderWrapper{
-		sender:              swf.Sender,
-		numWorkersPerSender: swf.NumWorkersPerSender,
-		queueSizePerSender:  swf.QueueSizePerSender,
-		deliveryRetries:     swf.DeliveryRetries,
-		deliveryInterval:    swf.DeliveryInterval,
-		cutOffPeriod:        swf.CutOffPeriod,
-		linger:              swf.Linger,
-		logger:              swf.Logger,
-		metricsRegistry:     swf.MetricsRegistry,
-		customPIDs:          swf.CustomPIDs,
-		disablePartnerIDs:   swf.DisablePartnerIDs,
+func ProvideSenderWrapper() fx.Option {
+	return fx.Provide(
+		func(in CaduceusSenderWrapperIn) http.RoundTripper {
+			return NewRoundTripper(in.SenderConfig, in.Tracing)
+		},
+		func(tr http.RoundTripper, in CaduceusSenderWrapperIn) (*CaduceusSenderWrapper, error) {
+			csw, err := NewSenderWrapper(tr, in)
+			return csw, err
+		},
+	)
+}
+
+// New produces a new CaduceusSenderWrapper
+// based on the SenderConfig
+func NewSenderWrapper(tr http.RoundTripper, in CaduceusSenderWrapperIn) (csw *CaduceusSenderWrapper, err error) {
+	csw = &CaduceusSenderWrapper{
+		numWorkersPerSender: in.SenderConfig.NumWorkersPerSender,
+		queueSizePerSender:  in.SenderConfig.QueueSizePerSender,
+		deliveryRetries:     in.SenderConfig.DeliveryRetries,
+		deliveryInterval:    in.SenderConfig.DeliveryInterval,
+		cutOffPeriod:        in.SenderConfig.CutOffPeriod,
+		linger:              in.SenderConfig.Linger,
+		logger:              in.Logger,
+		customPIDs:          in.SenderConfig.CustomPIDs,
+		disablePartnerIDs:   in.SenderConfig.DisablePartnerIDs,
+		eventType:           in.WrapperMetrics.EventType,
+		queryLatency:        in.WrapperMetrics.QueryLatency,
 	}
 
-	if swf.Linger <= 0 {
-		err = errors.New("Linger must be positive.")
-		sw = nil
+	csw.outbounderSetUp.Config = in.SenderConfig
+	csw.outbounderSetUp.Logger = in.Logger
+	csw.outbounderSetUp.Metrics = in.OutbounderMetrics
+	csw.sender = doerFunc((&http.Client{
+		Transport: tr,
+		Timeout:   in.SenderConfig.ClientTimeout,
+	}).Do)
+
+	if in.SenderConfig.Linger <= 0 {
+		err = errors.New("linger must be positive")
+		csw = nil
 		return
 	}
 
-	caduceusSenderWrapper.queryLatency = NewMetricWrapperMeasures(swf.MetricsRegistry)
-	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
+	csw.senders = make(map[string]OutboundSender)
+	csw.shutdown = make(chan struct{})
 
-	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
-	caduceusSenderWrapper.shutdown = make(chan struct{})
+	csw.wg.Add(1)
+	go undertaker(csw)
 
-	caduceusSenderWrapper.wg.Add(1)
-	go undertaker(caduceusSenderWrapper)
-
-	sw = caduceusSenderWrapper
 	return
 }
 
-//Commenting out while until ancla/argus dependency issue is fixed.
+func NewRoundTripper(config SenderConfig, tracing candlelight.Tracing) (tr http.RoundTripper) {
+	tr = &http.Transport{
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: config.DisableClientHostnameValidation},
+		MaxIdleConnsPerHost:   config.NumWorkersPerSender,
+		ResponseHeaderTimeout: config.ResponseHeaderTimeout,
+		IdleConnTimeout:       config.IdleConnTimeout,
+	}
+
+	tr = otelhttp.NewTransport(tr,
+		otelhttp.WithPropagators(tracing.Propagator()),
+		otelhttp.WithTracerProvider(tracing.TracerProvider()),
+	)
+	return
+}
+
+// Commenting out while until ancla/argus dependency issue is fixed.
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-// func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
-// 	// We'll like need this, so let's get one ready
-// 	osf := OutboundSenderFactory{
-// 		Sender:            sw.sender,
-// 		CutOffPeriod:      sw.cutOffPeriod,
-// 		NumWorkers:        sw.numWorkersPerSender,
-// 		QueueSize:         sw.queueSizePerSender,
-// 		MetricsRegistry:   sw.metricsRegistry,
-// 		DeliveryRetries:   sw.deliveryRetries,
-// 		DeliveryInterval:  sw.deliveryInterval,
-// 		Logger:            sw.logger,
-// 		CustomPIDs:        sw.customPIDs,
-// 		DisablePartnerIDs: sw.disablePartnerIDs,
-// 		QueryLatency:      sw.queryLatency,
-// 	}
+func (sw *CaduceusSenderWrapper) Update(list []ListenerStub) {
 
-// 	ids := make([]struct {
-// 		Listener ancla.InternalWebhook
-// 		ID       string
-// 	}, len(list))
+	ids := make([]struct {
+		Listener ListenerStub
+		ID       string
+	}, len(list))
 
-// 	for i, v := range list {
-// 		ids[i].Listener = v
-// 		ids[i].ID = v.Webhook.Config.URL
-// 	}
+	for i, v := range list {
+		ids[i].Listener = v
+		ids[i].ID = v.Webhook.Config.URL
+	}
 
-// 	sw.mutex.Lock()
-// 	defer sw.mutex.Unlock()
+	sw.mutex.Lock()
+	defer sw.mutex.Unlock()
 
-// 	for _, inValue := range ids {
-// 		sender, ok := sw.senders[inValue.ID]
-// 		if !ok {
-// 			osf.Listener = inValue.Listener
-// 			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
+	for _, inValue := range ids {
+		sender, ok := sw.senders[inValue.ID]
+		if !ok {
+			osf := sw.outbounderSetUp
+			osf.Sender = sw.sender
+			osf.Listener = inValue.Listener
+			metricWrapper, err := newMetricWrapper(time.Now, sw.queryLatency, inValue.ID)
 
-// 			if err != nil {
-// 				continue
-// 			}
-// 			osf.ClientMiddleware = metricWrapper.roundTripper
-// 			obs, err := osf.New()
-// 			if nil == err {
-// 				sw.senders[inValue.ID] = obs
-// 			}
-// 			continue
-// 		}
-// 		sender.Update(inValue.Listener)
-// 	}
-// }
+			if err != nil {
+				continue
+			}
+			osf.ClientMiddleware = metricWrapper.roundTripper
+			obs, err := osf.New()
+			if nil == err {
+				sw.senders[inValue.ID] = obs
+			}
+			continue
+		}
+		fmt.Println(sender)
+		// sender.Update(inValue.Listener) //commenting out until argus/ancla fix
+	}
+}
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
@@ -177,7 +198,7 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
 	defer sw.mutex.RUnlock()
 
-	sw.eventType.With("event", msg.FindEventStringSubMatch()).Add(1)
+	sw.eventType.With(prometheus.Labels{"event": msg.FindEventStringSubMatch()}).Add(1)
 
 	for _, v := range sw.senders {
 		v.Queue(msg)

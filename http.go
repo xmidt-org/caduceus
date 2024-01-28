@@ -21,8 +21,9 @@ import (
 
 type ServerHandlerIn struct {
 	fx.In
-	Logger    *zap.Logger
-	Telemetry *HandlerTelemetry
+	CaduceusSenderWrapper *CaduceusSenderWrapper
+	Logger                *zap.Logger
+	Telemetry             *HandlerTelemetry
 }
 
 type ServerHandlerOut struct {
@@ -32,8 +33,8 @@ type ServerHandlerOut struct {
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	log *zap.Logger
-	// caduceusHandler RequestHandler
+	log                *zap.Logger
+	caduceusHandler    RequestHandler
 	telemetry          *HandlerTelemetry
 	incomingQueueDepth int64
 	maxOutstanding     int64
@@ -138,7 +139,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	}
 	eventType = msg.FindEventStringSubMatch()
 
-	// sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
+	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
@@ -180,8 +181,8 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	return msg
 }
 
-var HandlerModule = fx.Module("server",
-	fx.Provide(
+func ProvideHandler() fx.Option {
+	return fx.Provide(
 		func(in HandlerTelemetryIn) *HandlerTelemetry {
 			return &HandlerTelemetry{
 				errorRequests:            in.ErrorRequests,
@@ -191,20 +192,22 @@ var HandlerModule = fx.Module("server",
 				modifiedWRPCount:         in.ModifiedWRPCount,
 				incomingQueueLatency:     in.IncomingQueueLatency,
 			}
-		}),
-	fx.Provide(
+		},
 		func(in ServerHandlerIn) (ServerHandlerOut, error) {
 			//Hard coding maxOutstanding and incomingQueueDepth for now
-			handler, err := New(in.Logger, in.Telemetry, 0.0, 0.0)
+			handler, err := New(in.CaduceusSenderWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
 			return ServerHandlerOut{
 				Handler: handler,
 			}, err
 		},
-	),
-)
-
-func New(log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+	)
+}
+func New(senderWrapper *CaduceusSenderWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
+		caduceusHandler: &CaduceusHandler{
+			senderWrapper: senderWrapper,
+			Logger:        log,
+		},
 		log:                log,
 		telemetry:          t,
 		maxOutstanding:     maxOutstanding,
