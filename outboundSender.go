@@ -578,7 +578,11 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	// find the event "short name"
 	event := msg.FindEventStringSubMatch()
 
-	//TODO: are we no longer tracking --> Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event)?
+	/*TODO: need middleware for:
+	Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event)
+	Logger
+	Update Request
+	*/
 	retryConfig := retry.Config{
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,

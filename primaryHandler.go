@@ -212,8 +212,8 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain,
 		}
 		m := basculehelper.MetricValidator{
 			C:         basculehelper.CapabilitiesValidator{Checker: c},
-			// Measures:  capabilityCheckMeasures,
 			Endpoints: endpoints,
+			// Measures:  capabilityCheckMeasures,
 		}
 		bearerRules = append(bearerRules, m.CreateValidator(capabilityCheck.Type == "enforce"))
 	}
@@ -227,7 +227,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain,
 		// basculehttp.WithEErrorResponseFunc(listener.OnErrorResponse),
 	)
 
-	authChain := alice.New(setLogger(logger), authConstructor, authEnforcer) //removing: basculehttp.NewListenerDecorator(listener). commenting for now in case needed later
+	authChain := alice.New(setLogger(logger), authConstructor, authEnforcer)             //removing: basculehttp.NewListenerDecorator(listener). commenting for now in case needed later
 	authChainLegacy := alice.New(setLogger(logger), authConstructorLegacy, authEnforcer) //removing: basculehttp.NewListenerDecorator(listener) commenting for now in case needed later
 
 	versionCompatibleAuth := alice.New(func(next http.Handler) http.Handler {
