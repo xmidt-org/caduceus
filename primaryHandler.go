@@ -211,9 +211,9 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain,
 			endpoints = append(endpoints, r)
 		}
 		m := basculehelper.MetricValidator{
-			C: basculehelper.CapabilitiesValidator{Checker: c},
-			// Measures:  capabilityCheckMeasures,
+			C:         basculehelper.CapabilitiesValidator{Checker: c},
 			Endpoints: endpoints,
+			// Measures:  capabilityCheckMeasures,
 		}
 		bearerRules = append(bearerRules, m.CreateValidator(capabilityCheck.Type == "enforce"))
 	}

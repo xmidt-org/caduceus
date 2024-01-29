@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,12 +20,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/xmidt-org/httpaux/retry"
 	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
-	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
@@ -579,33 +578,20 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	// find the event "short name"
 	event := msg.FindEventStringSubMatch()
 
-	//TODO: do this need to be replaced by the retry repo?
-	retryOptions := xhttp.RetryOptions{
-		Logger:   obs.logger,
+	/*TODO: need middleware for:
+	Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event)
+	Logger
+	Update Request
+	*/
+	retryConfig := retry.Config{
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
-		// Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event), //webpa retry does not accept prometheus metrics
-		// Always retry on failures up to the max count.
-		ShouldRetry:       xhttp.ShouldRetry,
-		ShouldRetryStatus: xhttp.RetryCodes,
-	}
-
-	// update subsequent requests with the next url in the list upon failure
-	retryOptions.UpdateRequest = func(request *http.Request) {
-		urls = urls.Next()
-		tmp, err := url.Parse(urls.Value.(string))
-		if err != nil {
-			obs.logger.Error("failed to update url", zap.String("url", urls.Value.(string)), zap.Error(err))
-			return
-		}
-		request.URL = tmp
 	}
 
 	// Send it
 	obs.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 
-	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
-	client := obs.clientMiddleware(doerFunc(retryer))
+	client := retry.New(retryConfig, obs.clientMiddleware(obs.sender))
 	resp, err := client.Do(req)
 
 	code := "failure"
