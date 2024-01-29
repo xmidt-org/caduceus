@@ -180,5 +180,3 @@ func ProvideSenderMetrics() fx.Option {
 		},
 	)
 }
-
-
