@@ -53,7 +53,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.5.0 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/goschtalt/approx v1.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -79,7 +78,6 @@ require (
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/segmentio/ksuid v1.0.4 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect

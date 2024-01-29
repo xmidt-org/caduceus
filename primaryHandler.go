@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,20 +17,16 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/clortho"
-	"github.com/xmidt-org/clortho/clorthometrics"
 	"github.com/xmidt-org/clortho/clorthozap"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
 
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/zap"
 )
 
@@ -59,8 +54,8 @@ type JWTValidator struct {
 	Leeway bascule.Leeway
 }
 
-func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
-	auth, err := authenticationMiddleware(v, l, registry)
+func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, sw *ServerHandler, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
+	auth, err := authenticationMiddleware(v, l)
 	if err != nil {
 		// nolint:errorlint
 		return nil, fmt.Errorf("unable to build authentication middleware: %v", err)
@@ -79,14 +74,11 @@ func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry
 }
 
 // authenticationMiddleware configures the authorization requirements for requests to reach the main handler
-func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetrics.Registry) (*alice.Chain, error) {
-	if registry == nil {
-		return nil, errors.New("nil registry")
-	}
+func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain, error) {
 
-	basculeMeasures := basculehelper.NewAuthValidationMeasures(registry)
-	capabilityCheckMeasures := basculehelper.NewAuthCapabilityCheckMeasures(registry)
-	listener := basculehelper.NewMetricListener(basculeMeasures)
+	// basculeMeasures := basculehelper.NewAuthValidationMeasures(registry)
+	// capabilityCheckMeasures := basculehelper.NewAuthCapabilityCheckMeasures(registry)
+	// listener := basculehelper.NewMetricListener(basculeMeasures)
 
 	basicAllowed := make(map[string]string)
 	basicAuth := v.GetStringSlice("authHeader")
@@ -107,7 +99,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 
 	options := []basculehttp.COption{
 		basculehttp.WithCLogger(getLogger),
-		basculehttp.WithCErrorResponseFunc(listener.OnErrorResponse),
+		// basculehttp.WithCErrorResponseFunc(listener.OnErrorResponse),
 	}
 	if len(basicAllowed) > 0 {
 		options = append(options, basculehttp.WithTokenFactory("Basic", basculehttp.BasicTokenFactory(basicAllowed)))
@@ -141,11 +133,6 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 		return &alice.Chain{}, emperror.With(err, "failed to create clortho resolver")
 	}
 
-	promReg, ok := registry.(prometheus.Registerer)
-	if !ok {
-		return &alice.Chain{}, errors.New("failed to get prometheus registerer")
-	}
-
 	var (
 		tsConfig touchstone.Config
 		zConfig  sallust.Config
@@ -154,12 +141,12 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 	v.UnmarshalKey("touchstone", &tsConfig)
 	v.UnmarshalKey("zap", &zConfig)
 	zlogger := zap.Must(zConfig.Build())
-	tf := touchstone.NewFactory(tsConfig, zlogger, promReg)
+	// tf := touchstone.NewFactory(tsConfig, zlogger, promReg)
 	// Instantiate a metric listener for refresher and resolver to share
-	cml, err := clorthometrics.NewListener(clorthometrics.WithFactory(tf))
-	if err != nil {
-		return &alice.Chain{}, emperror.With(err, "failed to create clortho metrics listener")
-	}
+	// cml, err := clorthometrics.NewListener(clorthometrics.WithFactory(tf))
+	// if err != nil {
+	// 	return &alice.Chain{}, emperror.With(err, "failed to create clortho metrics listener")
+	// }
 
 	// Instantiate a logging listener for refresher and resolver to share
 	czl, err := clorthozap.NewListener(
@@ -169,9 +156,9 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 		return &alice.Chain{}, emperror.With(err, "failed to create clortho zap logger listener")
 	}
 
-	resolver.AddListener(cml)
+	// resolver.AddListener(cml)
 	resolver.AddListener(czl)
-	ref.AddListener(cml)
+	// ref.AddListener(cml)
 	ref.AddListener(czl)
 	ref.AddListener(kr)
 	// context.Background() is for the unused `context.Context` argument in refresher.Start
@@ -225,8 +212,8 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 		}
 		m := basculehelper.MetricValidator{
 			C:         basculehelper.CapabilitiesValidator{Checker: c},
-			Measures:  capabilityCheckMeasures,
 			Endpoints: endpoints,
+			// Measures:  capabilityCheckMeasures,
 		}
 		bearerRules = append(bearerRules, m.CreateValidator(capabilityCheck.Type == "enforce"))
 	}
@@ -237,11 +224,11 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 			basculechecks.AllowAll(),
 		}),
 		basculehttp.WithRules("Bearer", bearerRules),
-		basculehttp.WithEErrorResponseFunc(listener.OnErrorResponse),
+		// basculehttp.WithEErrorResponseFunc(listener.OnErrorResponse),
 	)
 
-	authChain := alice.New(setLogger(logger), authConstructor, authEnforcer, basculehttp.NewListenerDecorator(listener))
-	authChainLegacy := alice.New(setLogger(logger), authConstructorLegacy, authEnforcer, basculehttp.NewListenerDecorator(listener))
+	authChain := alice.New(setLogger(logger), authConstructor, authEnforcer)             //removing: basculehttp.NewListenerDecorator(listener). commenting for now in case needed later
+	authChainLegacy := alice.New(setLogger(logger), authConstructorLegacy, authEnforcer) //removing: basculehttp.NewListenerDecorator(listener) commenting for now in case needed later
 
 	versionCompatibleAuth := alice.New(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(r http.ResponseWriter, req *http.Request) {

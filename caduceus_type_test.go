@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/adapter"
+	"go.uber.org/zap/zaptest"
+
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
 func TestCaduceusHandler(t *testing.T) {
-	logger := adapter.DefaultLogger().Logger
+	logger := zaptest.NewLogger(t)
 
 	fakeSenderWrapper := new(mockSenderWrapper)
 	fakeSenderWrapper.On("Queue", mock.AnythingOfType("*wrp.Message")).Return().Once()
