@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,11 +21,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xmidt-org/httpaux/retry"
 	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/xmidt-org/retry"
+	"github.com/xmidt-org/retry/retryhttp"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
@@ -92,7 +94,7 @@ type CaduceusOutboundSender struct {
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
 	deliveryCounter                  prometheus.CounterVec
-	deliveryRetryCounter             prometheus.Counter
+	deliveryRetryCounter             *prometheus.CounterVec
 	droppedQueueFullCounter          prometheus.Counter
 	droppedCutoffCounter             prometheus.Counter
 	droppedExpiredCounter            prometheus.Counter
@@ -578,20 +580,13 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	// find the event "short name"
 	event := msg.FindEventStringSubMatch()
 
-	/*TODO: need middleware for:
-	Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event)
-	Logger
-	Update Request
-	*/
-	retryConfig := retry.Config{
-		Retries:  obs.deliveryRetries,
-		Interval: obs.deliveryInterval,
-	}
-
 	// Send it
 	obs.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-
-	client := retry.New(retryConfig, obs.clientMiddleware(obs.sender))
+	client, _ := retryhttp.NewClient(
+		retryhttp.WithHTTPClient(obs.clientMiddleware(obs.sender)),
+		retryhttp.WithRunner(obs.addRunner(req, event)),
+		retryhttp.WithRequesters(obs.updateRequest(urls)),
+	)
 	resp, err := client.Do(req)
 
 	code := "failure"
@@ -690,8 +685,43 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 }
 
+func (obs *CaduceusOutboundSender) addRunner(request *http.Request, event string) retry.Runner[*http.Response] {
+	//TODO: need to handle error
+	runner, _ := retry.NewRunner[*http.Response](
+		retry.WithPolicyFactory[*http.Response](retry.Config{
+			Interval:   obs.deliveryInterval,
+			MaxRetries: obs.deliveryRetries,
+		}),
+		retry.WithOnAttempt[*http.Response](obs.onAttempt(request, event)),
+	)
+	return runner
+
+}
+
+func (obs *CaduceusOutboundSender) updateRequest(urls *ring.Ring) func(*http.Request) *http.Request {
+	return func(request *http.Request) *http.Request {
+		urls = urls.Next()
+		tmp, err := url.Parse(urls.Value.(string))
+		if err != nil {
+			obs.logger.Error("failed to update url", zap.String(UrlLabel, urls.Value.(string)), zap.Error(err))
+		}
+		request.URL = tmp
+		return request
+	}
+}
+
+func (obs *CaduceusOutboundSender) onAttempt(request *http.Request, event string) retry.OnAttempt[*http.Response] {
+
+	return func(attempt retry.Attempt[*http.Response]) {
+		obs.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: obs.id, EventLabel: event}).Add(1.0)
+		obs.logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
+
+	}
+
+}
+
 func CreateOutbounderMetrics(m OutboundSenderMetrics, c *CaduceusOutboundSender) {
-	c.deliveryRetryCounter = m.DeliveryRetryCounter.With(prometheus.Labels{UrlLabel: c.id})
+	c.deliveryRetryCounter = m.DeliveryRetryCounter
 	c.deliveryRetryMaxGauge = m.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: c.id})
 	c.cutOffCounter = m.CutOffCounter.With(prometheus.Labels{UrlLabel: c.id})
 	c.droppedQueueFullCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "queue_full"})
