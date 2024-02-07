@@ -127,7 +127,6 @@ func NewSenderWrapper(tr http.RoundTripper, in CaduceusSenderWrapperIn) (csw *Ca
 		csw = nil
 		return
 	}
-
 	csw.senders = make(map[string]OutboundSender)
 	csw.shutdown = make(chan struct{})
 
@@ -165,7 +164,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ListenerStub) {
 
 	for i, v := range list {
 		ids[i].Listener = v
-		ids[i].ID = v.Webhook.Config.URL
+		ids[i].ID = v.Webhook.Config.ReceiverURL
 	}
 
 	sw.mutex.Lock()

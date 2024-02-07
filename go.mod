@@ -25,6 +25,7 @@ require (
 	github.com/xmidt-org/retry v0.0.3
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.3
+	github.com/xmidt-org/webhook-schema v0.1.0
 	github.com/xmidt-org/webpa-common/v2 v2.2.2
 	github.com/xmidt-org/wrp-go/v3 v3.2.3
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.46.1
@@ -87,6 +88,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/xmidt-org/chronon v0.1.1 // indirect
+	github.com/xmidt-org/urlegit v0.1.0 // indirect
 	go.opentelemetry.io/otel v1.21.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.21.0 // indirect

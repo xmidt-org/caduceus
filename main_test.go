@@ -77,7 +77,7 @@ func Test_caduceus(t *testing.T) {
 			panic:       true,
 		}, {
 			description: "do everything but run",
-			args:        []string{"-f", "minimal.yaml"},
+			args:        []string{"-f", "caduceus.yaml"},
 		},
 	}
 	for _, tc := range tests {

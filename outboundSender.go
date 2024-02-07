@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -42,11 +43,11 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text string `json:"text"`
-	// Original     ancla.InternalWebhook `json:"webhook_registration"` //TODO: add back in once ancla/argus dependency issue is fixed.
-	CutOffPeriod string `json:"cut_off_period"`
-	QueueSize    int    `json:"queue_size"`
-	Workers      int    `json:"worker_count"`
+	Text         string       `json:"text"`
+	Original     ListenerStub `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
+	CutOffPeriod string       `json:"cut_off_period"`
+	QueueSize    int          `json:"queue_size"`
+	Workers      int          `json:"worker_count"`
 }
 
 type OutboundSender interface {
@@ -82,9 +83,9 @@ type OutboundSenderMetrics struct {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	id   string
-	urls *ring.Ring
-	// listener                         ancla.InternalWebhook //TODO: add back in once ancla/argus dependency issue is fixed
+	id                               string
+	urls                             *ring.Ring
+	listener                         ListenerStub
 	deliverUntil                     time.Time
 	dropUntil                        time.Time
 	sender                           httpClient
@@ -152,7 +153,7 @@ func (osf *OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
 		// id:               osf.Listener.Webhook.Config.URL,
-		// listener:         osf.Listener,
+		listener:     osf.Listener,
 		sender:       osf.Sender,
 		queueSize:    osf.Config.QueueSizePerSender,
 		cutOffPeriod: osf.Config.CutOffPeriod,
@@ -162,7 +163,7 @@ func (osf *OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		deliveryInterval: osf.Config.DeliveryInterval,
 		maxWorkers:       osf.Config.NumWorkersPerSender,
 		failureMsg: FailureMessage{
-			// Original:     osf.Listener,
+			Original:     osf.Listener,
 			Text:         failureText,
 			CutOffPeriod: osf.Config.CutOffPeriod.String(),
 			QueueSize:    osf.Config.QueueSizePerSender,
@@ -199,111 +200,111 @@ func (osf *OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
-//TODO: commenting out for now until argus/ancla dependency issue is fixed
-// func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) {
+// TODO: commenting out for now until argus/ancla dependency issue is fixed
+func (obs *CaduceusOutboundSender) Update(wh ListenerStub) (err error) {
 
-// 	// Validate the failure URL, if present
-// 	if "" != wh.Webhook.FailureURL {
-// 		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); nil != err {
-// 			return
-// 		}
-// 	}
+	// Validate the failure URL, if present
+	if wh.Webhook.FailureURL != "" {
+		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); nil != err {
+			return
+		}
+	}
 
-// 	// Create and validate the event regex objects
-// 	// nolint:prealloc
-// 	var events []*regexp.Regexp
-// 	for _, event := range wh.Webhook.Events {
-// 		var re *regexp.Regexp
-// 		if re, err = regexp.Compile(event); nil != err {
-// 			return
-// 		}
+	// Create and validate the event regex objects
+	// nolint:prealloc
+	var events []*regexp.Regexp
+	for _, event := range wh.Webhook.Events {
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); nil != err {
+			return
+		}
 
-// 		events = append(events, re)
-// 	}
-// 	if len(events) < 1 {
-// 		err = errors.New("events must not be empty.")
-// 		return
-// 	}
+		events = append(events, re)
+	}
+	if len(events) < 1 {
+		err = errors.New("events must not be empty.")
+		return
+	}
 
-// 	// Create the matcher regex objects
-// 	matcher := []*regexp.Regexp{}
-// 	for _, item := range wh.Webhook.Matcher.DeviceID {
-// 		if ".*" == item {
-// 			// Match everything - skip the filtering
-// 			matcher = []*regexp.Regexp{}
-// 			break
-// 		}
+	// Create the matcher regex objects
+	matcher := []*regexp.Regexp{}
+	for _, item := range wh.Webhook.Matcher.DeviceID {
+		if ".*" == item {
+			// Match everything - skip the filtering
+			matcher = []*regexp.Regexp{}
+			break
+		}
 
-// 		var re *regexp.Regexp
-// 		if re, err = regexp.Compile(item); nil != err {
-// 			err = fmt.Errorf("invalid matcher item: '%s'", item)
-// 			return
-// 		}
-// 		matcher = append(matcher, re)
-// 	}
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("invalid matcher item: '%s'", item)
+			return
+		}
+		matcher = append(matcher, re)
+	}
 
-// 	// Validate the various urls
-// 	urlCount := len(wh.Webhook.Config.AlternativeURLs)
-// 	for i := 0; i < urlCount; i++ {
-// 		_, err = url.Parse(wh.Webhook.Config.AlternativeURLs[i])
-// 		if err != nil {
-// 			obs.logger.Error("failed to update url", zap.Any("url", wh.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
-// 			return
-// 		}
-// 	}
+	// Validate the various urls
+	urlCount := len(wh.Webhook.Config.AlternativeURLs)
+	for i := 0; i < urlCount; i++ {
+		_, err = url.Parse(wh.Webhook.Config.AlternativeURLs[i])
+		if err != nil {
+			obs.logger.Error("failed to update url", zap.Any("url", wh.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
+			return
+		}
+	}
 
-// 	obs.renewalTimeGauge.Set(float64(time.Now().Unix()))
+	obs.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
-// 	// write/update obs
-// 	obs.mutex.Lock()
+	// write/update obs
+	obs.mutex.Lock()
 
-// 	obs.listener = wh
+	obs.listener = wh
 
-// 	obs.failureMsg.Original = wh
-// 	// Don't share the secret with others when there is an error.
-// 	obs.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	obs.failureMsg.Original = wh
+	// Don't share the secret with others when there is an error.
+	obs.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-// 	obs.listener.Webhook.FailureURL = wh.Webhook.FailureURL
-// 	obs.deliverUntil = wh.Webhook.Until
-// 	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+	obs.listener.Webhook.FailureURL = wh.Webhook.FailureURL
+	obs.deliverUntil = wh.Webhook.Until
+	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
 
-// 	obs.events = events
+	obs.events = events
 
-// 	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
+	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
 
-// 	// if matcher list is empty set it nil for Queue() logic
-// 	obs.matcher = nil
-// 	if 0 < len(matcher) {
-// 		obs.matcher = matcher
-// 	}
+	// if matcher list is empty set it nil for Queue() logic
+	obs.matcher = nil
+	if 0 < len(matcher) {
+		obs.matcher = matcher
+	}
 
-// 	if 0 == urlCount {
-// 		obs.urls = ring.New(1)
-// 		obs.urls.Value = obs.id
-// 	} else {
-// 		r := ring.New(urlCount)
-// 		for i := 0; i < urlCount; i++ {
-// 			r.Value = wh.Webhook.Config.AlternativeURLs[i]
-// 			r = r.Next()
-// 		}
-// 		obs.urls = r
-// 	}
+	if 0 == urlCount {
+		obs.urls = ring.New(1)
+		obs.urls.Value = obs.id
+	} else {
+		r := ring.New(urlCount)
+		for i := 0; i < urlCount; i++ {
+			r.Value = wh.Webhook.Config.AlternativeURLs[i]
+			r = r.Next()
+		}
+		obs.urls = r
+	}
 
-// 	// Randomize where we start so all the instances don't synchronize
-// 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-// 	offset := r.Intn(obs.urls.Len())
-// 	for 0 < offset {
-// 		obs.urls = obs.urls.Next()
-// 		offset--
-// 	}
+	// Randomize where we start so all the instances don't synchronize
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	offset := r.Intn(obs.urls.Len())
+	for 0 < offset {
+		obs.urls = obs.urls.Next()
+		offset--
+	}
 
-// 	// Update this here in case we make this configurable later
-// 	obs.maxWorkersGauge.Set(float64(obs.maxWorkers))
+	// Update this here in case we make this configurable later
+	obs.maxWorkersGauge.Set(float64(obs.maxWorkers))
 
-// 	obs.mutex.Unlock()
+	obs.mutex.Unlock()
 
-// 	return
-// }
+	return
+}
 
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
@@ -713,8 +714,10 @@ func (obs *CaduceusOutboundSender) updateRequest(urls *ring.Ring) func(*http.Req
 func (obs *CaduceusOutboundSender) onAttempt(request *http.Request, event string) retry.OnAttempt[*http.Response] {
 
 	return func(attempt retry.Attempt[*http.Response]) {
-		obs.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: obs.id, EventLabel: event}).Add(1.0)
-		obs.logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
+		if attempt.Retries > 0 {
+			obs.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: obs.id, EventLabel: event}).Add(1.0)
+			obs.logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
+		}
 
 	}
 
