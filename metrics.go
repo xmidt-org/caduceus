@@ -153,10 +153,10 @@ func ProvideMetrics() fx.Option {
 	)
 }
 
-func ProvideSenderMetrics() fx.Option {
+func ProvideSinkMetrics() fx.Option {
 	return fx.Provide(
-		func(in SenderMetricsIn) (SenderWrapperMetrics, OutboundSenderMetrics) {
-			outbounderMetrics := OutboundSenderMetrics{
+		func(in SenderMetricsIn) (SinkWrapperMetrics, SinkSenderMetrics) {
+			senderMetrics := SinkSenderMetrics{
 				DeliveryCounter:                 in.DeliveryCounter,
 				DeliveryRetryCounter:            in.DeliveryRetryCounter,
 				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
@@ -170,12 +170,12 @@ func ProvideSenderMetrics() fx.Option {
 				OutgoingQueueDepth:              in.OutgoingQueueDepth,
 				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
 			}
-			wrapperMetrics := SenderWrapperMetrics{
+			wrapperMetrics := SinkWrapperMetrics{
 				QueryLatency: in.QueryLatency,
 				EventType:    in.EventType,
 			}
 
-			return wrapperMetrics, outbounderMetrics
+			return wrapperMetrics, senderMetrics
 		},
 	)
 }

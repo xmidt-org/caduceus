@@ -20,9 +20,9 @@ import (
 
 type ServerHandlerIn struct {
 	fx.In
-	CaduceusSenderWrapper *CaduceusSenderWrapper
-	Logger                *zap.Logger
-	Telemetry             *HandlerTelemetry
+	SinkWrapper *SinkWrapper
+	Logger      *zap.Logger
+	Telemetry   *HandlerTelemetry
 }
 
 type ServerHandlerOut struct {
@@ -189,18 +189,18 @@ func ProvideHandler() fx.Option {
 		},
 		func(in ServerHandlerIn) (ServerHandlerOut, error) {
 			//Hard coding maxOutstanding and incomingQueueDepth for now
-			handler, err := New(in.CaduceusSenderWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
+			handler, err := New(in.SinkWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
 			return ServerHandlerOut{
 				Handler: handler,
 			}, err
 		},
 	)
 }
-func New(senderWrapper *CaduceusSenderWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+func New(sw *SinkWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
 		caduceusHandler: &CaduceusHandler{
-			senderWrapper: senderWrapper,
-			Logger:        log,
+			wrapper: sw,
+			Logger:      log,
 		},
 		telemetry:          t,
 		maxOutstanding:     maxOutstanding,

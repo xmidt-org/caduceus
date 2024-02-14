@@ -16,11 +16,7 @@ var (
 	errNilHistogram = errors.New("histogram cannot be nil")
 )
 
-type httpClient interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-func nopHTTPClient(next httpClient) httpClient {
+func nopHTTPClient(next Client) Client {
 	return next
 }
 
@@ -51,7 +47,7 @@ func newMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec,
 	}, nil
 }
 
-func (m *metricWrapper) roundTripper(next httpClient) httpClient {
+func (m *metricWrapper) roundTripper(next Client) Client {
 	return doerFunc(func(req *http.Request) (*http.Response, error) {
 		startTime := m.now()
 		resp, err := next.Do(req)

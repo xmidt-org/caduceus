@@ -41,11 +41,11 @@ type RequestHandler interface {
 }
 
 type CaduceusHandler struct {
-	senderWrapper SenderWrapper
+	wrapper Wrapper
 	*zap.Logger
 }
 
 func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
 	ch.Logger.Info("Worker received a request, now passing to sender", zap.Int("workerId", workerID))
-	ch.senderWrapper.Queue(msg)
+	ch.wrapper.Queue(msg)
 }

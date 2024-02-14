@@ -4,7 +4,9 @@ package main
 
 import (
 	"time"
+	"unicode/utf8"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -45,4 +47,25 @@ func mockTime(one, two time.Time) func() time.Time {
 		called = true
 		return one
 	}
+}
+
+type mockCounter struct {
+	mock.Mock
+}
+
+func (m *mockCounter) Add(delta float64) {
+	m.Called(delta)
+}
+
+func (m *mockCounter) Inc (){
+	m.Called(1)
+}
+func (m *mockCounter) With(labelValues ...string) prometheus.Counter {
+	for _, v := range labelValues {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+	}
+	args := m.Called(labelValues)
+	return args.Get(0).(prometheus.Counter)
 }

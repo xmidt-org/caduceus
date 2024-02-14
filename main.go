@@ -136,11 +136,11 @@ func caduceus(arguments []string, run bool) error {
 		arrangehttp.ProvideServer("servers.alternate"),
 
 		ProvideHandler(),
-		ProvideSenderWrapper(),
+		ProvideWrapper(),
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		ProvideMetrics(),
-		ProvideSenderMetrics(),
+		ProvideSinkMetrics(),
 		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
 
 	)

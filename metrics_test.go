@@ -36,7 +36,7 @@ func TestMetrics(t *testing.T) {
 func TestProvideSenderMetrics(t *testing.T) {
 	assert := assert.New(t)
 
-	m := ProvideSenderMetrics()
+	m := ProvideSinkMetrics()
 
 	assert.NotNil(m)
 }

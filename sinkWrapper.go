@@ -18,47 +18,31 @@ import (
 	"go.uber.org/zap"
 )
 
-// SenderWrapperFactory configures the CaduceusSenderWrapper for creation
-type CaduceusSenderWrapperIn struct {
+// WrapperIn configures the Wrapper for creation
+type SinkWrapperIn struct {
 	fx.In
 
-	Tracing           candlelight.Tracing
-	SenderConfig      SenderConfig
-	WrapperMetrics    SenderWrapperMetrics
-	OutbounderMetrics OutboundSenderMetrics
-	Logger            *zap.Logger
+	Tracing        candlelight.Tracing
+	SenderConfig   SenderConfig
+	WrapperMetrics SinkWrapperMetrics
+	SenderMetrics  SinkSenderMetrics
+	Logger         *zap.Logger
 }
 
-type SenderWrapperMetrics struct {
+type SinkWrapperMetrics struct {
 	QueryLatency prometheus.ObserverVec
 	EventType    *prometheus.CounterVec
 }
 
-type SenderWrapper interface {
+// SinkWrapper interface is needed for unit testing.
+type Wrapper interface {
 	// Update([]ancla.InternalWebhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
 
-// CaduceusSenderWrapper contains no external parameters.
-type CaduceusSenderWrapper struct {
-	// The http client Do() function to share with OutboundSenders.
-	sender httpClient
-	// The number of workers to assign to each OutboundSender created.
-	numWorkersPerSender int
-
-	// The queue size to assign to each OutboundSender created.
-	queueSizePerSender int
-
-	// Number of delivery retries before giving up
-	deliveryRetries int
-
-	// Time in between delivery retries
-	deliveryInterval time.Duration
-
-	// The cut off time to assign to each OutboundSender created.
-	cutOffPeriod time.Duration
-
+// Wrapper contains the configuration that will be shared with each outbound sender. It contains no external parameters.
+type SinkWrapper struct {
 	// The amount of time to let expired OutboundSenders linger before
 	// shutting them down and cleaning up the resources associated with them.
 	linger time.Duration
@@ -66,76 +50,54 @@ type CaduceusSenderWrapper struct {
 	// The logger implementation to share with OutboundSenders.
 	logger *zap.Logger
 
-	mutex        *sync.RWMutex
-	senders      map[string]OutboundSender
-	eventType    *prometheus.CounterVec
-	queryLatency prometheus.ObserverVec
-	wg           sync.WaitGroup
-	shutdown     chan struct{}
-
-	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
-	// has no partner IDs.
-	customPIDs []string
-
-	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
-	disablePartnerIDs bool
-	outbounderSetUp   *OutboundSenderFactory
+	mutex            *sync.RWMutex
+	senders          map[string]Sender
+	eventType        *prometheus.CounterVec
+	queryLatency     prometheus.ObserverVec
+	wg               sync.WaitGroup
+	shutdown         chan struct{}
+	config           SenderConfig
+	metrics          SinkSenderMetrics
+	client           Client              //should this be a part of wrapper or sender?
+	listener         ListenerStub        //should this be a part of wrapper or sender?
+	clientMiddleware func(Client) Client //should this be a part of wrapper or sender?
 }
 
-func ProvideSenderWrapper() fx.Option {
+func ProvideWrapper() fx.Option {
 	return fx.Provide(
-		func(in CaduceusSenderWrapperIn) http.RoundTripper {
-			return NewRoundTripper(in.SenderConfig, in.Tracing)
-		},
-		func(tr http.RoundTripper, in CaduceusSenderWrapperIn) (*CaduceusSenderWrapper, error) {
-			csw, err := NewSenderWrapper(tr, in)
+		func(in SinkWrapperIn) (*SinkWrapper, error) {
+			csw, err := NewSinkWrapper(in)
 			return csw, err
 		},
 	)
 }
 
-// New produces a new CaduceusSenderWrapper
-// based on the SenderConfig
-func NewSenderWrapper(tr http.RoundTripper, in CaduceusSenderWrapperIn) (csw *CaduceusSenderWrapper, err error) {
-	csw = &CaduceusSenderWrapper{
-		numWorkersPerSender: in.SenderConfig.NumWorkersPerSender,
-		queueSizePerSender:  in.SenderConfig.QueueSizePerSender,
-		deliveryRetries:     in.SenderConfig.DeliveryRetries,
-		deliveryInterval:    in.SenderConfig.DeliveryInterval,
-		cutOffPeriod:        in.SenderConfig.CutOffPeriod,
-		linger:              in.SenderConfig.Linger,
-		logger:              in.Logger,
-		customPIDs:          in.SenderConfig.CustomPIDs,
-		disablePartnerIDs:   in.SenderConfig.DisablePartnerIDs,
-		eventType:           in.WrapperMetrics.EventType,
-		queryLatency:        in.WrapperMetrics.QueryLatency,
+func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
+	sw = &SinkWrapper{
+		linger:       in.SenderConfig.Linger,
+		logger:       in.Logger,
+		eventType:    in.WrapperMetrics.EventType,
+		queryLatency: in.WrapperMetrics.QueryLatency,
+		config:       in.SenderConfig,
+		metrics:      in.SenderMetrics,
 	}
-	obsSetUp := &OutboundSenderFactory{
-		Config:  in.SenderConfig,
-		Logger:  in.Logger,
-		Metrics: in.OutbounderMetrics,
-	}
-	csw.outbounderSetUp = obsSetUp
-	csw.sender = doerFunc((&http.Client{
-		Transport: tr,
-		Timeout:   in.SenderConfig.ClientTimeout,
-	}).Do)
 
 	if in.SenderConfig.Linger <= 0 {
 		linger := fmt.Sprintf("linger not positive: %v", in.SenderConfig.Linger)
 		err = errors.New(linger)
-		csw = nil
+		sw = nil
 		return
 	}
-	csw.senders = make(map[string]OutboundSender)
-	csw.shutdown = make(chan struct{})
+	sw.senders = make(map[string]Sender)
+	sw.shutdown = make(chan struct{})
 
-	csw.wg.Add(1)
-	go undertaker(csw)
+	sw.wg.Add(1)
+	go undertaker(sw)
 
 	return
 }
 
+// no longer being initialized at start up - needs to be initialized by the creation of the outbound sender
 func NewRoundTripper(config SenderConfig, tracing candlelight.Tracing) (tr http.RoundTripper) {
 	tr = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: config.DisableClientHostnameValidation},
@@ -155,7 +117,7 @@ func NewRoundTripper(config SenderConfig, tracing candlelight.Tracing) (tr http.
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []ListenerStub) {
+func (sw *SinkWrapper) Update(list []ListenerStub) {
 
 	ids := make([]struct {
 		Listener ListenerStub
@@ -173,18 +135,17 @@ func (sw *CaduceusSenderWrapper) Update(list []ListenerStub) {
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
-			osf := sw.outbounderSetUp
-			osf.Sender = sw.sender
-			osf.Listener = inValue.Listener
+			// osf.Sender = sw.sender
+			sw.listener = inValue.Listener
 			metricWrapper, err := newMetricWrapper(time.Now, sw.queryLatency, inValue.ID)
 
 			if err != nil {
 				continue
 			}
-			osf.ClientMiddleware = metricWrapper.roundTripper
-			obs, err := osf.New()
+			sw.clientMiddleware = metricWrapper.roundTripper
+			ss, err := newSinkSender(sw)
 			if nil == err {
-				sw.senders[inValue.ID] = obs
+				sw.senders[inValue.ID] = ss
 			}
 			continue
 		}
@@ -195,7 +156,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ListenerStub) {
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
-func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
+func (sw *SinkWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
 	defer sw.mutex.RUnlock()
 
@@ -209,7 +170,7 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 // Shutdown closes down the delivery mechanisms and cleans up the underlying
 // OutboundSenders either gently (waiting for delivery queues to empty) or not
 // (dropping enqueued messages)
-func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
+func (sw *SinkWrapper) Shutdown(gentle bool) {
 	sw.mutex.Lock()
 	defer sw.mutex.Unlock()
 	for k, v := range sw.senders {
@@ -221,7 +182,7 @@ func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
 
 // undertaker looks at the OutboundSenders periodically and prunes the ones
 // that have been retired for too long, freeing up resources.
-func undertaker(sw *CaduceusSenderWrapper) {
+func undertaker(sw *SinkWrapper) {
 	defer sw.wg.Done()
 	// Collecting unused OutboundSenders isn't a huge priority, so do it
 	// slowly.
@@ -247,12 +208,12 @@ func undertaker(sw *CaduceusSenderWrapper) {
 	}
 }
 
-func createDeadlist(sw *CaduceusSenderWrapper, threshold time.Time) map[string]OutboundSender {
+func createDeadlist(sw *SinkWrapper, threshold time.Time) map[string]Sender {
 	if sw == nil || threshold.IsZero() {
 		return nil
 	}
 
-	deadList := make(map[string]OutboundSender)
+	deadList := make(map[string]Sender)
 	sw.mutex.Lock()
 	defer sw.mutex.Unlock()
 	for k, v := range sw.senders {
