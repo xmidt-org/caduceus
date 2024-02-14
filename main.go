@@ -187,7 +187,7 @@ func caduceus(arguments []string) int {
 		otelmux.WithPropagators(tracing.Propagator()),
 		otelmux.WithTracerProvider(tracing.TracerProvider()),
 	}
-	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator()))
+	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator(), false))
 
 	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, serverWrapper, svc, rootRouter, v.GetBool("previousVersionSupport"))
 	if err != nil {
