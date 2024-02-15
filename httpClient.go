@@ -16,7 +16,7 @@ var (
 	errNilHistogram = errors.New("histogram cannot be nil")
 )
 
-func nopHTTPClient(next Client) Client {
+func nopClient(next Client) Client {
 	return next
 }
 

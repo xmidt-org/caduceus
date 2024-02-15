@@ -115,9 +115,9 @@ type SinkSender struct {
 	clientMiddleware                 func(Client) Client
 }
 
-func newSinkSender(sw *SinkWrapper) (s Sender, err error) {
+func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error) {
 	if sw.clientMiddleware == nil {
-		sw.clientMiddleware = nopHTTPClient
+		sw.clientMiddleware = nopClient
 	}
 	if sw.client == nil {
 		err = errors.New("nil Client")
@@ -134,21 +134,19 @@ func newSinkSender(sw *SinkWrapper) (s Sender, err error) {
 		return
 	}
 
-	// decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
+	decoratedLogger := sw.logger.With(zap.String("webhook.address", listener.Webhook.Address))
 
 	sinkSender := &SinkSender{
-		// id:               osf.Listener.Webhook.Config.URL,
-		listener:     sw.listener,
-		client:       sw.client,
-		queueSize:    sw.config.QueueSizePerSender,
-		cutOffPeriod: sw.config.CutOffPeriod,
-		// deliverUntil:     osf.Listener.Webhook.Until,
-		// logger:           decoratedLogger,
+		client:           sw.client,
+		queueSize:        sw.config.QueueSizePerSender,
+		cutOffPeriod:     sw.config.CutOffPeriod,
+		deliverUntil:     listener.Webhook.Until,
+		logger:           decoratedLogger,
 		deliveryRetries:  sw.config.DeliveryRetries,
 		deliveryInterval: sw.config.DeliveryInterval,
 		maxWorkers:       sw.config.NumWorkersPerSender,
 		failureMsg: FailureMessage{
-			Original:     sw.listener,
+			Original:     listener,
 			Text:         failureText,
 			CutOffPeriod: sw.config.CutOffPeriod.String(),
 			QueueSize:    sw.config.QueueSizePerSender,
@@ -160,7 +158,7 @@ func newSinkSender(sw *SinkWrapper) (s Sender, err error) {
 	}
 
 	// Don't share the secret with others when there is an error.
-	// caduceusOutboundSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
 	CreateOutbounderMetrics(sw.metrics, sinkSender)
 
@@ -170,9 +168,9 @@ func newSinkSender(sw *SinkWrapper) (s Sender, err error) {
 
 	sinkSender.queue.Store(make(chan *wrp.Message, sw.config.QueueSizePerSender))
 
-	// if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
-	// 	return
-	// }
+	if err = sinkSender.Update(listener); nil != err {
+		return
+	}
 
 	sinkSender.workers = semaphore.New(sinkSender.maxWorkers)
 	sinkSender.wg.Add(1)
@@ -207,14 +205,14 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 		events = append(events, re)
 	}
 	if len(events) < 1 {
-		err = errors.New("events must not be empty.")
+		err = errors.New("events must not be empty")
 		return
 	}
 
 	// Create the matcher regex objects
 	matcher := []*regexp.Regexp{}
 	for _, item := range wh.Webhook.Matcher.DeviceID {
-		if ".*" == item {
+		if item == ".*" {
 			// Match everything - skip the filtering
 			matcher = []*regexp.Regexp{}
 			break
@@ -263,7 +261,7 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 		s.matcher = matcher
 	}
 
-	if 0 == urlCount {
+	if urlCount == 0 {
 		s.urls = ring.New(1)
 		s.urls.Value = s.id
 	} else {

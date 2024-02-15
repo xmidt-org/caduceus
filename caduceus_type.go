@@ -16,24 +16,52 @@ type CaduceusConfig struct {
 	AuthHeader       []string
 	NumWorkerThreads int
 	JobQueueSize     int
-	Sender           SenderConfig
+	Sink             SinkConfig
 	JWTValidators    []JWTValidator
 	AllowInsecureTLS bool
 }
 
-type SenderConfig struct {
-	NumWorkersPerSender             int
-	QueueSizePerSender              int
-	CutOffPeriod                    time.Duration
-	Linger                          time.Duration
-	ClientTimeout                   time.Duration
+type SinkConfig struct {
+	// The number of workers to assign to each SinkSender created.
+	NumWorkersPerSender int
+
+	// The queue size to assign to each SinkSender created.
+	QueueSizePerSender int
+
+	// The cut off time to assign to each SinkSender created.
+	CutOffPeriod time.Duration
+
+	// The amount of time to let expired SinkSenders linger before
+	// shutting them down and cleaning up the resources associated with them.
+	Linger time.Duration
+
+	// Number of delivery retries before giving up
+	DeliveryRetries int
+
+	// Time in between delivery retries
+	DeliveryInterval time.Duration
+
+	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
+	// has no partner IDs.
+	CustomPIDs []string
+
+	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
+	DisablePartnerIDs bool
+
+	// ClientTimeout specifies a time limit for requests made by the SinkSender's Client
+	ClientTimeout time.Duration
+
+	//DisableClientHostnameValidation used in HTTP Client creation
 	DisableClientHostnameValidation bool
-	ResponseHeaderTimeout           time.Duration
-	IdleConnTimeout                 time.Duration
-	DeliveryRetries                 int
-	DeliveryInterval                time.Duration
-	CustomPIDs                      []string
-	DisablePartnerIDs               bool
+
+	// ResponseHeaderTimeout specifies the amount of time to wait for a server's response headers after fully
+	// writing the request
+	ResponseHeaderTimeout time.Duration
+
+	//IdleConnTimeout is the maximum amount of time an idle
+	// (keep-alive) connection will remain idle before closing
+	// itself.
+	IdleConnTimeout time.Duration
 }
 
 type RequestHandler interface {
