@@ -414,7 +414,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	if matcher != nil {
 		matchDevice = false
 		for _, deviceRegex := range matcher {
-			if deviceRegex.MatchString(msg.Source) {
+			if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
 				matchDevice = true
 				break
 			}
@@ -587,8 +587,14 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 
 	// Add the device id without the trailing service
 	id, _ := device.ParseID(msg.Source)
+	// Deprecated: X-Webpa-Device-Id should only be used for backwards compatibility.
+	// Use X-Webpa-Source instead.
 	req.Header.Set("X-Webpa-Device-Id", string(id))
+	// Deprecated: X-Webpa-Device-Name should only be used for backwards compatibility.
+	// Use X-Webpa-Source instead.
 	req.Header.Set("X-Webpa-Device-Name", string(id))
+	req.Header.Set("X-Webpa-Source", msg.Source)
+	req.Header.Set("X-Webpa-Destination", msg.Destination)
 
 	// Apply the secret
 
