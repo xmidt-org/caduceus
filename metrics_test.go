@@ -32,11 +32,3 @@ func TestMetrics(t *testing.T) {
 
 	assert.NotNil(m)
 }
-
-func TestProvideSenderMetrics(t *testing.T) {
-	assert := assert.New(t)
-
-	m := ProvideSinkMetrics()
-
-	assert.NotNil(m)
-}

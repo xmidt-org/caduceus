@@ -22,16 +22,11 @@ import (
 type SinkWrapperIn struct {
 	fx.In
 
-	Tracing        candlelight.Tracing
-	SinkConfig     SinkConfig
-	WrapperMetrics SinkWrapperMetrics
-	SenderMetrics  SinkSenderMetrics
-	Logger         *zap.Logger
-}
-
-type SinkWrapperMetrics struct {
-	QueryLatency prometheus.ObserverVec
-	EventType    *prometheus.CounterVec
+	Tracing       candlelight.Tracing
+	SinkConfig    SinkConfig
+	SenderMetrics SinkSenderMetrics
+	EventType     *prometheus.CounterVec
+	Logger        *zap.Logger
 }
 
 // SinkWrapper interface is needed for unit testing.
@@ -67,6 +62,24 @@ type SinkWrapper struct {
 
 func ProvideWrapper() fx.Option {
 	return fx.Provide(
+		func(in SenderMetricsIn) SinkSenderMetrics {
+			senderMetrics := SinkSenderMetrics{
+				DeliveryCounter:                 in.DeliveryCounter,
+				DeliveryRetryCounter:            in.DeliveryRetryCounter,
+				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
+				CutOffCounter:                   in.CutOffCounter,
+				SlowConsumerDroppedMsgCounter:   in.SlowConsumerDroppedMsgCounter,
+				DropsDueToPanic:                 in.DropsDueToPanic,
+				ConsumerDeliverUntilGauge:       in.ConsumerDeliverUntilGauge,
+				ConsumerDropUntilGauge:          in.ConsumerDropUntilGauge,
+				ConsumerDeliveryWorkersGauge:    in.ConsumerDeliveryWorkersGauge,
+				ConsumerMaxDeliveryWorkersGauge: in.ConsumerMaxDeliveryWorkersGauge,
+				OutgoingQueueDepth:              in.OutgoingQueueDepth,
+				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
+				QueryLatency:                    in.QueryLatency,
+			}
+			return senderMetrics
+		},
 		func(in SinkWrapperIn) (*SinkWrapper, error) {
 			csw, err := NewSinkWrapper(in)
 			return csw, err
@@ -76,12 +89,11 @@ func ProvideWrapper() fx.Option {
 
 func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
 	sw = &SinkWrapper{
-		linger:       in.SinkConfig.Linger,
-		logger:       in.Logger,
-		eventType:    in.WrapperMetrics.EventType,
-		queryLatency: in.WrapperMetrics.QueryLatency,
-		config:       in.SinkConfig,
-		metrics:      in.SenderMetrics,
+		linger:    in.SinkConfig.Linger,
+		logger:    in.Logger,
+		eventType: in.EventType,
+		config:    in.SinkConfig,
+		metrics:   in.SenderMetrics,
 	}
 
 	if in.SinkConfig.Linger <= 0 {
