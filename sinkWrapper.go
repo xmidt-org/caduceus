@@ -51,7 +51,6 @@ type SinkWrapper struct {
 	mutex            *sync.RWMutex
 	senders          map[string]Sender
 	eventType        *prometheus.CounterVec
-	queryLatency     prometheus.ObserverVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
 	metrics          SinkSenderMetrics
@@ -151,7 +150,7 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 		if !ok {
 			// osf.Sender = sw.sender
 			listener := inValue.Listener
-			metricWrapper, err := newMetricWrapper(time.Now, sw.queryLatency, inValue.ID)
+			metricWrapper, err := newMetricWrapper(time.Now, sw.metrics.QueryLatency, inValue.ID)
 
 			if err != nil {
 				continue

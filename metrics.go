@@ -50,7 +50,6 @@ const (
 type SenderMetricsIn struct {
 	fx.In
 	QueryLatency                    prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
-	EventType                       *prometheus.CounterVec `name:"incoming_event_type_count"`
 	DeliveryCounter                 *prometheus.CounterVec `name:"delivery_count"`
 	DeliveryRetryCounter            *prometheus.CounterVec `name:"delivery_retry_count"`
 	DeliveryRetryMaxGauge           *prometheus.GaugeVec   `name:"delivery_retry_max"`
