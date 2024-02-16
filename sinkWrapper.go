@@ -76,6 +76,7 @@ func ProvideWrapper() fx.Option {
 				ConsumerMaxDeliveryWorkersGauge: in.ConsumerMaxDeliveryWorkersGauge,
 				OutgoingQueueDepth:              in.OutgoingQueueDepth,
 				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
+				QueryLatency:                    in.QueryLatency,
 			}
 			return senderMetrics
 		},
