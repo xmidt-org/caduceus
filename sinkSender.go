@@ -70,6 +70,7 @@ type SinkSenderMetrics struct {
 	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec
 	OutgoingQueueDepth              *prometheus.GaugeVec
 	ConsumerRenewalTimeGauge        *prometheus.GaugeVec
+	QueryLatency                    prometheus.ObserverVec
 }
 
 // CaduceusOutboundSender is the outbound sender object.

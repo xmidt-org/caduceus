@@ -152,30 +152,3 @@ func ProvideMetrics() fx.Option {
 		}, EventLabel),
 	)
 }
-
-func ProvideSinkMetrics() fx.Option {
-	return fx.Provide(
-		func(in SenderMetricsIn) (SinkWrapperMetrics, SinkSenderMetrics) {
-			senderMetrics := SinkSenderMetrics{
-				DeliveryCounter:                 in.DeliveryCounter,
-				DeliveryRetryCounter:            in.DeliveryRetryCounter,
-				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
-				CutOffCounter:                   in.CutOffCounter,
-				SlowConsumerDroppedMsgCounter:   in.SlowConsumerDroppedMsgCounter,
-				DropsDueToPanic:                 in.DropsDueToPanic,
-				ConsumerDeliverUntilGauge:       in.ConsumerDeliverUntilGauge,
-				ConsumerDropUntilGauge:          in.ConsumerDropUntilGauge,
-				ConsumerDeliveryWorkersGauge:    in.ConsumerDeliveryWorkersGauge,
-				ConsumerMaxDeliveryWorkersGauge: in.ConsumerMaxDeliveryWorkersGauge,
-				OutgoingQueueDepth:              in.OutgoingQueueDepth,
-				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
-			}
-			wrapperMetrics := SinkWrapperMetrics{
-				QueryLatency: in.QueryLatency,
-				EventType:    in.EventType,
-			}
-
-			return wrapperMetrics, senderMetrics
-		},
-	)
-}
