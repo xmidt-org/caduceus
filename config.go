@@ -26,7 +26,7 @@ type Config struct {
 	Servers                Servers
 	ArgusClientTimeout     HttpClientTimeout
 	JWTValidator           JWTValidator
-	Sender                 SenderConfig
+	Sink                   SinkConfig
 	Service                Service
 	AuthHeader             []string
 	Server                 string

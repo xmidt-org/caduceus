@@ -23,7 +23,7 @@ type SinkWrapperIn struct {
 	fx.In
 
 	Tracing        candlelight.Tracing
-	SenderConfig   SenderConfig
+	SinkConfig     SinkConfig
 	WrapperMetrics SinkWrapperMetrics
 	SenderMetrics  SinkSenderMetrics
 	Logger         *zap.Logger
@@ -43,12 +43,15 @@ type Wrapper interface {
 
 // Wrapper contains the configuration that will be shared with each outbound sender. It contains no external parameters.
 type SinkWrapper struct {
-	// The amount of time to let expired OutboundSenders linger before
+	// The amount of time to let expired SinkSenders linger before
 	// shutting them down and cleaning up the resources associated with them.
 	linger time.Duration
 
-	// The logger implementation to share with OutboundSenders.
+	// The logger implementation to share with sinkSenders.
 	logger *zap.Logger
+
+	//the configuration needed for eash sinkSender
+	config SinkConfig
 
 	mutex            *sync.RWMutex
 	senders          map[string]Sender
@@ -56,11 +59,10 @@ type SinkWrapper struct {
 	queryLatency     prometheus.ObserverVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
-	config           SenderConfig
 	metrics          SinkSenderMetrics
-	client           Client              //should this be a part of wrapper or sender?
-	listener         ListenerStub        //should this be a part of wrapper or sender?
-	clientMiddleware func(Client) Client //should this be a part of wrapper or sender?
+	client           Client              //TODO: keeping here for now - but might move to SinkSender in a later PR
+	clientMiddleware func(Client) Client //TODO: keeping here for now - but might move to SinkSender in a later PR
+
 }
 
 func ProvideWrapper() fx.Option {
@@ -74,16 +76,16 @@ func ProvideWrapper() fx.Option {
 
 func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
 	sw = &SinkWrapper{
-		linger:       in.SenderConfig.Linger,
+		linger:       in.SinkConfig.Linger,
 		logger:       in.Logger,
 		eventType:    in.WrapperMetrics.EventType,
 		queryLatency: in.WrapperMetrics.QueryLatency,
-		config:       in.SenderConfig,
+		config:       in.SinkConfig,
 		metrics:      in.SenderMetrics,
 	}
 
-	if in.SenderConfig.Linger <= 0 {
-		linger := fmt.Sprintf("linger not positive: %v", in.SenderConfig.Linger)
+	if in.SinkConfig.Linger <= 0 {
+		linger := fmt.Sprintf("linger not positive: %v", in.SinkConfig.Linger)
 		err = errors.New(linger)
 		sw = nil
 		return
@@ -98,7 +100,7 @@ func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
 }
 
 // no longer being initialized at start up - needs to be initialized by the creation of the outbound sender
-func NewRoundTripper(config SenderConfig, tracing candlelight.Tracing) (tr http.RoundTripper) {
+func NewRoundTripper(config SinkConfig, tracing candlelight.Tracing) (tr http.RoundTripper) {
 	tr = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: config.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   config.NumWorkersPerSender,
@@ -136,14 +138,14 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
 			// osf.Sender = sw.sender
-			sw.listener = inValue.Listener
+			listener := inValue.Listener
 			metricWrapper, err := newMetricWrapper(time.Now, sw.queryLatency, inValue.ID)
 
 			if err != nil {
 				continue
 			}
 			sw.clientMiddleware = metricWrapper.roundTripper
-			ss, err := newSinkSender(sw)
+			ss, err := newSinkSender(sw, listener)
 			if nil == err {
 				sw.senders[inValue.ID] = ss
 			}
