@@ -1,6 +1,6 @@
 module github.com/xmidt-org/caduceus
 
-go 1.19
+go 1.21
 
 require (
 	emperror.dev/emperror v0.33.0
