@@ -139,7 +139,7 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 
 	for i, v := range list {
 		ids[i].Listener = v
-		ids[i].ID = v.Webhook.Config.ReceiverURL
+		ids[i].ID = v.Registration.GetId()
 	}
 
 	sw.mutex.Lock()
@@ -148,16 +148,21 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
-			// osf.Sender = sw.sender
+			var ss Sender
+			var err error
+
 			listener := inValue.Listener
 			metricWrapper, err := newMetricWrapper(time.Now, sw.metrics.QueryLatency, inValue.ID)
 
 			if err != nil {
 				continue
 			}
+
 			sw.clientMiddleware = metricWrapper.roundTripper
-			ss, err := newSinkSender(sw, listener)
-			if nil == err {
+
+			ss, err = newSinkSender(sw, listener, listener.Registration.GetAddress(), listener.Registration.GetTimeUntil())
+
+			if err == nil {
 				sw.senders[inValue.ID] = ss
 			}
 			continue

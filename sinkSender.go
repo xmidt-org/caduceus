@@ -116,7 +116,7 @@ type SinkSender struct {
 	clientMiddleware                 func(Client) Client
 }
 
-func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error) {
+func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until time.Time) (s Sender, err error) {
 	if sw.clientMiddleware == nil {
 		sw.clientMiddleware = nopClient
 	}
@@ -135,13 +135,13 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 		return
 	}
 
-	decoratedLogger := sw.logger.With(zap.String("webhook.address", listener.Webhook.Address))
+	decoratedLogger := sw.logger.With(zap.String("webhook.address", address))
 
 	sinkSender := &SinkSender{
 		client:           sw.client,
 		queueSize:        sw.config.QueueSizePerSender,
 		cutOffPeriod:     sw.config.CutOffPeriod,
-		deliverUntil:     listener.Webhook.Until,
+		deliverUntil:     until,
 		logger:           decoratedLogger,
 		deliveryRetries:  sw.config.DeliveryRetries,
 		deliveryInterval: sw.config.DeliveryInterval,
@@ -158,8 +158,9 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 		clientMiddleware:  sw.clientMiddleware,
 	}
 
+	//TODO: need to figure out how to set this up
 	// Don't share the secret with others when there is an error.
-	sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	// sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
 	CreateOutbounderMetrics(sw.metrics, sinkSender)
 
@@ -188,52 +189,33 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 func (s *SinkSender) Update(wh ListenerStub) (err error) {
 
 	// Validate the failure URL, if present
-	if wh.Webhook.FailureURL != "" {
-		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); nil != err {
-			return
-		}
+	if err = wh.Registration.Validate(); err != nil {
+		return
 	}
 
 	// Create and validate the event regex objects
 	// nolint:prealloc
-	var events []*regexp.Regexp
-	for _, event := range wh.Webhook.Events {
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); nil != err {
-			return
-		}
-
-		events = append(events, re)
-	}
-	if len(events) < 1 {
-		err = errors.New("events must not be empty")
-		return
+	events, err := wh.Registration.UpdateEvents()
+	if err != nil {
+		return err
 	}
 
 	// Create the matcher regex objects
-	matcher := []*regexp.Regexp{}
-	for _, item := range wh.Webhook.Matcher.DeviceID {
-		if item == ".*" {
-			// Match everything - skip the filtering
-			matcher = []*regexp.Regexp{}
-			break
-		}
-
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("invalid matcher item: '%s'", item)
-			return
-		}
-		matcher = append(matcher, re)
+	matcher, err := wh.Registration.UpdateMatcher()
+	if err != nil {
+		return err
 	}
 
 	// Validate the various urls
-	urlCount := len(wh.Webhook.Config.AlternativeURLs)
+	urlCount := wh.Registration.GetUrlCount()
+	urls := []string{}
 	for i := 0; i < urlCount; i++ {
-		_, err = url.Parse(wh.Webhook.Config.AlternativeURLs[i])
+		url, err := wh.Registration.ParseUrl(i)
 		if err != nil {
-			s.logger.Error("failed to update url", zap.Any("url", wh.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
-			return
+			s.logger.Error("failed to update url", zap.Any("url", url), zap.Error(err))
+			return err
+		} else {
+			urls = append(urls, url)
 		}
 	}
 
@@ -245,11 +227,8 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 	s.listener = wh
 
 	s.failureMsg.Original = wh
-	// Don't share the secret with others when there is an error.
-	s.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-	s.listener.Webhook.FailureURL = wh.Webhook.FailureURL
-	s.deliverUntil = wh.Webhook.Until
+	s.deliverUntil = wh.Registration.GetTimeUntil()
 	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
 
 	s.events = events
@@ -268,7 +247,8 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 	} else {
 		r := ring.New(urlCount)
 		for i := 0; i < urlCount; i++ {
-			r.Value = wh.Webhook.Config.AlternativeURLs[i]
+
+			r.Value = urls[i]
 			r = r.Next()
 		}
 		s.urls = r

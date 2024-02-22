@@ -3,6 +3,10 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"net/url"
+	"regexp"
 	"time"
 
 	webhook "github.com/xmidt-org/webhook-schema"
@@ -11,8 +15,8 @@ import (
 //This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
 
 type ListenerStub struct {
-	PartnerIds []string
-	Webhook    webhook.Registration
+	PartnerIds   []string
+	Registration Registration
 }
 
 // Webhook is a substructure with data related to event delivery.
@@ -138,4 +142,147 @@ type RegistrationV2 struct {
 	// Expires describes the time this subscription expires.
 	// TODO: list of supported formats
 	Expires time.Time `json:"expires"`
+}
+
+// Deprecated: This structure should only be used for backwards compatibility
+// matching. Use RegistrationV2 instead.
+// RegistrationV1 is a special struct for unmarshaling a webhook as part of a webhook registration request.
+type RegistrationV1 struct {
+	// Address is the subscription request origin HTTP Address.
+	Address string `json:"registered_from_address"`
+
+	// Config contains data to inform how events are delivered.
+	Config DeliveryConfig `json:"config"`
+
+	// FailureURL is the URL used to notify subscribers when they've been cut off due to event overflow.
+	// Optional, set to "" to disable notifications.
+	FailureURL string `json:"failure_url"`
+
+	// Events is the list of regular expressions to match an event type against.
+	Events []string `json:"events"`
+
+	// Matcher type contains values to match against the metadata.
+	Matcher MetadataMatcherConfig `json:"matcher,omitempty"`
+
+	// Duration describes how long the subscription lasts once added.
+	Duration webhook.CustomDuration `json:"duration"`
+
+	// Until describes the time this subscription expires.
+	Until time.Time `json:"until"`
+}
+
+// MetadataMatcherConfig is Webhook substructure with config to match event metadata.
+type MetadataMatcherConfig struct {
+	// DeviceID is the list of regular expressions to match device id type against.
+	DeviceID []string `json:"device_id"`
+}
+
+// Deprecated: This substructure should only be used for backwards compatibility
+// matching. Use Webhook instead.
+// DeliveryConfig is a Webhook substructure with data related to event delivery.
+type DeliveryConfig struct {
+	// URL is the HTTP URL to deliver messages to.
+	ReceiverURL string `json:"url"`
+
+	// ContentType is content type value to set WRP messages to (unless already specified in the WRP).
+	ContentType string `json:"content_type"`
+
+	// Secret is the string value for the SHA1 HMAC.
+	// (Optional, set to "" to disable behavior).
+	Secret string `json:"secret,omitempty"`
+
+	// AlternativeURLs is a list of explicit URLs that should be round robin through on failure cases to the main URL.
+	AlternativeURLs []string `json:"alt_urls,omitempty"`
+}
+
+type Registration interface {
+	GetId() string
+	GetAddress() string
+	GetTimeUntil() time.Time
+	Validate() error
+	UpdateEvents() ([]*regexp.Regexp, error)
+	UpdateMatcher() ([]*regexp.Regexp, error)
+	GetUrlCount() int
+	ValidateUrls() (int, error)
+	ParseUrl(int) (string, error)
+}
+
+func (v1 *RegistrationV1) GetId() string {
+	return v1.Config.ReceiverURL
+}
+
+func (v1 *RegistrationV1) GetAddress() string {
+	return v1.Address
+}
+
+func (v1 *RegistrationV1) GetTimeUntil() time.Time {
+	return v1.Until
+}
+
+func (v1 *RegistrationV1) Validate() error {
+	if v1.FailureURL != "" {
+		_, err := url.ParseRequestURI(v1.FailureURL)
+		return err
+	}
+	return nil
+}
+
+func (v1 *RegistrationV1) UpdateEvents() ([]*regexp.Regexp, error) {
+	var events []*regexp.Regexp
+	var err error
+	for _, event := range v1.Events {
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); err != nil {
+			return events, err
+		}
+		events = append(events, re)
+	}
+	if len(events) < 1 {
+		err = errors.New("events must not be empty")
+		return events, err
+	}
+	return events, nil
+}
+
+func (v1 *RegistrationV1) UpdateMatcher() ([]*regexp.Regexp, error) {
+	matcher := []*regexp.Regexp{}
+
+	for _, item := range v1.Matcher.DeviceID {
+		if item == ".*" {
+			// Match everything - skip the filtering
+			matcher = []*regexp.Regexp{}
+			break
+		}
+
+		var re *regexp.Regexp
+		var err error
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("invalid matcher item: '%s'", item)
+			return matcher, err
+		}
+		matcher = append(matcher, re)
+	}
+	return matcher, nil
+}
+
+func (v1 *RegistrationV1) GetUrlCount() int {
+	return len(v1.Config.AlternativeURLs)
+}
+
+func (v1 *RegistrationV1) ParselUrl(i int) (string, error) {
+	_, err := url.Parse(v1.Config.AlternativeURLs[i])
+	return v1.Config.AlternativeURLs[i], err
+}
+
+// TODO: is this what we want to return for the ids Map for V2?
+func (v2 *RegistrationV2) GetId() string {
+	return v2.CanonicalName
+}
+
+func (v2 *RegistrationV2) GetAddress() string {
+	return v2.Address
+}
+
+func (v2 *RegistrationV2) GetTimeUntil() time.Time {
+	return v2.Expires
 }
