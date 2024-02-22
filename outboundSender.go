@@ -598,7 +598,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 
 	// Apply the secret
 
-	if "" != secret {
+	if secret != "" {
 		s := hmac.New(sha1.New, []byte(secret))
 		s.Write(body)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
