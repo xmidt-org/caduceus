@@ -4,7 +4,9 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -54,16 +56,51 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()
-		code := networkError
-
-		if err == nil {
+		code := genericDoReason
+		reason := noErr
+		if err != nil {
+			reason = getDoErrReason(err)
+			if resp != nil {
+				code = strconv.Itoa(resp.StatusCode)
+			}
+		} else {
 			code = strconv.Itoa(resp.StatusCode)
 		}
 
 		// find time difference, add to metric
-		var latency = endTime.Sub(startTime)
-		m.queryLatency.With("code", code).Observe(latency.Seconds())
+		m.queryLatency.With(urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code).Observe(endTime.Sub(startTime).Seconds())
 
 		return resp, err
 	})
+}
+
+func getDoErrReason(e error) string {
+	var d *net.DNSError
+	if e == nil {
+		return noErr
+	}
+	if errors.Is(e, context.DeadlineExceeded) {
+		return deadlineExceededReason
+	} else if errors.Is(e, context.Canceled) {
+		return contextCanceledReason
+	} else if errors.Is(e, &net.AddrError{}) {
+		return addressErrReason
+	} else if errors.Is(e, &net.ParseError{}) {
+		return parseAddrErrReason
+	} else if errors.Is(e, net.InvalidAddrError("")) {
+		return invalidAddrReason
+	} else if errors.As(e, &d) {
+		if d.IsNotFound {
+			return hostNotFoundReason
+		}
+		return dnsErrReason
+	} else if errors.Is(e, net.ErrClosed) {
+		return connClosedReason
+	} else if errors.Is(e, &net.OpError{}) {
+		return opErrReason
+	} else if errors.Is(e, net.UnknownNetworkError("")) {
+		return networkErrReason
+	}
+
+	return genericDoReason
 }

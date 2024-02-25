@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -16,10 +17,8 @@ import (
 )
 
 func TestRoundTripper(t *testing.T) {
-	errTest := errors.New("test error")
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
-
 	tests := []struct {
 		description      string
 		startTime        time.Time
@@ -33,32 +32,34 @@ func TestRoundTripper(t *testing.T) {
 			description:  "Success",
 			startTime:    date1,
 			endTime:      date2,
-			expectedCode: "200",
+			expectedCode: strconv.Itoa(http.StatusOK),
 			request:      exampleRequest(1),
 			expectedErr:  nil,
 			expectedResponse: &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 			},
 		},
 		{
 			description:  "503 Service Unavailable",
 			startTime:    date1,
 			endTime:      date2,
-			expectedCode: "503",
+			expectedCode: strconv.Itoa(http.StatusServiceUnavailable),
 			request:      exampleRequest(1),
 			expectedErr:  nil,
 			expectedResponse: &http.Response{
-				StatusCode: 503,
+				StatusCode: http.StatusServiceUnavailable,
 			},
 		},
 		{
-			description:      "Network Error",
-			startTime:        date1,
-			endTime:          date2,
-			expectedCode:     "network_err",
-			request:          exampleRequest(1),
-			expectedErr:      errTest,
-			expectedResponse: nil,
+			description:  "Network Error",
+			startTime:    date1,
+			endTime:      date2,
+			expectedCode: strconv.Itoa(http.StatusServiceUnavailable),
+			request:      exampleRequest(1),
+			expectedErr:  errors.New(genericDoReason),
+			expectedResponse: &http.Response{
+				StatusCode: http.StatusServiceUnavailable,
+			},
 		},
 	}
 
@@ -69,7 +70,7 @@ func TestRoundTripper(t *testing.T) {
 			fakeTime := mockTime(tc.startTime, tc.endTime)
 			fakeHandler := new(mockHandler)
 			fakeHist := new(mockHistogram)
-			histogramFunctionCall := []string{"code", tc.expectedCode}
+			histogramFunctionCall := []string{urlLabel, tc.request.URL.String(), reasonLabel, getDoErrReason(tc.expectedErr), codeLabel, tc.expectedCode}
 			fakeLatency := date2.Sub(date1)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
 			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()

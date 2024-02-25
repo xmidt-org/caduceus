@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+// TODO Improve all of these tests
+
 // Make a simple RoundTrip implementation that let's me short-circuit the network
 type transport struct {
 	i  int32
@@ -60,8 +62,8 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 //  3. Trigger the On method on that "mockMetric" with various different cases of that metric,
 //     in both senderWrapper_test.go and outboundSender_test.go
 //     i.e:
-//     case 1: On("With", []string{"event", iot}
-//     case 2: On("With", []string{"event", unknown}
+//     case 1: On("With", []string{eventLabel, iot}
+//     case 2: On("With", []string{eventLabel, unknown}
 //  4. Mimic the metric behavior using On:
 //     fakeSlow.On("Add", 1.0).Return()
 func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
@@ -90,34 +92,34 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	// test dc metric
 	fakeDC := new(mockCounter)
-	fakeDC.On("With", []string{"url", w.Webhook.Config.URL, "code", "200", "event", "test"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "200", "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "200", "event", "unknown"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "failure", "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "event", "test"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "event", "unknown"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "201"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "202"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "204"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "429", "event", "iot"}).Return(fakeDC).
-		On("With", []string{"url", w.Webhook.Config.URL, "code", "failure"}).Return(fakeDC)
+	fakeDC.On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200", eventLabel, "test"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200", eventLabel, "iot"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200", eventLabel, "unknown"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "failure", eventLabel, "iot"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, eventLabel, "test"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, eventLabel, "iot"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, eventLabel, "unknown"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "201"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "202"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "204"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "429", eventLabel, "iot"}).Return(fakeDC).
+		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "failure"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
 
 	// test slow metric
 	fakeSlow := new(mockCounter)
-	fakeSlow.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakeSlow)
+	fakeSlow.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakeSlow)
 	fakeSlow.On("Add", 1.0).Return()
 
 	// test dropped metric
 	fakeDroppedSlow := new(mockCounter)
-	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "queue_full"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "cut_off"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "expired"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "expired_before_queueing"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "invalid_config"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{"url", w.Webhook.Config.URL, "reason", "network_err"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "queue_full"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "cut_off"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "expired"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "expired_before_queueing"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "invalid_config"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "network_err"}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", mock.Anything).Return()
 
 	// IncomingContentType cases
@@ -130,18 +132,18 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	// QueueDepth case
 	fakeQdepth := new(mockGauge)
-	fakeQdepth.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakeQdepth)
+	fakeQdepth.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
 
 	// DropsDueToPanic case
 	fakePanicDrop := new(mockCounter)
-	fakePanicDrop.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakePanicDrop)
+	fakePanicDrop.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakePanicDrop)
 	fakePanicDrop.On("Add", 1.0).Return()
 
 	// Fake Latency
 	fakeLatency := new(mockHistogram)
-	fakeLatency.On("With", []string{"url", w.Webhook.Config.URL, "code", "200"}).Return(fakeLatency)
-	fakeLatency.On("With", []string{"url", w.Webhook.Config.URL}).Return(fakeLatency)
+	fakeLatency.On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200"}).Return(fakeLatency)
+	fakeLatency.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakeLatency)
 	fakeLatency.On("Observe", 1.0).Return()
 
 	// Build a registry and register all fake metrics, these are synymous with the metrics in

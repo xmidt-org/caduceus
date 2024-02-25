@@ -155,7 +155,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
 			osf.Listener = inValue.Listener
-			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency.With("url", inValue.ID))
+			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency)
 
 			if err != nil {
 				continue
@@ -177,7 +177,7 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
 	defer sw.mutex.RUnlock()
 
-	sw.eventType.With("event", msg.FindEventStringSubMatch()).Add(1)
+	sw.eventType.With(eventLabel, msg.FindEventStringSubMatch()).Add(1)
 
 	for _, v := range sw.senders {
 		v.Queue(msg)

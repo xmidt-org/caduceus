@@ -122,7 +122,7 @@ type CaduceusOutboundSender struct {
 	droppedCutoffCounter             metrics.Counter
 	droppedExpiredCounter            metrics.Counter
 	droppedExpiredBeforeQueueCounter metrics.Counter
-	droppedNetworkErrCounter         metrics.Counter
+	droppedMessage                   metrics.Counter
 	droppedInvalidConfig             metrics.Counter
 	droppedPanic                     metrics.Counter
 	cutOffCounter                    metrics.Counter
@@ -612,7 +612,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
-		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
+		Counter:  obs.deliveryRetryCounter.With(urlLabel, obs.id, eventLabel, event),
 		// Always retry on failures up to the max count.
 		ShouldRetry:       xhttp.ShouldRetry,
 		ShouldRetryStatus: xhttp.RetryCodes,
@@ -636,12 +636,18 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	client := obs.clientMiddleware(doerFunc(retryer))
 	resp, err := client.Do(req)
 
-	code := "failure"
+	code := genericDoReason
+	reason := noErr
 	l := obs.logger
 	if nil != err {
 		// Report failure
-		obs.droppedNetworkErrCounter.Add(1.0)
-		l = obs.logger.With(zap.Error(err))
+		reason = getDoErrReason(err)
+		if resp != nil {
+			code = strconv.Itoa(resp.StatusCode)
+		}
+
+		obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, reason).Add(1)
+		l = obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
@@ -652,8 +658,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
+
+		obs.deliveryCounter.With(urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event).Add(1.0)
 	}
-	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
+
 	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
