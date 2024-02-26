@@ -159,7 +159,7 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 
 			sw.clientMiddleware = metricWrapper.roundTripper
 
-			ss, err := newSinkSender(sw, listener, listener.Registration.GetAddress(), listener.Registration.GetTimeUntil())
+			ss, err := newSinkSender(sw, listener, listener.Registration.GetAddress())
 
 			if err == nil {
 				sw.senders[inValue.ID] = ss

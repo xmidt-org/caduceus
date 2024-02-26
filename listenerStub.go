@@ -202,38 +202,55 @@ type Registration interface {
 	UpdateSender(*SinkSender) error
 	GetId() string
 	GetAddress() string
-	GetTimeUntil() time.Time
 }
 
 func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
 
 	// Validate the failure URL, if present
-	if err = v1.Validate(); err != nil {
-		return
+	if v1.FailureURL != "" {
+		_, err := url.ParseRequestURI(v1.FailureURL)
+		return err
 	}
 	// Create and validate the event regex objects
 	// nolint:prealloc
-	events, err := v1.UpdateEvents()
-	if err != nil {
+	var events []*regexp.Regexp
+	for _, event := range v1.Events {
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); err != nil {
+			return err
+		}
+		events = append(events, re)
+	}
+	if len(events) < 1 {
+		err = errors.New("events must not be empty")
 		return err
 	}
 
 	// Create the matcher regex objects
-	matcher, err := v1.UpdateMatcher()
-	if err != nil {
-		return err
+	matcher := []*regexp.Regexp{}
+	for _, item := range v1.Matcher.DeviceID {
+		if item == ".*" {
+			// Match everything - skip the filtering
+			matcher = []*regexp.Regexp{}
+			break
+		}
+
+		var re *regexp.Regexp
+		var err error
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("invalid matcher item: '%s'", item)
+			return err
+		}
+		matcher = append(matcher, re)
 	}
 
 	// Validate the various urls
-	urlCount := v1.GetUrlCount()
-	urls := []string{}
+	urlCount := len(v1.Config.AlternativeURLs)
 	for i := 0; i < urlCount; i++ {
-		url, err := v1.ParseUrl(i)
+		_, err := url.Parse(v1.Config.AlternativeURLs[i])
 		if err != nil {
-			ss.logger.Error("failed to update url", zap.Any("url", url), zap.Error(err))
+			ss.logger.Error("failed to update url", zap.Any("url", v1.Config.AlternativeURLs[i]), zap.Error(err))
 			return err
-		} else {
-			urls = append(urls, url)
 		}
 	}
 
@@ -241,7 +258,8 @@ func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
 
 	// write/update obs
 	ss.mutex.Lock()
-	ss.deliverUntil = v1.GetTimeUntil()
+
+	ss.deliverUntil = v1.Until
 	ss.deliverUntilGauge.Set(float64(ss.deliverUntil.Unix()))
 
 	ss.events = events
@@ -260,7 +278,7 @@ func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
 		r := ring.New(urlCount)
 		for i := 0; i < urlCount; i++ {
 
-			r.Value = urls[i]
+			r.Value = v1.Config.AlternativeURLs[i]
 			r = r.Next()
 		}
 		ss.urls = r
@@ -288,65 +306,6 @@ func (v1 *RegistrationV1) GetAddress() string {
 	return v1.Address
 }
 
-func (v1 *RegistrationV1) GetTimeUntil() time.Time {
-	return v1.Until
-}
-
-func (v1 *RegistrationV1) Validate() error {
-	if v1.FailureURL != "" {
-		_, err := url.ParseRequestURI(v1.FailureURL)
-		return err
-	}
-	return nil
-}
-
-func (v1 *RegistrationV1) UpdateEvents() ([]*regexp.Regexp, error) {
-	var events []*regexp.Regexp
-	var err error
-	for _, event := range v1.Events {
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); err != nil {
-			return events, err
-		}
-		events = append(events, re)
-	}
-	if len(events) < 1 {
-		err = errors.New("events must not be empty")
-		return events, err
-	}
-	return events, nil
-}
-
-func (v1 *RegistrationV1) UpdateMatcher() ([]*regexp.Regexp, error) {
-	matcher := []*regexp.Regexp{}
-
-	for _, item := range v1.Matcher.DeviceID {
-		if item == ".*" {
-			// Match everything - skip the filtering
-			matcher = []*regexp.Regexp{}
-			break
-		}
-
-		var re *regexp.Regexp
-		var err error
-		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("invalid matcher item: '%s'", item)
-			return matcher, err
-		}
-		matcher = append(matcher, re)
-	}
-	return matcher, nil
-}
-
-func (v1 *RegistrationV1) GetUrlCount() int {
-	return len(v1.Config.AlternativeURLs)
-}
-
-func (v1 *RegistrationV1) ParseUrl(i int) (string, error) {
-	_, err := url.Parse(v1.Config.AlternativeURLs[i])
-	return v1.Config.AlternativeURLs[i], err
-}
-
 // TODO: is this what we want to return for the ids Map for V2?
 func (v2 *RegistrationV2) GetId() string {
 	return v2.CanonicalName
@@ -354,8 +313,4 @@ func (v2 *RegistrationV2) GetId() string {
 
 func (v2 *RegistrationV2) GetAddress() string {
 	return v2.Address
-}
-
-func (v2 *RegistrationV2) GetTimeUntil() time.Time {
-	return v2.Expires
 }
