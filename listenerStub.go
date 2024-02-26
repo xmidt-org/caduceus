@@ -3,13 +3,16 @@
 package main
 
 import (
+	"container/ring"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"regexp"
 	"time"
 
 	webhook "github.com/xmidt-org/webhook-schema"
+	"go.uber.org/zap"
 )
 
 //This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
@@ -196,15 +199,85 @@ type DeliveryConfig struct {
 }
 
 type Registration interface {
+	UpdateSender(*SinkSender) error
 	GetId() string
 	GetAddress() string
 	GetTimeUntil() time.Time
-	Validate() error
-	UpdateEvents() ([]*regexp.Regexp, error)
-	UpdateMatcher() ([]*regexp.Regexp, error)
-	GetUrlCount() int
-	ValidateUrls() (int, error)
-	ParseUrl(int) (string, error)
+}
+
+func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
+
+	// Validate the failure URL, if present
+	if err = v1.Validate(); err != nil {
+		return
+	}
+	// Create and validate the event regex objects
+	// nolint:prealloc
+	events, err := v1.UpdateEvents()
+	if err != nil {
+		return err
+	}
+
+	// Create the matcher regex objects
+	matcher, err := v1.UpdateMatcher()
+	if err != nil {
+		return err
+	}
+
+	// Validate the various urls
+	urlCount := v1.GetUrlCount()
+	urls := []string{}
+	for i := 0; i < urlCount; i++ {
+		url, err := v1.ParseUrl(i)
+		if err != nil {
+			ss.logger.Error("failed to update url", zap.Any("url", url), zap.Error(err))
+			return err
+		} else {
+			urls = append(urls, url)
+		}
+	}
+
+	ss.renewalTimeGauge.Set(float64(time.Now().Unix()))
+
+	// write/update obs
+	ss.mutex.Lock()
+	ss.deliverUntil = v1.GetTimeUntil()
+	ss.deliverUntilGauge.Set(float64(ss.deliverUntil.Unix()))
+
+	ss.events = events
+	ss.deliveryRetryMaxGauge.Set(float64(ss.deliveryRetries))
+
+	// if matcher list is empty set it nil for Queue() logic
+	ss.matcher = nil
+	if 0 < len(matcher) {
+		ss.matcher = matcher
+	}
+
+	if urlCount == 0 {
+		ss.urls = ring.New(1)
+		ss.urls.Value = ss.id
+	} else {
+		r := ring.New(urlCount)
+		for i := 0; i < urlCount; i++ {
+
+			r.Value = urls[i]
+			r = r.Next()
+		}
+		ss.urls = r
+	}
+	// Randomize where we start so all the instances don't synchronize
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	offset := r.Intn(ss.urls.Len())
+	for 0 < offset {
+		ss.urls = ss.urls.Next()
+		offset--
+	}
+	// Update this here in case we make this configurable later
+	ss.maxWorkersGauge.Set(float64(ss.maxWorkers))
+
+	ss.mutex.Unlock()
+
+	return
 }
 
 func (v1 *RegistrationV1) GetId() string {
@@ -269,7 +342,7 @@ func (v1 *RegistrationV1) GetUrlCount() int {
 	return len(v1.Config.AlternativeURLs)
 }
 
-func (v1 *RegistrationV1) ParselUrl(i int) (string, error) {
+func (v1 *RegistrationV1) ParseUrl(i int) (string, error) {
 	_, err := url.Parse(v1.Config.AlternativeURLs[i])
 	return v1.Config.AlternativeURLs[i], err
 }

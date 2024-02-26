@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -116,7 +115,7 @@ type SinkSender struct {
 	clientMiddleware                 func(Client) Client
 }
 
-func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until time.Time) (s Sender, err error) {
+func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until time.Time) (s *SinkSender, err error) {
 	if sw.clientMiddleware == nil {
 		sw.clientMiddleware = nopClient
 	}
@@ -170,104 +169,20 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until
 
 	sinkSender.queue.Store(make(chan *wrp.Message, sw.config.QueueSizePerSender))
 
-	if err = sinkSender.Update(listener); nil != err {
+	if err = listener.Registration.UpdateSender(sinkSender); nil != err {
 		return
+	} else {
+		//TODO: is there a reason we have to call this here? we're already setting them above
+		//Old caduceus does this
+		sinkSender.listener = listener
+		sinkSender.failureMsg.Original = listener
 	}
 
 	sinkSender.workers = semaphore.New(sinkSender.maxWorkers)
 	sinkSender.wg.Add(1)
 	go sinkSender.dispatcher()
 
-	s = sinkSender
-
-	return
-}
-
-// Update applies user configurable values for the outbound sender when a
-// webhook is registered
-// TODO: commenting out for now until argus/ancla dependency issue is fixed
-func (s *SinkSender) Update(wh ListenerStub) (err error) {
-
-	// Validate the failure URL, if present
-	if err = wh.Registration.Validate(); err != nil {
-		return
-	}
-
-	// Create and validate the event regex objects
-	// nolint:prealloc
-	events, err := wh.Registration.UpdateEvents()
-	if err != nil {
-		return err
-	}
-
-	// Create the matcher regex objects
-	matcher, err := wh.Registration.UpdateMatcher()
-	if err != nil {
-		return err
-	}
-
-	// Validate the various urls
-	urlCount := wh.Registration.GetUrlCount()
-	urls := []string{}
-	for i := 0; i < urlCount; i++ {
-		url, err := wh.Registration.ParseUrl(i)
-		if err != nil {
-			s.logger.Error("failed to update url", zap.Any("url", url), zap.Error(err))
-			return err
-		} else {
-			urls = append(urls, url)
-		}
-	}
-
-	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
-
-	// write/update obs
-	s.mutex.Lock()
-
-	s.listener = wh
-
-	s.failureMsg.Original = wh
-
-	s.deliverUntil = wh.Registration.GetTimeUntil()
-	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
-
-	s.events = events
-
-	s.deliveryRetryMaxGauge.Set(float64(s.deliveryRetries))
-
-	// if matcher list is empty set it nil for Queue() logic
-	s.matcher = nil
-	if 0 < len(matcher) {
-		s.matcher = matcher
-	}
-
-	if urlCount == 0 {
-		s.urls = ring.New(1)
-		s.urls.Value = s.id
-	} else {
-		r := ring.New(urlCount)
-		for i := 0; i < urlCount; i++ {
-
-			r.Value = urls[i]
-			r = r.Next()
-		}
-		s.urls = r
-	}
-
-	// Randomize where we start so all the instances don't synchronize
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	offset := r.Intn(s.urls.Len())
-	for 0 < offset {
-		s.urls = s.urls.Next()
-		offset--
-	}
-
-	// Update this here in case we make this configurable later
-	s.maxWorkersGauge.Set(float64(s.maxWorkers))
-
-	s.mutex.Unlock()
-
-	return
+	return sinkSender, err
 }
 
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or

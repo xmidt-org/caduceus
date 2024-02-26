@@ -49,7 +49,7 @@ type SinkWrapper struct {
 	config SinkConfig
 
 	mutex            *sync.RWMutex
-	senders          map[string]Sender
+	senders          map[string]*SinkSender
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
@@ -101,7 +101,7 @@ func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
 		sw = nil
 		return
 	}
-	sw.senders = make(map[string]Sender)
+	sw.senders = make(map[string]*SinkSender)
 	sw.shutdown = make(chan struct{})
 
 	sw.wg.Add(1)
@@ -148,7 +148,6 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 	for _, inValue := range ids {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
-			var ss Sender
 			var err error
 
 			listener := inValue.Listener
@@ -160,15 +159,14 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 
 			sw.clientMiddleware = metricWrapper.roundTripper
 
-			ss, err = newSinkSender(sw, listener, listener.Registration.GetAddress(), listener.Registration.GetTimeUntil())
+			ss, err := newSinkSender(sw, listener, listener.Registration.GetAddress(), listener.Registration.GetTimeUntil())
 
 			if err == nil {
 				sw.senders[inValue.ID] = ss
 			}
 			continue
 		}
-		fmt.Println(sender)
-		// sender.Update(inValue.Listener) //commenting out until argus/ancla fix
+		inValue.Listener.Registration.UpdateSender(sender)
 	}
 }
 
@@ -226,12 +224,12 @@ func undertaker(sw *SinkWrapper) {
 	}
 }
 
-func createDeadlist(sw *SinkWrapper, threshold time.Time) map[string]Sender {
+func createDeadlist(sw *SinkWrapper, threshold time.Time) map[string]*SinkSender {
 	if sw == nil || threshold.IsZero() {
 		return nil
 	}
 
-	deadList := make(map[string]Sender)
+	deadList := make(map[string]*SinkSender)
 	sw.mutex.Lock()
 	defer sw.mutex.Unlock()
 	for k, v := range sw.senders {
