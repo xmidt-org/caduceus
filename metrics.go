@@ -57,7 +57,10 @@ const (
 	connClosedReason       = "connection_closed"
 	opErrReason            = "op_error"
 	networkErrReason       = "unknown_network_err"
-	noErr                  = "no_err"
+	noErrReason            = "no_err"
+
+	// dropped message codes
+	messageDroppedCode = "message_dropped"
 )
 
 func Metrics() []xmetrics.Metric {

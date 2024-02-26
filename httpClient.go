@@ -56,8 +56,9 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()
+
 		code := genericDoReason
-		reason := noErr
+		reason := noErrReason
 		if err != nil {
 			reason = getDoErrReason(err)
 			if resp != nil {
@@ -74,31 +75,30 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 	})
 }
 
-func getDoErrReason(e error) string {
+func getDoErrReason(err error) string {
 	var d *net.DNSError
-	if e == nil {
-		return noErr
-	}
-	if errors.Is(e, context.DeadlineExceeded) {
+	if err == nil {
+		return noErrReason
+	} else if errors.Is(err, context.DeadlineExceeded) {
 		return deadlineExceededReason
-	} else if errors.Is(e, context.Canceled) {
+	} else if errors.Is(err, context.Canceled) {
 		return contextCanceledReason
-	} else if errors.Is(e, &net.AddrError{}) {
+	} else if errors.Is(err, &net.AddrError{}) {
 		return addressErrReason
-	} else if errors.Is(e, &net.ParseError{}) {
+	} else if errors.Is(err, &net.ParseError{}) {
 		return parseAddrErrReason
-	} else if errors.Is(e, net.InvalidAddrError("")) {
+	} else if errors.Is(err, net.InvalidAddrError("")) {
 		return invalidAddrReason
-	} else if errors.As(e, &d) {
+	} else if errors.As(err, &d) {
 		if d.IsNotFound {
 			return hostNotFoundReason
 		}
 		return dnsErrReason
-	} else if errors.Is(e, net.ErrClosed) {
+	} else if errors.Is(err, net.ErrClosed) {
 		return connClosedReason
-	} else if errors.Is(e, &net.OpError{}) {
+	} else if errors.Is(err, &net.OpError{}) {
 		return opErrReason
-	} else if errors.Is(e, net.UnknownNetworkError("")) {
+	} else if errors.Is(err, net.UnknownNetworkError("")) {
 		return networkErrReason
 	}
 

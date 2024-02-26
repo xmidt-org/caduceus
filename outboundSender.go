@@ -636,8 +636,9 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	client := obs.clientMiddleware(doerFunc(retryer))
 	resp, err := client.Do(req)
 
-	code := genericDoReason
-	reason := noErr
+	var deliveryCounterLabels []string
+	code := messageDroppedCode
+	reason := noErrReason
 	l := obs.logger
 	if nil != err {
 		// Report failure
@@ -646,12 +647,12 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			code = strconv.Itoa(resp.StatusCode)
 		}
 
-		obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, reason).Add(1)
 		l = obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
+		deliveryCounterLabels = []string{urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event}
+		obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, reason).Add(1)
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
-
 		// read until the response is complete before closing to allow
 		// connection reuse
 		if nil != resp.Body {
@@ -659,9 +660,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			resp.Body.Close()
 		}
 
-		obs.deliveryCounter.With(urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event).Add(1.0)
+		deliveryCounterLabels = []string{urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event}
 	}
 
+	obs.deliveryCounter.With(deliveryCounterLabels...).Add(1.0)
 	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
