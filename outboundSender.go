@@ -122,7 +122,7 @@ type CaduceusOutboundSender struct {
 	droppedCutoffCounter             metrics.Counter
 	droppedExpiredCounter            metrics.Counter
 	droppedExpiredBeforeQueueCounter metrics.Counter
-	droppedNetworkErrCounter         metrics.Counter
+	droppedMessage                   metrics.Counter
 	droppedInvalidConfig             metrics.Counter
 	droppedPanic                     metrics.Counter
 	cutOffCounter                    metrics.Counter
@@ -612,7 +612,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
-		Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event),
+		Counter:  obs.deliveryRetryCounter.With(urlLabel, obs.id, eventLabel, event),
 		// Always retry on failures up to the max count.
 		ShouldRetry:       xhttp.ShouldRetry,
 		ShouldRetryStatus: xhttp.RetryCodes,
@@ -623,6 +623,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
+			obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, updateRequestURLFailedReason).Add(1)
 			obs.logger.Error("failed to update url", zap.String("url", urls.Value.(string)), zap.Error(err))
 			return
 		}
@@ -636,24 +637,34 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	client := obs.clientMiddleware(doerFunc(retryer))
 	resp, err := client.Do(req)
 
-	code := "failure"
+	var deliveryCounterLabels []string
+	code := messageDroppedCode
+	reason := noErrReason
 	l := obs.logger
 	if nil != err {
 		// Report failure
-		obs.droppedNetworkErrCounter.Add(1.0)
-		l = obs.logger.With(zap.Error(err))
+		reason = getDoErrReason(err)
+		if resp != nil {
+			code = strconv.Itoa(resp.StatusCode)
+		}
+
+		l = obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
+		deliveryCounterLabels = []string{urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event}
+		obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, reason).Add(1)
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
-
 		// read until the response is complete before closing to allow
 		// connection reuse
 		if nil != resp.Body {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
+
+		deliveryCounterLabels = []string{urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event}
 	}
-	obs.deliveryCounter.With("url", obs.id, "code", code, "event", event).Add(1.0)
+
+	obs.deliveryCounter.With(deliveryCounterLabels...).Add(1.0)
 	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 

@@ -125,7 +125,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.incomingQueueLatency.With("event", eventType).Observe(endTime.Sub(startTime).Seconds())
+	sh.incomingQueueLatency.With(eventLabel, eventType).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -150,7 +150,7 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	}
 
 	if reason != "" {
-		sh.modifiedWRPCount.With("reason", reason).Add(1.0)
+		sh.modifiedWRPCount.With(reasonLabel, reason).Add(1.0)
 	}
 
 	return msg
