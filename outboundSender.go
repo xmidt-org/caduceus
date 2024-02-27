@@ -623,6 +623,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
+			obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, updateRequestURLFailedReason).Add(1)
 			obs.logger.Error("failed to update url", zap.String("url", urls.Value.(string)), zap.Error(err))
 			return
 		}

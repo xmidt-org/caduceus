@@ -45,19 +45,20 @@ const (
 	reasonLabel = "reason"
 
 	// metric label values
-
-	genericDoReason        = "do_error"
-	deadlineExceededReason = "context_deadline_exceeded"
-	contextCanceledReason  = "context_canceled"
-	addressErrReason       = "address_error"
-	parseAddrErrReason     = "parse_address_error"
-	invalidAddrReason      = "invalid_address"
-	dnsErrReason           = "dns_error"
-	hostNotFoundReason     = "host_not_found"
-	connClosedReason       = "connection_closed"
-	opErrReason            = "op_error"
-	networkErrReason       = "unknown_network_err"
-	noErrReason            = "no_err"
+	// dropped messages reasons
+	genericDoReason              = "do_error"
+	deadlineExceededReason       = "context_deadline_exceeded"
+	contextCanceledReason        = "context_canceled"
+	addressErrReason             = "address_error"
+	parseAddrErrReason           = "parse_address_error"
+	invalidAddrReason            = "invalid_address"
+	dnsErrReason                 = "dns_error"
+	hostNotFoundReason           = "host_not_found"
+	connClosedReason             = "connection_closed"
+	opErrReason                  = "op_error"
+	networkErrReason             = "unknown_network_err"
+	updateRequestURLFailedReason = "update_request_url_failed"
+	noErrReason                  = "no_err"
 
 	// dropped message codes
 	messageDroppedCode = "message_dropped"
