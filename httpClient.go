@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
@@ -100,6 +101,8 @@ func getDoErrReason(err error) string {
 		return opErrReason
 	} else if errors.Is(err, net.UnknownNetworkError("")) {
 		return networkErrReason
+	} else if strings.TrimSpace(strings.ToLower(err.Error())) == "eof" {
+		return connectionUnexpectedlyClosedEOFReason
 	}
 
 	return genericDoReason
