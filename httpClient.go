@@ -102,7 +102,10 @@ func getDoErrReason(err error) string {
 		return opErrReason
 	} else if errors.Is(err, net.UnknownNetworkError("")) {
 		return networkErrReason
-	} else if err, ok := err.(*url.Error); ok {
+	}
+
+	// nolint: errorlint
+	if err, ok := err.(*url.Error); ok {
 		if strings.TrimSpace(strings.ToLower(err.Unwrap().Error())) == "eof" {
 			return connectionUnexpectedlyClosedEOFReason
 		}
