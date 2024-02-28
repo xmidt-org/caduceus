@@ -115,7 +115,7 @@ type SinkSender struct {
 	clientMiddleware                 func(Client) Client
 }
 
-func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string) (s *SinkSender, err error) {
+func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s *SinkSender, err error) {
 	if sw.clientMiddleware == nil {
 		sw.clientMiddleware = nopClient
 	}
@@ -134,13 +134,11 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string) (s *S
 		return
 	}
 
-	decoratedLogger := sw.logger.With(zap.String("webhook.address", address))
-
 	sinkSender := &SinkSender{
 		client:           sw.client,
+		listener:         listener,
 		queueSize:        sw.config.QueueSizePerSender,
 		cutOffPeriod:     sw.config.CutOffPeriod,
-		logger:           decoratedLogger,
 		deliveryRetries:  sw.config.DeliveryRetries,
 		deliveryInterval: sw.config.DeliveryInterval,
 		maxWorkers:       sw.config.NumWorkersPerSender,

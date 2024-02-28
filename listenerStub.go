@@ -201,14 +201,13 @@ type DeliveryConfig struct {
 type Registration interface {
 	UpdateSender(*SinkSender) error
 	GetId() string
-	GetAddress() string
 }
 
 func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
+	l := ss.logger.With(zap.String("webhook.address", v1.Address))
 
 	// Validate the failure URL, if present
-	if v1.FailureURL != "" {
-		_, err := url.ParseRequestURI(v1.FailureURL)
+	if err = validateFailureURL(v1.FailureURL); err != nil {
 		return err
 	}
 	// Create and validate the event regex objects
@@ -249,7 +248,7 @@ func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
 	for i := 0; i < urlCount; i++ {
 		_, err := url.Parse(v1.Config.AlternativeURLs[i])
 		if err != nil {
-			ss.logger.Error("failed to update url", zap.Any("url", v1.Config.AlternativeURLs[i]), zap.Error(err))
+			l.Error("failed to update url", zap.Any("url", v1.Config.AlternativeURLs[i]), zap.Error(err))
 			return err
 		}
 	}
@@ -259,6 +258,8 @@ func (v1 *RegistrationV1) UpdateSender(ss *SinkSender) (err error) {
 	// write/update obs
 	ss.mutex.Lock()
 
+	ss.id = v1.Config.ReceiverURL
+	ss.logger = l
 	ss.deliverUntil = v1.Until
 	ss.deliverUntilGauge.Set(float64(ss.deliverUntil.Unix()))
 
@@ -302,15 +303,22 @@ func (v1 *RegistrationV1) GetId() string {
 	return v1.Config.ReceiverURL
 }
 
-func (v1 *RegistrationV1) GetAddress() string {
-	return v1.Address
-}
+func (v2 *RegistrationV2) UpdateSender(ss *SinkSender) (err error) {
+	// Validate the failure URL, if present
+	if err = validateFailureURL(v2.FailureURL); err != nil {
+		return err
+	}
 
-// TODO: is this what we want to return for the ids Map for V2?
+	return
+}
 func (v2 *RegistrationV2) GetId() string {
 	return v2.CanonicalName
 }
 
-func (v2 *RegistrationV2) GetAddress() string {
-	return v2.Address
+func validateFailureURL(fUrl string) (err error) {
+	if fUrl == "" {
+		_, err = url.ParseRequestURI(fUrl)
+		return
+	}
+	return
 }
