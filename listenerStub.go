@@ -171,6 +171,13 @@ type RegistrationV1 struct {
 	Until time.Time `json:"until"`
 }
 
+type Reg1Updates struct {
+	Events  []*regexp.Regexp
+	Matcher []*regexp.Regexp
+	Urls    []string
+	Until   time.Time
+}
+
 // MetadataMatcherConfig is Webhook substructure with config to match event metadata.
 type MetadataMatcherConfig struct {
 	// DeviceID is the list of regular expressions to match device id type against.
@@ -197,92 +204,16 @@ type DeliveryConfig struct {
 
 type Registration interface {
 	GetId() string
-	GetAddress() string
-	GetTimeUntil() time.Time
-	Validate() error
-	UpdateEvents() ([]*regexp.Regexp, error)
-	UpdateMatcher() ([]*regexp.Regexp, error)
-	GetUrlCount() int
-	ValidateUrls() (int, error)
-	ParseUrl(int) (string, error)
 }
 
 func (v1 *RegistrationV1) GetId() string {
 	return v1.Config.ReceiverURL
 }
 
-func (v1 *RegistrationV1) GetAddress() string {
-	return v1.Address
-}
-
-func (v1 *RegistrationV1) GetTimeUntil() time.Time {
-	return v1.Until
-}
-
-func (v1 *RegistrationV1) Validate() error {
-	if v1.FailureURL != "" {
-		_, err := url.ParseRequestURI(v1.FailureURL)
-		return err
-	}
-	return nil
-}
-
-func (v1 *RegistrationV1) UpdateEvents() ([]*regexp.Regexp, error) {
-	var events []*regexp.Regexp
-	var err error
-	for _, event := range v1.Events {
-		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); err != nil {
-			return events, err
-		}
-		events = append(events, re)
-	}
-	if len(events) < 1 {
-		err = errors.New("events must not be empty")
-		return events, err
-	}
-	return events, nil
-}
-
-func (v1 *RegistrationV1) UpdateMatcher() ([]*regexp.Regexp, error) {
-	matcher := []*regexp.Regexp{}
-
-	for _, item := range v1.Matcher.DeviceID {
-		if item == ".*" {
-			// Match everything - skip the filtering
-			matcher = []*regexp.Regexp{}
-			break
-		}
-
-		var re *regexp.Regexp
-		var err error
-		if re, err = regexp.Compile(item); nil != err {
-			err = fmt.Errorf("invalid matcher item: '%s'", item)
-			return matcher, err
-		}
-		matcher = append(matcher, re)
-	}
-	return matcher, nil
-}
-
-func (v1 *RegistrationV1) GetUrlCount() int {
-	return len(v1.Config.AlternativeURLs)
-}
-
-func (v1 *RegistrationV1) ParselUrl(i int) (string, error) {
-	_, err := url.Parse(v1.Config.AlternativeURLs[i])
-	return v1.Config.AlternativeURLs[i], err
-}
 
 // TODO: is this what we want to return for the ids Map for V2?
 func (v2 *RegistrationV2) GetId() string {
 	return v2.CanonicalName
 }
 
-func (v2 *RegistrationV2) GetAddress() string {
-	return v2.Address
-}
 
-func (v2 *RegistrationV2) GetTimeUntil() time.Time {
-	return v2.Expires
-}

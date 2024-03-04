@@ -116,7 +116,7 @@ type SinkSender struct {
 	clientMiddleware                 func(Client) Client
 }
 
-func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until time.Time) (s Sender, err error) {
+func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error) {
 	if sw.clientMiddleware == nil {
 		sw.clientMiddleware = nopClient
 	}
@@ -135,14 +135,11 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until
 		return
 	}
 
-	decoratedLogger := sw.logger.With(zap.String("webhook.address", address))
-
 	sinkSender := &SinkSender{
 		client:           sw.client,
 		queueSize:        sw.config.QueueSizePerSender,
 		cutOffPeriod:     sw.config.CutOffPeriod,
-		deliverUntil:     until,
-		logger:           decoratedLogger,
+		logger:           sw.logger,
 		deliveryRetries:  sw.config.DeliveryRetries,
 		deliveryInterval: sw.config.DeliveryInterval,
 		maxWorkers:       sw.config.NumWorkersPerSender,
@@ -188,38 +185,11 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub, address string, until
 // TODO: commenting out for now until argus/ancla dependency issue is fixed
 func (s *SinkSender) Update(wh ListenerStub) (err error) {
 
-	// Validate the failure URL, if present
-	if err = wh.Registration.Validate(); err != nil {
-		return
+	if r, ok := wh.Registration.(*RegistrationV1); ok {
+		s.UpdateR1(r)
+	} else if r, ok := wh.Registration.(*RegistrationV2); ok {
+		s.UpdateR2(r)
 	}
-
-	// Create and validate the event regex objects
-	// nolint:prealloc
-	events, err := wh.Registration.UpdateEvents()
-	if err != nil {
-		return err
-	}
-
-	// Create the matcher regex objects
-	matcher, err := wh.Registration.UpdateMatcher()
-	if err != nil {
-		return err
-	}
-
-	// Validate the various urls
-	urlCount := wh.Registration.GetUrlCount()
-	urls := []string{}
-	for i := 0; i < urlCount; i++ {
-		url, err := wh.Registration.ParseUrl(i)
-		if err != nil {
-			s.logger.Error("failed to update url", zap.Any("url", url), zap.Error(err))
-			return err
-		} else {
-			urls = append(urls, url)
-		}
-	}
-
-	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
 	// write/update obs
 	s.mutex.Lock()
@@ -227,8 +197,67 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 	s.listener = wh
 
 	s.failureMsg.Original = wh
+	s.mutex.Unlock()
 
-	s.deliverUntil = wh.Registration.GetTimeUntil()
+	return
+}
+
+func (s *SinkSender) UpdateR1(v1 *RegistrationV1) error {
+	s.logger = s.logger.With(zap.String("webhook.address", v1.Address))
+
+	if v1.FailureURL != "" {
+		_, err := url.ParseRequestURI(v1.FailureURL)
+		return err
+	}
+	return nil
+
+	var events []*regexp.Regexp
+	for _, event := range v1.Events {
+		var re *regexp.Regexp
+		re, err := regexp.Compile(event)
+		if err != nil {
+			return err
+		}
+		events = append(events, re)
+	}
+
+	if len(events) < 1 {
+		return errors.New("events must not be empty")
+	}
+
+	var matcher []*regexp.Regexp
+	for _, item := range v1.Matcher.DeviceID {
+		if item == ".*" {
+			// Match everything - skip the filtering
+			matcher = []*regexp.Regexp{}
+			break
+		}
+
+		var re *regexp.Regexp
+		re, err := regexp.Compile(item)
+		if err != nil {
+			return fmt.Errorf("invalid matcher item: '%s'", item)
+		}
+		matcher = append(matcher, re)
+	}
+
+	// Validate the various urls
+	urlCount := len(v1.Config.AlternativeURLs)
+	for i := 0; i < urlCount; i++ {
+		_, err := url.Parse(v1.Config.AlternativeURLs[i])
+		if err != nil {
+			s.logger.Error("failed to update url", zap.Any("url", v1.Config.AlternativeURLs[i]), zap.Error(err))
+			return err
+		}
+	}
+
+	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
+
+	// write/update sink sender
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.deliverUntil = v1.Until
 	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
 
 	s.events = events
@@ -241,14 +270,13 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 		s.matcher = matcher
 	}
 
-	if urlCount == 0 {
+	if 0 == urlCount {
 		s.urls = ring.New(1)
 		s.urls.Value = s.id
 	} else {
 		r := ring.New(urlCount)
 		for i := 0; i < urlCount; i++ {
-
-			r.Value = urls[i]
+			r.Value = v1.Config.AlternativeURLs[i]
 			r = r.Next()
 		}
 		s.urls = r
@@ -265,9 +293,8 @@ func (s *SinkSender) Update(wh ListenerStub) (err error) {
 	// Update this here in case we make this configurable later
 	s.maxWorkersGauge.Set(float64(s.maxWorkers))
 
-	s.mutex.Unlock()
+	return nil
 
-	return
 }
 
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
@@ -288,6 +315,11 @@ func (s *SinkSender) Shutdown(gentle bool) {
 	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
 	s.queueDepthGauge.Set(0) //just in case
 	s.mutex.Unlock()
+}
+
+func (s *SinkSender) UpdateR2(v2 *RegistrationV2) error {
+	//TODO: ADD CODE
+	return nil
 }
 
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
