@@ -14,7 +14,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
 	github.com/xmidt-org/ancla v0.3.12
-	github.com/xmidt-org/bascule v0.11.6
+	github.com/xmidt-org/bascule v0.11.7
 	github.com/xmidt-org/candlelight v0.0.21
 	github.com/xmidt-org/clortho v0.0.4
 	github.com/xmidt-org/httpaux v0.4.0
