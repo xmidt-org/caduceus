@@ -3,10 +3,7 @@
 package main
 
 import (
-	"errors"
-	"fmt"
-	"net/url"
-	"regexp"
+	"encoding/json"
 	"time"
 
 	webhook "github.com/xmidt-org/webhook-schema"
@@ -171,13 +168,6 @@ type RegistrationV1 struct {
 	Until time.Time `json:"until"`
 }
 
-type Reg1Updates struct {
-	Events  []*regexp.Regexp
-	Matcher []*regexp.Regexp
-	Urls    []string
-	Until   time.Time
-}
-
 // MetadataMatcherConfig is Webhook substructure with config to match event metadata.
 type MetadataMatcherConfig struct {
 	// DeviceID is the list of regular expressions to match device id type against.
@@ -204,16 +194,32 @@ type DeliveryConfig struct {
 
 type Registration interface {
 	GetId() string
+	GetAddress() string
+	Marshal() ([]byte, error)
+}
+
+func MarshalRegistration[R Registration](reg R) ([]byte, error) {
+	return reg.Marshal()
 }
 
 func (v1 *RegistrationV1) GetId() string {
 	return v1.Config.ReceiverURL
 }
 
+func (v1 *RegistrationV1) Marshal() ([]byte, error) {
+	return json.Marshal(v1)
+
+}
+
+func (v1 *RegistrationV1) GetAddress() string {
+	return v1.Address
+}
 
 // TODO: is this what we want to return for the ids Map for V2?
 func (v2 *RegistrationV2) GetId() string {
 	return v2.CanonicalName
 }
 
-
+func (v2 *RegistrationV2) Marshal() ([]byte, error) {
+	return nil, nil
+}

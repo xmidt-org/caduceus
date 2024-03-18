@@ -22,11 +22,11 @@ import (
 type SinkWrapperIn struct {
 	fx.In
 
-	Tracing       candlelight.Tracing
-	SinkConfig    SinkConfig
-	SenderMetrics SinkSenderMetrics
-	EventType     *prometheus.CounterVec
-	Logger        *zap.Logger
+	Tracing    candlelight.Tracing
+	SinkConfig SinkConfig
+	Metrics    Metrics
+	EventType  *prometheus.CounterVec
+	Logger     *zap.Logger
 }
 
 // SinkWrapper interface is needed for unit testing.
@@ -53,7 +53,7 @@ type SinkWrapper struct {
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
-	metrics          SinkSenderMetrics
+	metrics          Metrics
 	client           Client              //TODO: keeping here for now - but might move to SinkSender in a later PR
 	clientMiddleware func(Client) Client //TODO: keeping here for now - but might move to SinkSender in a later PR
 
@@ -61,8 +61,8 @@ type SinkWrapper struct {
 
 func ProvideWrapper() fx.Option {
 	return fx.Provide(
-		func(in SenderMetricsIn) SinkSenderMetrics {
-			senderMetrics := SinkSenderMetrics{
+		func(in MetricsIn) Metrics {
+			senderMetrics := Metrics{
 				DeliveryCounter:                 in.DeliveryCounter,
 				DeliveryRetryCounter:            in.DeliveryRetryCounter,
 				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
@@ -92,7 +92,7 @@ func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
 		logger:    in.Logger,
 		eventType: in.EventType,
 		config:    in.SinkConfig,
-		metrics:   in.SenderMetrics,
+		metrics:   in.Metrics,
 	}
 
 	if in.SinkConfig.Linger <= 0 {

@@ -47,7 +47,9 @@ const (
 	CodeLabel   = "code"
 )
 
-type SenderMetricsIn struct {
+// MetricsIn will be populated automatically by the ProvideMetrics function
+// and then used to populate the Metrics struct
+type MetricsIn struct {
 	fx.In
 	QueryLatency                    prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
 	DeliveryCounter                 *prometheus.CounterVec `name:"delivery_count"`
@@ -62,6 +64,23 @@ type SenderMetricsIn struct {
 	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec   `name:"consumer_delivery_workers_max"`
 	OutgoingQueueDepth              *prometheus.GaugeVec   `name:"outgoing_queue_depths"`
 	ConsumerRenewalTimeGauge        *prometheus.GaugeVec   `name:"consumer_renewal_time"`
+}
+
+// Metrics will be used to set up the metrics for each sink
+type Metrics struct {
+	DeliveryCounter                 *prometheus.CounterVec
+	DeliveryRetryCounter            *prometheus.CounterVec
+	DeliveryRetryMaxGauge           *prometheus.GaugeVec
+	CutOffCounter                   *prometheus.CounterVec
+	SlowConsumerDroppedMsgCounter   *prometheus.CounterVec
+	DropsDueToPanic                 *prometheus.CounterVec
+	ConsumerDeliverUntilGauge       *prometheus.GaugeVec
+	ConsumerDropUntilGauge          *prometheus.GaugeVec
+	ConsumerDeliveryWorkersGauge    *prometheus.GaugeVec
+	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec
+	OutgoingQueueDepth              *prometheus.GaugeVec
+	ConsumerRenewalTimeGauge        *prometheus.GaugeVec
+	QueryLatency                    prometheus.ObserverVec
 }
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called

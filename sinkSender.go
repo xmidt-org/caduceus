@@ -3,34 +3,15 @@
 package main
 
 import (
-	"bytes"
 	"container/ring"
-	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
-	"math/rand"
 	"net/http"
-	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/xmidt-org/retry"
-	"github.com/xmidt-org/retry/retryhttp"
-	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
-	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
 
 // failureText is human readable text for the failure message
@@ -57,63 +38,12 @@ type Sender interface {
 	Queue(*wrp.Message)
 }
 
-type SinkSenderMetrics struct {
-	DeliveryCounter                 *prometheus.CounterVec
-	DeliveryRetryCounter            *prometheus.CounterVec
-	DeliveryRetryMaxGauge           *prometheus.GaugeVec
-	CutOffCounter                   *prometheus.CounterVec
-	SlowConsumerDroppedMsgCounter   *prometheus.CounterVec
-	DropsDueToPanic                 *prometheus.CounterVec
-	ConsumerDeliverUntilGauge       *prometheus.GaugeVec
-	ConsumerDropUntilGauge          *prometheus.GaugeVec
-	ConsumerDeliveryWorkersGauge    *prometheus.GaugeVec
-	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec
-	OutgoingQueueDepth              *prometheus.GaugeVec
-	ConsumerRenewalTimeGauge        *prometheus.GaugeVec
-	QueryLatency                    prometheus.ObserverVec
-}
-
 // CaduceusOutboundSender is the outbound sender object.
 type SinkSender struct {
-	id                               string
-	urls                             *ring.Ring
-	listener                         ListenerStub
-	deliverUntil                     time.Time
-	dropUntil                        time.Time
-	client                           Client
-	events                           []*regexp.Regexp
-	matcher                          []*regexp.Regexp
-	queueSize                        int
-	deliveryRetries                  int
-	deliveryInterval                 time.Duration
-	deliveryCounter                  prometheus.CounterVec
-	deliveryRetryCounter             *prometheus.CounterVec
-	droppedQueueFullCounter          prometheus.Counter
-	droppedCutoffCounter             prometheus.Counter
-	droppedExpiredCounter            prometheus.Counter
-	droppedExpiredBeforeQueueCounter prometheus.Counter
-	droppedNetworkErrCounter         prometheus.Counter
-	droppedInvalidConfig             prometheus.Counter
-	droppedPanic                     prometheus.Counter
-	cutOffCounter                    prometheus.Counter
-	queueDepthGauge                  prometheus.Gauge
-	renewalTimeGauge                 prometheus.Gauge
-	deliverUntilGauge                prometheus.Gauge
-	dropUntilGauge                   prometheus.Gauge
-	maxWorkersGauge                  prometheus.Gauge
-	currentWorkersGauge              prometheus.Gauge
-	deliveryRetryMaxGauge            prometheus.Gauge
-	wg                               sync.WaitGroup
-	cutOffPeriod                     time.Duration
-	workers                          semaphore.Interface
-	maxWorkers                       int
-	failureMsg                       FailureMessage
-	logger                           *zap.Logger
-	mutex                            sync.RWMutex
-	queue                            atomic.Value
-	customPIDs                       []string
-	disablePartnerIDs                bool
-	clientMiddleware                 func(Client) Client
+	customPIDs       []string
+	client           Client
+	clientMiddleware func(Client) Client
+	sink             SinkMiddleware
 }
 
 func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error) {
@@ -135,45 +65,37 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 		return
 	}
 
+	id := listener.Registration.GetId()
+
 	sinkSender := &SinkSender{
 		client:           sw.client,
-		queueSize:        sw.config.QueueSizePerSender,
-		cutOffPeriod:     sw.config.CutOffPeriod,
-		logger:           sw.logger,
-		deliveryRetries:  sw.config.DeliveryRetries,
-		deliveryInterval: sw.config.DeliveryInterval,
-		maxWorkers:       sw.config.NumWorkersPerSender,
-		failureMsg: FailureMessage{
-			Original:     listener,
-			Text:         failureText,
-			CutOffPeriod: sw.config.CutOffPeriod.String(),
-			QueueSize:    sw.config.QueueSizePerSender,
-			Workers:      sw.config.NumWorkersPerSender,
-		},
-		customPIDs:        sw.config.CustomPIDs,
-		disablePartnerIDs: sw.config.DisablePartnerIDs,
-		clientMiddleware:  sw.clientMiddleware,
+		clientMiddleware: sw.clientMiddleware,
 	}
+
+	cs := CommonSink{
+		id:                id,
+		maxWorkers:        sw.config.NumWorkersPerSender,
+		deliveryRetries:   sw.config.DeliveryRetries,
+		logger:            sw.logger,
+		queueSize:         sw.config.QueueSizePerSender,
+		cutOffPeriod:      sw.config.CutOffPeriod,
+		disablePartnerIDs: sw.config.DisablePartnerIDs,
+		customPIDs:        sw.config.CustomPIDs,
+		deliveryInterval:  sw.config.DeliveryInterval,
+	}
+	CreateFailureMessage(sw.config, listener, sinkSender.sink)
+	CreateSinkMetrics(sw.metrics, id, sinkSender.sink)
 
 	//TODO: need to figure out how to set this up
 	// Don't share the secret with others when there is an error.
 	// sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
-
-	CreateOutbounderMetrics(sw.metrics, sinkSender)
-
-	// update queue depth and current workers gauge to make sure they start at 0
-	sinkSender.queueDepthGauge.Set(0)
-	sinkSender.currentWorkersGauge.Set(0)
-
-	sinkSender.queue.Store(make(chan *wrp.Message, sw.config.QueueSizePerSender))
+	sinkSender.sink.SetCommonSink(cs)
 
 	if err = sinkSender.Update(listener); nil != err {
 		return
 	}
 
-	sinkSender.workers = semaphore.New(sinkSender.maxWorkers)
-	sinkSender.wg.Add(1)
-	go sinkSender.dispatcher()
+	go sinkSender.sink.dispatcher()
 
 	s = sinkSender
 
@@ -184,137 +106,14 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 // webhook is registered
 // TODO: commenting out for now until argus/ancla dependency issue is fixed
 func (s *SinkSender) Update(wh ListenerStub) (err error) {
-
-	if r, ok := wh.Registration.(*RegistrationV1); ok {
-		s.UpdateR1(r)
-	} else if r, ok := wh.Registration.(*RegistrationV2); ok {
-		s.UpdateR2(r)
-	}
-
-	// write/update obs
-	s.mutex.Lock()
-
-	s.listener = wh
-
-	s.failureMsg.Original = wh
-	s.mutex.Unlock()
-
 	return
-}
-
-func (s *SinkSender) UpdateR1(v1 *RegistrationV1) error {
-	s.logger = s.logger.With(zap.String("webhook.address", v1.Address))
-
-	if v1.FailureURL != "" {
-		_, err := url.ParseRequestURI(v1.FailureURL)
-		return err
-	}
-	return nil
-
-	var events []*regexp.Regexp
-	for _, event := range v1.Events {
-		var re *regexp.Regexp
-		re, err := regexp.Compile(event)
-		if err != nil {
-			return err
-		}
-		events = append(events, re)
-	}
-
-	if len(events) < 1 {
-		return errors.New("events must not be empty")
-	}
-
-	var matcher []*regexp.Regexp
-	for _, item := range v1.Matcher.DeviceID {
-		if item == ".*" {
-			// Match everything - skip the filtering
-			matcher = []*regexp.Regexp{}
-			break
-		}
-
-		var re *regexp.Regexp
-		re, err := regexp.Compile(item)
-		if err != nil {
-			return fmt.Errorf("invalid matcher item: '%s'", item)
-		}
-		matcher = append(matcher, re)
-	}
-
-	// Validate the various urls
-	urlCount := len(v1.Config.AlternativeURLs)
-	for i := 0; i < urlCount; i++ {
-		_, err := url.Parse(v1.Config.AlternativeURLs[i])
-		if err != nil {
-			s.logger.Error("failed to update url", zap.Any("url", v1.Config.AlternativeURLs[i]), zap.Error(err))
-			return err
-		}
-	}
-
-	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
-
-	// write/update sink sender
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.deliverUntil = v1.Until
-	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
-
-	s.events = events
-
-	s.deliveryRetryMaxGauge.Set(float64(s.deliveryRetries))
-
-	// if matcher list is empty set it nil for Queue() logic
-	s.matcher = nil
-	if 0 < len(matcher) {
-		s.matcher = matcher
-	}
-
-	if 0 == urlCount {
-		s.urls = ring.New(1)
-		s.urls.Value = s.id
-	} else {
-		r := ring.New(urlCount)
-		for i := 0; i < urlCount; i++ {
-			r.Value = v1.Config.AlternativeURLs[i]
-			r = r.Next()
-		}
-		s.urls = r
-	}
-
-	// Randomize where we start so all the instances don't synchronize
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	offset := r.Intn(s.urls.Len())
-	for 0 < offset {
-		s.urls = s.urls.Next()
-		offset--
-	}
-
-	// Update this here in case we make this configurable later
-	s.maxWorkersGauge.Set(float64(s.maxWorkers))
-
-	return nil
-
 }
 
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
 func (s *SinkSender) Shutdown(gentle bool) {
-	if !gentle {
-		// need to close the channel we're going to replace, in case it doesn't
-		// have any events in it.
-		close(s.queue.Load().(chan *wrp.Message))
-		s.Empty(s.droppedExpiredCounter)
-	}
-	close(s.queue.Load().(chan *wrp.Message))
-	s.wg.Wait()
 
-	s.mutex.Lock()
-	s.deliverUntil = time.Time{}
-	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
-	s.queueDepthGauge.Set(0) //just in case
-	s.mutex.Unlock()
 }
 
 func (s *SinkSender) UpdateR2(v2 *RegistrationV2) error {
@@ -324,11 +123,8 @@ func (s *SinkSender) UpdateR2(v2 *RegistrationV2) error {
 
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
-func (s *SinkSender) RetiredSince() time.Time {
-	s.mutex.RLock()
-	deliverUntil := s.deliverUntil
-	s.mutex.RUnlock()
-	return deliverUntil
+func (s *SinkSender) RetiredSince() (t time.Time) {
+	return
 }
 
 func overlaps(sl1 []string, sl2 []string) bool {
@@ -346,86 +142,11 @@ func overlaps(sl1 []string, sl2 []string) bool {
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
 func (s *SinkSender) Queue(msg *wrp.Message) {
-	s.mutex.RLock()
-	deliverUntil := s.deliverUntil
-	dropUntil := s.dropUntil
-	events := s.events
-	matcher := s.matcher
-	s.mutex.RUnlock()
 
-	now := time.Now()
-
-	if !s.isValidTimeWindow(now, dropUntil, deliverUntil) {
-		s.logger.Debug("invalid time window for event", zap.Any("now", now), zap.Any("dropUntil", dropUntil), zap.Any("deliverUntil", deliverUntil))
-		return
-	}
-
-	//check the partnerIDs
-	if !s.disablePartnerIDs {
-		if len(msg.PartnerIDs) == 0 {
-			msg.PartnerIDs = s.customPIDs
-		}
-		// if !overlaps(s.listener.PartnerIDs, msg.PartnerIDs) {
-		// 	s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.PartnerIDs), zap.Strings("event.partnerIDs", msg.PartnerIDs))
-		// 	return
-		// }
-	}
-
-	var (
-		matchEvent  bool
-		matchDevice = true
-	)
-	for _, eventRegex := range events {
-		if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-			matchEvent = true
-			break
-		}
-	}
-	if !matchEvent {
-		s.logger.Debug("destination regex doesn't match", zap.String("event.dest", msg.Destination))
-		return
-	}
-
-	if matcher != nil {
-		matchDevice = false
-		for _, deviceRegex := range matcher {
-			if deviceRegex.MatchString(msg.Source) {
-				matchDevice = true
-				break
-			}
-		}
-	}
-
-	if !matchDevice {
-		s.logger.Debug("device regex doesn't match", zap.String("event.source", msg.Source))
-		return
-	}
-
-	select {
-	case s.queue.Load().(chan *wrp.Message) <- msg:
-		s.queueDepthGauge.Add(1.0)
-		s.logger.Debug("event added to outbound queue", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-	default:
-		s.logger.Debug("queue full. event dropped", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-		s.queueOverflow()
-		s.droppedQueueFullCounter.Add(1.0)
-	}
 }
 
-func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
-	if !now.After(dropUntil) {
-		// client was cut off
-		s.droppedCutoffCounter.Add(1.0)
-		return false
-	}
-
-	if !now.Before(deliverUntil) {
-		// outside delivery window
-		s.droppedExpiredBeforeQueueCounter.Add(1.0)
-		return false
-	}
-
-	return true
+func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) (b bool) {
+	return
 }
 
 // Empty is called on cutoff or shutdown and swaps out the current queue for
@@ -433,307 +154,35 @@ func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) b
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
 func (s *SinkSender) Empty(droppedCounter prometheus.Counter) {
-	droppedMsgs := s.queue.Load().(chan *wrp.Message)
-	s.queue.Store(make(chan *wrp.Message, s.queueSize))
-	droppedCounter.Add(float64(len(droppedMsgs)))
-	s.queueDepthGauge.Set(0.0)
+
 }
 
 func (s *SinkSender) dispatcher() {
-	defer s.wg.Done()
-	var (
-		msg            *wrp.Message
-		urls           *ring.Ring
-		secret, accept string
-		ok             bool
-	)
 
-Loop:
-	for {
-		// Always pull a new queue in case we have been cutoff or are shutting
-		// down.
-		msgQueue := s.queue.Load().(chan *wrp.Message)
-		// nolint:gosimple
-		select {
-		// The dispatcher cannot get stuck blocking here forever (caused by an
-		// empty queue that is replaced and then Queue() starts adding to the
-		// new queue) because:
-		// 	- queue is only replaced on cutoff and shutdown
-		//  - on cutoff, the first queue is always full so we will definitely
-		//    get a message, drop it because we're cut off, then get the new
-		//    queue and block until the cut off ends and Queue() starts queueing
-		//    messages again.
-		//  - on graceful shutdown, the queue is closed and then the dispatcher
-		//    will send all messages, then break the loop, gather workers, and
-		//    exit.
-		//  - on non graceful shutdown, the queue is closed and then replaced
-		//    with a new, empty queue that is also closed.
-		//      - If the first queue is empty, we immediately break the loop,
-		//        gather workers, and exit.
-		//      - If the first queue has messages, we drop a message as expired
-		//        pull in the new queue which is empty and closed, break the
-		//        loop, gather workers, and exit.
-		case msg, ok = <-msgQueue:
-			// This is only true when a queue is empty and closed, which for us
-			// only happens on Shutdown().
-			if !ok {
-				break Loop
-			}
-			s.queueDepthGauge.Add(-1.0)
-			s.mutex.RLock()
-			urls = s.urls
-			// Move to the next URL to try 1st the next time.
-			// This is okay because we run a single dispatcher and it's the
-			// only one updating this field.
-			s.urls = s.urls.Next()
-			deliverUntil := s.deliverUntil
-			dropUntil := s.dropUntil
-			// secret = s.listener.Webhook.Config.Secret
-			// accept = s.listener.Webhook.Config.ContentType
-			s.mutex.RUnlock()
-
-			now := time.Now()
-
-			if now.Before(dropUntil) {
-				s.droppedCutoffCounter.Add(1.0)
-				continue
-			}
-			if now.After(deliverUntil) {
-				s.Empty(s.droppedExpiredCounter)
-				continue
-			}
-			s.workers.Acquire()
-			s.currentWorkersGauge.Add(1.0)
-
-			go s.send(urls, secret, accept, msg)
-		}
-	}
-	for i := 0; i < s.maxWorkers; i++ {
-		s.workers.Acquire()
-	}
 }
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
 func (s *SinkSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
-	defer func() {
-		if r := recover(); nil != r {
-			s.droppedPanic.Add(1.0)
-			s.logger.Error("goroutine send() panicked", zap.String("id", s.id), zap.Any("panic", r))
-		}
-		s.workers.Release()
-		s.currentWorkersGauge.Add(-1.0)
-	}()
-
-	payload := msg.Payload
-	body := payload
-	var payloadReader *bytes.Reader
-
-	// Use the internal content type unless the accept type is wrp
-	contentType := msg.ContentType
-	switch acceptType {
-	case "wrp", wrp.MimeTypeMsgpack, wrp.MimeTypeWrp:
-		// WTS - We should pass the original, raw WRP event instead of
-		// re-encoding it.
-		contentType = wrp.MimeTypeMsgpack
-		buffer := bytes.NewBuffer([]byte{})
-		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
-		encoder.Encode(msg)
-		body = buffer.Bytes()
-	}
-	payloadReader = bytes.NewReader(body)
-
-	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
-	if nil != err {
-		// Report drop
-		s.droppedInvalidConfig.Add(1.0)
-		s.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", s.id), zap.Error(err))
-		return
-	}
-
-	req.Header.Set("Content-Type", contentType)
-
-	// Add x-Midt-* headers
-	wrphttp.AddMessageHeaders(req.Header, msg)
-
-	// Provide the old headers for now
-	req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
-	req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
-
-	// Add the device id without the trailing service
-	id, _ := wrp.ParseDeviceID(msg.Source)
-	req.Header.Set("X-Webpa-Device-Id", string(id))
-	req.Header.Set("X-Webpa-Device-Name", string(id))
-
-	// Apply the secret
-
-	if secret != "" {
-		s := hmac.New(sha1.New, []byte(secret))
-		s.Write(body)
-		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
-		req.Header.Set("X-Webpa-Signature", sig)
-	}
-
-	// find the event "short name"
-	event := msg.FindEventStringSubMatch()
-
-	// Send it
-	s.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-	client, _ := retryhttp.NewClient(
-		retryhttp.WithHTTPClient(s.clientMiddleware(s.client)),
-		retryhttp.WithRunner(s.addRunner(req, event)),
-		retryhttp.WithRequesters(s.updateRequest(urls)),
-	)
-	resp, err := client.Do(req)
-
-	code := "failure"
-	l := s.logger
-	if nil != err {
-		// Report failure
-		s.droppedNetworkErrCounter.Add(1.0)
-		l = s.logger.With(zap.Error(err))
-	} else {
-		// Report Result
-		code = strconv.Itoa(resp.StatusCode)
-
-		// read until the response is complete before closing to allow
-		// connection reuse
-		if nil != resp.Body {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}
-	}
-	s.deliveryCounter.With(prometheus.Labels{UrlLabel: s.id, CodeLabel: code, EventLabel: event}).Add(1.0)
-	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows:
 // cutting off the webhook for a time and sending a cut off notification
 // to the failure URL.
 func (s *SinkSender) queueOverflow() {
-	s.mutex.Lock()
-	if time.Now().Before(s.dropUntil) {
-		s.mutex.Unlock()
-		return
-	}
-	s.dropUntil = time.Now().Add(s.cutOffPeriod)
-	s.dropUntilGauge.Set(float64(s.dropUntil.Unix()))
-	// secret := s.listener.Webhook.Config.Secret
-	secret := "placeholderSecret"
-	failureMsg := s.failureMsg
-	// failureURL := s.listener.Webhook.FailureURL
-	failureURL := "placeholderURL"
-	s.mutex.Unlock()
 
-	s.cutOffCounter.Add(1.0)
-
-	// We empty the queue but don't close the channel, because we're not
-	// shutting down.
-	s.Empty(s.droppedCutoffCounter)
-
-	msg, err := json.Marshal(failureMsg)
-	if nil != err {
-		s.logger.Error("Cut-off notification json.Marshal failed", zap.Any("failureMessage", s.failureMsg), zap.String("for", s.id), zap.Error(err))
-		return
-	}
-
-	// if no URL to send cut off notification to, do nothing
-	if failureURL == "" {
-		return
-	}
-
-	// Send a "you've been cut off" warning message
-	payload := bytes.NewReader(msg)
-	req, err := http.NewRequest("POST", failureURL, payload)
-	if nil != err {
-		// Failure
-		s.logger.Error("Unable to send cut-off notification", zap.String("notification",
-			failureURL), zap.String("for", s.id), zap.Error(err))
-		return
-	}
-	req.Header.Set("Content-Type", wrp.MimeTypeJson)
-
-	if secret != "" {
-		h := hmac.New(sha1.New, []byte(secret))
-		h.Write(msg)
-		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
-		req.Header.Set("X-Webpa-Signature", sig)
-	}
-
-	resp, err := s.client.Do(req)
-	if nil != err {
-		// Failure
-		s.logger.Error("Unable to send cut-off notification", zap.String("notification", failureURL), zap.String("for", s.id), zap.Error(err))
-		return
-	}
-
-	if nil == resp {
-		// Failure
-		s.logger.Error("Unable to send cut-off notification, nil response", zap.String("notification", failureURL))
-		return
-	}
-
-	// Success
-
-	if nil != resp.Body {
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-
-	}
 }
 
-func (s *SinkSender) addRunner(request *http.Request, event string) retry.Runner[*http.Response] {
+func (s *SinkSender) addRunner(request *http.Request, event string) (f retry.Runner[*http.Response]) {
 	//TODO: need to handle error
-	runner, _ := retry.NewRunner[*http.Response](
-		retry.WithPolicyFactory[*http.Response](retry.Config{
-			Interval:   s.deliveryInterval,
-			MaxRetries: s.deliveryRetries,
-		}),
-		retry.WithOnAttempt[*http.Response](s.onAttempt(request, event)),
-	)
-	return runner
+	return
 
 }
 
-func (s *SinkSender) updateRequest(urls *ring.Ring) func(*http.Request) *http.Request {
-	return func(request *http.Request) *http.Request {
-		urls = urls.Next()
-		tmp, err := url.Parse(urls.Value.(string))
-		if err != nil {
-			s.logger.Error("failed to update url", zap.String(UrlLabel, urls.Value.(string)), zap.Error(err))
-		}
-		request.URL = tmp
-		return request
-	}
+func (s *SinkSender) updateRequest(urls *ring.Ring) (f func(*http.Request) *http.Request) {
+	return
 }
 
-func (s *SinkSender) onAttempt(request *http.Request, event string) retry.OnAttempt[*http.Response] {
-
-	return func(attempt retry.Attempt[*http.Response]) {
-		if attempt.Retries > 0 {
-			s.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: s.id, EventLabel: event}).Add(1.0)
-			s.logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
-		}
-
-	}
-
-}
-
-func CreateOutbounderMetrics(m SinkSenderMetrics, c *SinkSender) {
-	c.deliveryRetryCounter = m.DeliveryRetryCounter
-	c.deliveryRetryMaxGauge = m.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: c.id})
-	c.cutOffCounter = m.CutOffCounter.With(prometheus.Labels{UrlLabel: c.id})
-	c.droppedQueueFullCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "queue_full"})
-	c.droppedExpiredCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "expired"})
-	c.droppedExpiredBeforeQueueCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "expired_before_queueing"})
-	c.droppedCutoffCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "cut_off"})
-	c.droppedInvalidConfig = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "invalid_config"})
-	c.droppedNetworkErrCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: networkError})
-	c.droppedPanic = m.DropsDueToPanic.With(prometheus.Labels{UrlLabel: c.id})
-	c.queueDepthGauge = m.OutgoingQueueDepth.With(prometheus.Labels{UrlLabel: c.id})
-	c.renewalTimeGauge = m.ConsumerRenewalTimeGauge.With(prometheus.Labels{UrlLabel: c.id})
-	c.deliverUntilGauge = m.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: c.id})
-	c.dropUntilGauge = m.ConsumerDropUntilGauge.With(prometheus.Labels{UrlLabel: c.id})
-	c.currentWorkersGauge = m.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: c.id})
-	c.maxWorkersGauge = m.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: c.id})
+func (s *SinkSender) onAttempt(request *http.Request, event string) (f retry.OnAttempt[*http.Response]) {
+	return
 }
