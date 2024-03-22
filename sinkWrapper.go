@@ -130,16 +130,16 @@ func NewRoundTripper(config SinkConfig, tracing candlelight.Tracing) (tr http.Ro
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *SinkWrapper) Update(list []ListenerStub) {
+func (sw *SinkWrapper) Update(list []Listener) {
 
 	ids := make([]struct {
-		Listener ListenerStub
+		Listener Listener
 		ID       string
 	}, len(list))
 
 	for i, v := range list {
 		ids[i].Listener = v
-		ids[i].ID = v.Registration.GetId()
+		ids[i].ID = v.GetId()
 	}
 
 	sw.mutex.Lock()
@@ -158,9 +158,12 @@ func (sw *SinkWrapper) Update(list []ListenerStub) {
 				continue
 			}
 
+			ss, err = NewSinkSender(sw, listener)
 			sw.clientMiddleware = metricWrapper.roundTripper
 
-			ss, err = newSinkSender(sw, listener)
+			// {
+			// 	ss, err = newSinkSender(sw, r1)
+			// }
 
 			if err == nil {
 				sw.senders[inValue.ID] = ss

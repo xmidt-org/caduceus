@@ -3,17 +3,25 @@
 package main
 
 import (
-	"encoding/json"
 	"time"
 
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
-//This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
-
-type ListenerStub struct {
+// This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
+type Listener interface {
+	GetId() string
+	GetVersion() int
+	GetAddress() string
+}
+type LegacyListener struct {
 	PartnerIds   []string
-	Registration Registration
+	Registration RegistrationV1
+}
+
+type ListenerV2 struct {
+	PartnerIds   []string
+	Registration RegistrationV2
 }
 
 // Webhook is a substructure with data related to event delivery.
@@ -192,34 +200,25 @@ type DeliveryConfig struct {
 	AlternativeURLs []string `json:"alt_urls,omitempty"`
 }
 
-type Registration interface {
-	GetId() string
-	GetAddress() string
-	Marshal() ([]byte, error)
+func (v1 *LegacyListener) GetId() string {
+	return v1.Registration.Config.ReceiverURL
 }
 
-func MarshalRegistration[R Registration](reg R) ([]byte, error) {
-	return reg.Marshal()
+func (v1 *LegacyListener) GetVersion() int {
+	return 1
 }
 
-func (v1 *RegistrationV1) GetId() string {
-	return v1.Config.ReceiverURL
+func (v1 *LegacyListener) GetAddress() string {
+	return v1.Registration.Address
 }
 
-func (v1 *RegistrationV1) Marshal() ([]byte, error) {
-	return json.Marshal(v1)
-
+func (v2 *ListenerV2) GetVersion() int {
+	return 2
+}
+func (v2 *ListenerV2) GetId() string {
+	return v2.Registration.CanonicalName
 }
 
-func (v1 *RegistrationV1) GetAddress() string {
-	return v1.Address
-}
-
-// TODO: is this what we want to return for the ids Map for V2?
-func (v2 *RegistrationV2) GetId() string {
-	return v2.CanonicalName
-}
-
-func (v2 *RegistrationV2) Marshal() ([]byte, error) {
-	return nil, nil
+func (v2 *ListenerV2) GetAddress() string {
+	return v2.Registration.Address
 }

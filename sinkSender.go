@@ -3,14 +3,15 @@
 package main
 
 import (
-	"container/ring"
 	"errors"
-	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
-	"github.com/xmidt-org/retry"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -24,29 +25,75 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text         string       `json:"text"`
-	Original     ListenerStub `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
-	CutOffPeriod string       `json:"cut_off_period"`
-	QueueSize    int          `json:"queue_size"`
-	Workers      int          `json:"worker_count"`
+	Text         string   `json:"text"`
+	Original     Listener `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
+	CutOffPeriod string   `json:"cut_off_period"`
+	QueueSize    int      `json:"queue_size"`
+	Workers      int      `json:"worker_count"`
 }
 
 type Sender interface {
-	// Update(ancla.InternalWebhook) error
+	Update(Listener) error
 	Shutdown(bool)
-	RetiredSince() time.Time
 	Queue(*wrp.Message)
+	SetCommonSink(CommonSink)
+	SetMetrics(SinkMetrics)
+	SetFailureMessage(FailureMessage)
+	RetiredSince() time.Time
+	Dispatcher() //TODO: not sure if dispatcher will be called by both - if not need to move dispatcher to within LegacySink creation
 }
 
-// CaduceusOutboundSender is the outbound sender object.
-type SinkSender struct {
-	customPIDs       []string
-	client           Client
-	clientMiddleware func(Client) Client
-	sink             SinkMiddleware
+type CommonSink struct {
+	id                string
+	mutex             sync.RWMutex
+	listener          Listener
+	deliverUntil      time.Time
+	dropUntil         time.Time
+	failureMsg        FailureMessage
+	logger            *zap.Logger
+	queue             atomic.Value
+	wg                sync.WaitGroup
+	deliveryInterval  time.Duration
+	queueSize         int
+	deliveryRetries   int
+	maxWorkers        int
+	cutOffPeriod      time.Duration
+	disablePartnerIDs bool
+	customPIDs        []string
+	workers           semaphore.Interface
+	client            Client
+	clientMiddleware  func(Client) Client
+	SinkMetrics
 }
 
-func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error) {
+// SinkMetrics are the metrics added to sink with sink specific information (i.e. id)
+type SinkMetrics struct {
+	deliveryCounter                  prometheus.CounterVec
+	deliveryRetryCounter             *prometheus.CounterVec
+	droppedQueueFullCounter          prometheus.Counter
+	droppedCutoffCounter             prometheus.Counter
+	droppedExpiredCounter            prometheus.Counter
+	droppedExpiredBeforeQueueCounter prometheus.Counter
+	droppedNetworkErrCounter         prometheus.Counter
+	droppedInvalidConfig             prometheus.Counter
+	droppedPanic                     prometheus.Counter
+	cutOffCounter                    prometheus.Counter
+	queueDepthGauge                  prometheus.Gauge
+	renewalTimeGauge                 prometheus.Gauge
+	deliverUntilGauge                prometheus.Gauge
+	dropUntilGauge                   prometheus.Gauge
+	maxWorkersGauge                  prometheus.Gauge
+	currentWorkersGauge              prometheus.Gauge
+	deliveryRetryMaxGauge            prometheus.Gauge
+}
+
+func NewSinkSender(sw *SinkWrapper, l Listener) (s Sender, err error) {
+	if l.GetVersion() == 1 {
+		s = &LegacySinkSender{}
+	} else if l.GetVersion() == 2 {
+		// s = &SinkSenderV2
+	}
+
 	if sw.clientMiddleware == nil {
 		sw.clientMiddleware = nopClient
 	}
@@ -65,13 +112,7 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 		return
 	}
 
-	id := listener.Registration.GetId()
-
-	sinkSender := &SinkSender{
-		client:           sw.client,
-		clientMiddleware: sw.clientMiddleware,
-	}
-
+	id := l.GetId()
 	cs := CommonSink{
 		id:                id,
 		maxWorkers:        sw.config.NumWorkersPerSender,
@@ -82,48 +123,23 @@ func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error)
 		disablePartnerIDs: sw.config.DisablePartnerIDs,
 		customPIDs:        sw.config.CustomPIDs,
 		deliveryInterval:  sw.config.DeliveryInterval,
+		//TODO: add client middleware
 	}
-	CreateFailureMessage(sw.config, listener, sinkSender.sink)
-	CreateSinkMetrics(sw.metrics, id, sinkSender.sink)
+
+	CreateFailureMessage(sw.config, l, s)
+	CreateSinkMetrics(sw.metrics, id, s)
+	s.SetCommonSink(cs)
 
 	//TODO: need to figure out how to set this up
 	// Don't share the secret with others when there is an error.
 	// sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
-	sinkSender.sink.SetCommonSink(cs)
 
-	if err = sinkSender.Update(listener); nil != err {
+	if err = s.Update(l); nil != err {
 		return
 	}
 
-	go sinkSender.sink.dispatcher()
+	go s.Dispatcher()
 
-	s = sinkSender
-
-	return
-}
-
-// Update applies user configurable values for the outbound sender when a
-// webhook is registered
-// TODO: commenting out for now until argus/ancla dependency issue is fixed
-func (s *SinkSender) Update(wh ListenerStub) (err error) {
-	return
-}
-
-// Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
-// abruptly based on the gentle parameter.  If gentle is false, all queued
-// messages will be dropped without an attempt to send made.
-func (s *SinkSender) Shutdown(gentle bool) {
-
-}
-
-func (s *SinkSender) UpdateR2(v2 *RegistrationV2) error {
-	//TODO: ADD CODE
-	return nil
-}
-
-// RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
-// the future).
-func (s *SinkSender) RetiredSince() (t time.Time) {
 	return
 }
 
@@ -138,51 +154,41 @@ func overlaps(sl1 []string, sl2 []string) bool {
 	return false
 }
 
-// Queue is given a request to evaluate and optionally enqueue in the list
-// of messages to deliver.  The request is checked to see if it matches the
-// criteria before being accepted or silently dropped.
-func (s *SinkSender) Queue(msg *wrp.Message) {
+func CreateFailureMessage(sc SinkConfig, l Listener, s Sender) {
+	fm := FailureMessage{
+		Original:     l,
+		Text:         failureText,
+		CutOffPeriod: sc.CutOffPeriod.String(),
+		QueueSize:    sc.QueueSizePerSender,
+		Workers:      sc.NumWorkersPerSender,
+	}
 
+	s.SetFailureMessage(fm)
 }
 
-func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) (b bool) {
-	return
-}
+func CreateSinkMetrics(m Metrics, id string, s Sender) {
+	sm := SinkMetrics{
+		deliveryRetryCounter:             m.DeliveryRetryCounter,
+		deliveryRetryMaxGauge:            m.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: id}),
+		cutOffCounter:                    m.CutOffCounter.With(prometheus.Labels{UrlLabel: id}),
+		droppedQueueFullCounter:          m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "queue_full"}),
+		droppedExpiredCounter:            m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "expired"}),
+		droppedExpiredBeforeQueueCounter: m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "expired_before_queueing"}),
+		droppedCutoffCounter:             m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "cut_off"}),
+		droppedInvalidConfig:             m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "invalid_config"}),
+		droppedNetworkErrCounter:         m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: networkError}),
+		droppedPanic:                     m.DropsDueToPanic.With(prometheus.Labels{UrlLabel: id}),
+		queueDepthGauge:                  m.OutgoingQueueDepth.With(prometheus.Labels{UrlLabel: id}),
+		renewalTimeGauge:                 m.ConsumerRenewalTimeGauge.With(prometheus.Labels{UrlLabel: id}),
+		deliverUntilGauge:                m.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: id}),
+		dropUntilGauge:                   m.ConsumerDropUntilGauge.With(prometheus.Labels{UrlLabel: id}),
+		currentWorkersGauge:              m.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: id}),
+		maxWorkersGauge:                  m.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: id}),
+	}
 
-// Empty is called on cutoff or shutdown and swaps out the current queue for
-// a fresh one, counting any current messages in the queue as dropped.
-// It should never close a queue, as a queue not referenced anywhere will be
-// cleaned up by the garbage collector without needing to be closed.
-func (s *SinkSender) Empty(droppedCounter prometheus.Counter) {
+	// update queue depth and current workers gauge to make sure they start at 0
+	sm.queueDepthGauge.Set(0)
+	sm.currentWorkersGauge.Set(0)
 
-}
-
-func (s *SinkSender) dispatcher() {
-
-}
-
-// worker is the routine that actually takes the queued messages and delivers
-// them to the listeners outside webpa
-func (s *SinkSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
-}
-
-// queueOverflow handles the logic of what to do when a queue overflows:
-// cutting off the webhook for a time and sending a cut off notification
-// to the failure URL.
-func (s *SinkSender) queueOverflow() {
-
-}
-
-func (s *SinkSender) addRunner(request *http.Request, event string) (f retry.Runner[*http.Response]) {
-	//TODO: need to handle error
-	return
-
-}
-
-func (s *SinkSender) updateRequest(urls *ring.Ring) (f func(*http.Request) *http.Request) {
-	return
-}
-
-func (s *SinkSender) onAttempt(request *http.Request, event string) (f retry.OnAttempt[*http.Response]) {
-	return
+	s.SetMetrics(sm)
 }
