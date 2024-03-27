@@ -11,10 +11,11 @@ import (
 // This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
 type Listener interface {
 	GetId() string
-	GetVersion() int
 	GetAddress() string
+	GetPartnerIds() []string
+	GetUntil() time.Time
 }
-type LegacyListener struct {
+type ListenerV1 struct {
 	PartnerIds   []string
 	Registration RegistrationV1
 }
@@ -200,20 +201,19 @@ type DeliveryConfig struct {
 	AlternativeURLs []string `json:"alt_urls,omitempty"`
 }
 
-func (v1 *LegacyListener) GetId() string {
+func (v1 *ListenerV1) GetId() string {
 	return v1.Registration.Config.ReceiverURL
 }
-
-func (v1 *LegacyListener) GetVersion() int {
-	return 1
+func (v1 *ListenerV1) GetPartnerIds() []string {
+	return v1.PartnerIds
 }
 
-func (v1 *LegacyListener) GetAddress() string {
+func (v1 *ListenerV1) GetAddress() string {
 	return v1.Registration.Address
 }
 
-func (v2 *ListenerV2) GetVersion() int {
-	return 2
+func (v1 *ListenerV1) GetUntil() time.Time {
+	return v1.Registration.Until
 }
 func (v2 *ListenerV2) GetId() string {
 	return v2.Registration.CanonicalName
@@ -221,4 +221,12 @@ func (v2 *ListenerV2) GetId() string {
 
 func (v2 *ListenerV2) GetAddress() string {
 	return v2.Registration.Address
+}
+
+func (v2 *ListenerV2) GetPartnerIds() []string {
+	return v2.PartnerIds
+}
+
+func (v2 *ListenerV2) GetUntil() time.Time {
+	return v2.Registration.Expires
 }
