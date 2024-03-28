@@ -1,83 +1,132 @@
-// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
-	"os"
 	"testing"
+
+	_ "github.com/goschtalt/goschtalt/pkg/typical"
+	_ "github.com/goschtalt/yaml-decoder"
+	_ "github.com/goschtalt/yaml-encoder"
+	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/sallust"
 )
 
-func TestMain(m *testing.M) {
-	os.Exit(m.Run())
+func Test_provideCLI(t *testing.T) {
+	tests := []struct {
+		description string
+		args        cliArgs
+		want        CLI
+		exits       bool
+		expectedErr error
+	}{
+		{
+			description: "no arguments, everything works",
+		}, {
+			description: "dev mode",
+			args:        cliArgs{"-d"},
+			want:        CLI{Dev: true},
+		}, {
+			description: "invalid argument",
+			args:        cliArgs{"-w"},
+			exits:       true,
+		}, {
+			description: "invalid argument",
+			args:        cliArgs{"-d", "-w"},
+			exits:       true,
+		}, {
+			description: "help",
+			args:        cliArgs{"-h"},
+			exits:       true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+
+			if tc.exits {
+				assert.Panics(func() {
+					_, _ = provideCLIWithOpts(tc.args, true)
+				})
+			} else {
+				got, err := provideCLI(tc.args)
+
+				assert.ErrorIs(err, tc.expectedErr)
+				want := tc.want
+				assert.Equal(&want, got)
+			}
+		})
+	}
 }
 
-// func TestPrintVersionInfo(t *testing.T) {
-// 	testCases := []struct {
-// 		name           string
-// 		expectedOutput []string
-// 		overrideValues func()
-// 		lineCount      int
-// 	}{
-// 		{
-// 			"default",
-// 			[]string{
-// 				"caduceus:",
-// 				"version: \tundefined",
-// 				"go version: \tgo",
-// 				"built time: \tundefined",
-// 				"git commit: \tundefined",
-// 				"os/arch: \t",
-// 			},
-// 			func() {},
-// 			6,
-// 		},
-// 		{
-// 			"set values",
-// 			[]string{
-// 				"caduceus:",
-// 				"version: \t1.0.0\n",
-// 				"go version: \tgo",
-// 				"built time: \tsome time\n",
-// 				"git commit: \tgit sha\n",
-// 				"os/arch: \t",
-// 			},
-// 			func() {
-// 				Version = "1.0.0"
-// 				BuildTime = "some time"
-// 				GitCommit = "git sha"
-// 			},
-// 			6,
-// 		},
-// 	}
-// 	for _, tc := range testCases {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			resetGlobals()
-// 			tc.overrideValues()
-// 			buf := &bytes.Buffer{}
-// 			printVersionInfo(buf)
-// 			count := 0
-// 			for {
-// 				line, err := buf.ReadString(byte('\n'))
-// 				if err != nil {
-// 					break
-// 				}
-// 				assert.Contains(t, line, tc.expectedOutput[count])
-// 				if strings.Contains(line, "\t") {
-// 					keyAndValue := strings.Split(line, "\t")
-// 					// The value after the tab should have more than 2 characters
-// 					// 1) the first character of the value and the new line
-// 					assert.True(t, len(keyAndValue[1]) > 2)
-// 				}
-// 				count++
-// 			}
-// 			assert.Equal(t, tc.lineCount, count)
-// 			resetGlobals()
-// 		})
-// 	}
-// }
+func Test_caduceus(t *testing.T) {
+	tests := []struct {
+		description string
+		args        []string
+		panic       bool
+		expectedErr error
+	}{
+		{
+			description: "show config and exit",
+			args:        []string{"-s"},
+			panic:       true,
+		}, {
+			description: "show help and exit",
+			args:        []string{"-h"},
+			panic:       true,
+		}, {
+			description: "do everything but run",
+			args:        []string{"-f", "caduceus.yaml"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
 
-// func resetGlobals() {
-// 	Version = "undefined"
-// 	BuildTime = "undefined"
-// 	GitCommit = "undefined"
-// }
+			if tc.panic {
+				assert.Panics(func() {
+					_ = caduceus(tc.args, false)
+				})
+			} else {
+				err := caduceus(tc.args, false)
+
+				assert.ErrorIs(err, tc.expectedErr)
+			}
+		})
+	}
+}
+
+func Test_provideLogger(t *testing.T) {
+	tests := []struct {
+		description string
+		cli         *CLI
+		cfg         sallust.Config
+		expectedErr error
+	}{
+		{
+			description: "validate empty config",
+			cfg:         sallust.Config{},
+			cli:         &CLI{},
+		}, {
+			description: "validate dev config",
+			cfg:         sallust.Config{},
+			cli:         &CLI{Dev: true},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+
+			got, err := provideLogger(tc.cli, tc.cfg)
+
+			if tc.expectedErr == nil {
+				assert.NotNil(got)
+				assert.NoError(err)
+				return
+			}
+			assert.ErrorIs(err, tc.expectedErr)
+			assert.Nil(got)
+		})
+	}
+}

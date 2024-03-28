@@ -74,7 +74,7 @@ func caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[sallust.Config]("logging"),
 			goschtalt.UnmarshalFunc[candlelight.Config]("tracing"),
 			goschtalt.UnmarshalFunc[touchstone.Config]("prometheus"),
-			goschtalt.UnmarshalFunc[SenderConfig]("sender"),
+			goschtalt.UnmarshalFunc[SinkConfig]("sender"),
 			goschtalt.UnmarshalFunc[Service]("service"),
 			goschtalt.UnmarshalFunc[[]string]("authHeader"),
 			goschtalt.UnmarshalFunc[bool]("previousVersionSupport"),
@@ -136,7 +136,7 @@ func caduceus(arguments []string, run bool) error {
 		arrangehttp.ProvideServer("servers.alternate"),
 
 		ProvideHandler(),
-		ProvideSenderWrapper(),
+		ProvideWrapper(),
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		ProvideMetrics(),

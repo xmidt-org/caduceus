@@ -20,9 +20,9 @@ import (
 
 type ServerHandlerIn struct {
 	fx.In
-	CaduceusSenderWrapper *CaduceusSenderWrapper
-	Logger                *zap.Logger
-	Telemetry             *HandlerTelemetry
+	SinkWrapper *SinkWrapper
+	Logger      *zap.Logger
+	Telemetry   *HandlerTelemetry
 }
 
 type ServerHandlerOut struct {
@@ -40,20 +40,20 @@ type ServerHandler struct {
 }
 type HandlerTelemetryIn struct {
 	fx.In
-	ErrorRequests            prometheus.Counter      `name:"error_request_body_counter"`
-	EmptyRequests            prometheus.Counter      `name:"empty_request_boyd_counter"`
-	InvalidCount             prometheus.Counter      `name:"drops_due_to_invalid_payload"`
-	IncomingQueueDepthMetric prometheus.Gauge        `name:"incoming_queue_depth"`
-	ModifiedWRPCount         prometheus.CounterVec   `name:"modified_wrp_count"`
-	IncomingQueueLatency     prometheus.HistogramVec `name:"incoming_queue_latency_histogram_seconds"`
+	ErrorRequests            prometheus.Counter     `name:"error_request_body_count"`
+	EmptyRequests            prometheus.Counter     `name:"empty_request_body_count"`
+	InvalidCount             prometheus.Counter     `name:"drops_due_to_invalid_payload"`
+	IncomingQueueDepthMetric prometheus.Gauge       `name:"incoming_queue_depth"`
+	ModifiedWRPCount         *prometheus.CounterVec `name:"modified_wrp_count"`
+	IncomingQueueLatency     prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
 }
 type HandlerTelemetry struct {
 	errorRequests            prometheus.Counter
 	emptyRequests            prometheus.Counter
 	invalidCount             prometheus.Counter
 	incomingQueueDepthMetric prometheus.Gauge
-	modifiedWRPCount         prometheus.CounterVec
-	incomingQueueLatency     prometheus.HistogramVec
+	modifiedWRPCount         *prometheus.CounterVec
+	incomingQueueLatency     prometheus.ObserverVec
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -144,7 +144,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.telemetry.incomingQueueLatency.With(prometheus.Labels{"event": eventType}).Observe(float64(endTime.Sub(startTime).Seconds()))
+	sh.telemetry.incomingQueueLatency.With(prometheus.Labels{"event": eventType}).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -189,18 +189,18 @@ func ProvideHandler() fx.Option {
 		},
 		func(in ServerHandlerIn) (ServerHandlerOut, error) {
 			//Hard coding maxOutstanding and incomingQueueDepth for now
-			handler, err := New(in.CaduceusSenderWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
+			handler, err := New(in.SinkWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
 			return ServerHandlerOut{
 				Handler: handler,
 			}, err
 		},
 	)
 }
-func New(senderWrapper *CaduceusSenderWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+func New(sw *SinkWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
 		caduceusHandler: &CaduceusHandler{
-			senderWrapper: senderWrapper,
-			Logger:        log,
+			wrapper: sw,
+			Logger:      log,
 		},
 		telemetry:          t,
 		maxOutstanding:     maxOutstanding,

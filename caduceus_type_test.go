@@ -18,7 +18,7 @@ func TestCaduceusHandler(t *testing.T) {
 	fakeSenderWrapper.On("Queue", mock.AnythingOfType("*wrp.Message")).Return().Once()
 
 	testHandler := CaduceusHandler{
-		senderWrapper: fakeSenderWrapper,
+		wrapper: fakeSenderWrapper,
 		Logger:        logger,
 	}
 

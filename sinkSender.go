@@ -12,7 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,11 +22,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xmidt-org/httpaux/retry"
 	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/xmidt-org/retry"
+	"github.com/xmidt-org/retry/retryhttp"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
@@ -40,59 +43,51 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text string `json:"text"`
-	// Original     ancla.InternalWebhook `json:"webhook_registration"` //TODO: add back in once ancla/argus dependency issue is fixed.
-	CutOffPeriod string `json:"cut_off_period"`
-	QueueSize    int    `json:"queue_size"`
-	Workers      int    `json:"worker_count"`
+	Text         string       `json:"text"`
+	Original     ListenerStub `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
+	CutOffPeriod string       `json:"cut_off_period"`
+	QueueSize    int          `json:"queue_size"`
+	Workers      int          `json:"worker_count"`
 }
 
-type OutboundSender interface {
+type Sender interface {
 	// Update(ancla.InternalWebhook) error
 	Shutdown(bool)
 	RetiredSince() time.Time
 	Queue(*wrp.Message)
 }
 
-type OutboundSenderFactory struct {
-	Config           SenderConfig
-	Logger           *zap.Logger
-	Metrics          OutboundSenderMetrics
-	Sender           httpClient
-	Listener         ListenerStub
-	ClientMiddleware func(httpClient) httpClient
-}
-
-type OutboundSenderMetrics struct {
-	DeliveryCounter                 prometheus.CounterVec
-	DeliveryRetryCounter            prometheus.CounterVec
-	DeliveryRetryMaxGauge           prometheus.GaugeVec
-	CutOffCounter                   prometheus.CounterVec
-	SlowConsumerDroppedMsgCounter   prometheus.CounterVec
-	DropsDueToPanic                 prometheus.CounterVec
-	ConsumerDeliverUntilGauge       prometheus.GaugeVec
-	ConsumerDropUntilGauge          prometheus.GaugeVec
-	ConsumerDeliveryWorkersGauge    prometheus.GaugeVec
-	ConsumerMaxDeliveryWorkersGauge prometheus.GaugeVec
-	OutgoingQueueDepth              prometheus.GaugeVec
-	ConsumerRenewalTimeGauge        prometheus.GaugeVec
+type SinkSenderMetrics struct {
+	DeliveryCounter                 *prometheus.CounterVec
+	DeliveryRetryCounter            *prometheus.CounterVec
+	DeliveryRetryMaxGauge           *prometheus.GaugeVec
+	CutOffCounter                   *prometheus.CounterVec
+	SlowConsumerDroppedMsgCounter   *prometheus.CounterVec
+	DropsDueToPanic                 *prometheus.CounterVec
+	ConsumerDeliverUntilGauge       *prometheus.GaugeVec
+	ConsumerDropUntilGauge          *prometheus.GaugeVec
+	ConsumerDeliveryWorkersGauge    *prometheus.GaugeVec
+	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec
+	OutgoingQueueDepth              *prometheus.GaugeVec
+	ConsumerRenewalTimeGauge        *prometheus.GaugeVec
+	QueryLatency                    prometheus.ObserverVec
 }
 
 // CaduceusOutboundSender is the outbound sender object.
-type CaduceusOutboundSender struct {
-	id   string
-	urls *ring.Ring
-	// listener                         ancla.InternalWebhook //TODO: add back in once ancla/argus dependency issue is fixed
+type SinkSender struct {
+	id                               string
+	urls                             *ring.Ring
+	listener                         ListenerStub
 	deliverUntil                     time.Time
 	dropUntil                        time.Time
-	sender                           httpClient
+	client                           Client
 	events                           []*regexp.Regexp
 	matcher                          []*regexp.Regexp
 	queueSize                        int
 	deliveryRetries                  int
 	deliveryInterval                 time.Duration
 	deliveryCounter                  prometheus.CounterVec
-	deliveryRetryCounter             prometheus.Counter
+	deliveryRetryCounter             *prometheus.CounterVec
 	droppedQueueFullCounter          prometheus.Counter
 	droppedCutoffCounter             prometheus.Counter
 	droppedExpiredCounter            prometheus.Counter
@@ -118,217 +113,209 @@ type CaduceusOutboundSender struct {
 	queue                            atomic.Value
 	customPIDs                       []string
 	disablePartnerIDs                bool
-	clientMiddleware                 func(httpClient) httpClient
+	clientMiddleware                 func(Client) Client
 }
 
-// New creates a new OutboundSender object from the factory, or returns an error.
-func (osf *OutboundSenderFactory) New() (obs OutboundSender, err error) {
-	// if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
-	// 	return
-	// }
-
-	if osf.ClientMiddleware == nil {
-		osf.ClientMiddleware = nopHTTPClient
+func newSinkSender(sw *SinkWrapper, listener ListenerStub) (s Sender, err error) {
+	if sw.clientMiddleware == nil {
+		sw.clientMiddleware = nopClient
 	}
-
-	if osf.Sender == nil {
-		err = errors.New("nil Sender()")
+	if sw.client == nil {
+		err = errors.New("nil Client")
 		return
 	}
 
-	if osf.Config.CutOffPeriod.Nanoseconds() == 0 {
+	if sw.config.CutOffPeriod.Nanoseconds() == 0 {
 		err = errors.New("invalid CutOffPeriod")
 		return
 	}
 
-	if osf.Logger == nil {
+	if sw.logger == nil {
 		err = errors.New("logger required")
 		return
 	}
 
-	// decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
+	decoratedLogger := sw.logger.With(zap.String("webhook.address", listener.Webhook.Address))
 
-	caduceusOutboundSender := &CaduceusOutboundSender{
-		// id:               osf.Listener.Webhook.Config.URL,
-		// listener:         osf.Listener,
-		sender:       osf.Sender,
-		queueSize:    osf.Config.QueueSizePerSender,
-		cutOffPeriod: osf.Config.CutOffPeriod,
-		// deliverUntil:     osf.Listener.Webhook.Until,
-		// logger:           decoratedLogger,
-		deliveryRetries:  osf.Config.DeliveryRetries,
-		deliveryInterval: osf.Config.DeliveryInterval,
-		maxWorkers:       osf.Config.NumWorkersPerSender,
+	sinkSender := &SinkSender{
+		client:           sw.client,
+		queueSize:        sw.config.QueueSizePerSender,
+		cutOffPeriod:     sw.config.CutOffPeriod,
+		deliverUntil:     listener.Webhook.Until,
+		logger:           decoratedLogger,
+		deliveryRetries:  sw.config.DeliveryRetries,
+		deliveryInterval: sw.config.DeliveryInterval,
+		maxWorkers:       sw.config.NumWorkersPerSender,
 		failureMsg: FailureMessage{
-			// Original:     osf.Listener,
+			Original:     listener,
 			Text:         failureText,
-			CutOffPeriod: osf.Config.CutOffPeriod.String(),
-			QueueSize:    osf.Config.QueueSizePerSender,
-			Workers:      osf.Config.NumWorkersPerSender,
+			CutOffPeriod: sw.config.CutOffPeriod.String(),
+			QueueSize:    sw.config.QueueSizePerSender,
+			Workers:      sw.config.NumWorkersPerSender,
 		},
-		customPIDs:        osf.Config.CustomPIDs,
-		disablePartnerIDs: osf.Config.DisablePartnerIDs,
-		clientMiddleware:  osf.ClientMiddleware,
+		customPIDs:        sw.config.CustomPIDs,
+		disablePartnerIDs: sw.config.DisablePartnerIDs,
+		clientMiddleware:  sw.clientMiddleware,
 	}
 
 	// Don't share the secret with others when there is an error.
-	// caduceusOutboundSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-	CreateOutbounderMetrics(osf.Metrics, caduceusOutboundSender)
+	CreateOutbounderMetrics(sw.metrics, sinkSender)
 
 	// update queue depth and current workers gauge to make sure they start at 0
-	caduceusOutboundSender.queueDepthGauge.Set(0)
-	caduceusOutboundSender.currentWorkersGauge.Set(0)
+	sinkSender.queueDepthGauge.Set(0)
+	sinkSender.currentWorkersGauge.Set(0)
 
-	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.Config.QueueSizePerSender))
+	sinkSender.queue.Store(make(chan *wrp.Message, sw.config.QueueSizePerSender))
 
-	// if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
-	// 	return
-	// }
+	if err = sinkSender.Update(listener); nil != err {
+		return
+	}
 
-	caduceusOutboundSender.workers = semaphore.New(caduceusOutboundSender.maxWorkers)
-	caduceusOutboundSender.wg.Add(1)
-	go caduceusOutboundSender.dispatcher()
+	sinkSender.workers = semaphore.New(sinkSender.maxWorkers)
+	sinkSender.wg.Add(1)
+	go sinkSender.dispatcher()
 
-	obs = caduceusOutboundSender
+	s = sinkSender
 
 	return
 }
 
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
-//TODO: commenting out for now until argus/ancla dependency issue is fixed
-// func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) {
+// TODO: commenting out for now until argus/ancla dependency issue is fixed
+func (s *SinkSender) Update(wh ListenerStub) (err error) {
 
-// 	// Validate the failure URL, if present
-// 	if "" != wh.Webhook.FailureURL {
-// 		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); nil != err {
-// 			return
-// 		}
-// 	}
+	// Validate the failure URL, if present
+	if wh.Webhook.FailureURL != "" {
+		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); nil != err {
+			return
+		}
+	}
 
-// 	// Create and validate the event regex objects
-// 	// nolint:prealloc
-// 	var events []*regexp.Regexp
-// 	for _, event := range wh.Webhook.Events {
-// 		var re *regexp.Regexp
-// 		if re, err = regexp.Compile(event); nil != err {
-// 			return
-// 		}
+	// Create and validate the event regex objects
+	// nolint:prealloc
+	var events []*regexp.Regexp
+	for _, event := range wh.Webhook.Events {
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(event); nil != err {
+			return
+		}
 
-// 		events = append(events, re)
-// 	}
-// 	if len(events) < 1 {
-// 		err = errors.New("events must not be empty.")
-// 		return
-// 	}
+		events = append(events, re)
+	}
+	if len(events) < 1 {
+		err = errors.New("events must not be empty")
+		return
+	}
 
-// 	// Create the matcher regex objects
-// 	matcher := []*regexp.Regexp{}
-// 	for _, item := range wh.Webhook.Matcher.DeviceID {
-// 		if ".*" == item {
-// 			// Match everything - skip the filtering
-// 			matcher = []*regexp.Regexp{}
-// 			break
-// 		}
+	// Create the matcher regex objects
+	matcher := []*regexp.Regexp{}
+	for _, item := range wh.Webhook.Matcher.DeviceID {
+		if item == ".*" {
+			// Match everything - skip the filtering
+			matcher = []*regexp.Regexp{}
+			break
+		}
 
-// 		var re *regexp.Regexp
-// 		if re, err = regexp.Compile(item); nil != err {
-// 			err = fmt.Errorf("invalid matcher item: '%s'", item)
-// 			return
-// 		}
-// 		matcher = append(matcher, re)
-// 	}
+		var re *regexp.Regexp
+		if re, err = regexp.Compile(item); nil != err {
+			err = fmt.Errorf("invalid matcher item: '%s'", item)
+			return
+		}
+		matcher = append(matcher, re)
+	}
 
-// 	// Validate the various urls
-// 	urlCount := len(wh.Webhook.Config.AlternativeURLs)
-// 	for i := 0; i < urlCount; i++ {
-// 		_, err = url.Parse(wh.Webhook.Config.AlternativeURLs[i])
-// 		if err != nil {
-// 			obs.logger.Error("failed to update url", zap.Any("url", wh.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
-// 			return
-// 		}
-// 	}
+	// Validate the various urls
+	urlCount := len(wh.Webhook.Config.AlternativeURLs)
+	for i := 0; i < urlCount; i++ {
+		_, err = url.Parse(wh.Webhook.Config.AlternativeURLs[i])
+		if err != nil {
+			s.logger.Error("failed to update url", zap.Any("url", wh.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
+			return
+		}
+	}
 
-// 	obs.renewalTimeGauge.Set(float64(time.Now().Unix()))
+	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
-// 	// write/update obs
-// 	obs.mutex.Lock()
+	// write/update obs
+	s.mutex.Lock()
 
-// 	obs.listener = wh
+	s.listener = wh
 
-// 	obs.failureMsg.Original = wh
-// 	// Don't share the secret with others when there is an error.
-// 	obs.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	s.failureMsg.Original = wh
+	// Don't share the secret with others when there is an error.
+	s.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-// 	obs.listener.Webhook.FailureURL = wh.Webhook.FailureURL
-// 	obs.deliverUntil = wh.Webhook.Until
-// 	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+	s.listener.Webhook.FailureURL = wh.Webhook.FailureURL
+	s.deliverUntil = wh.Webhook.Until
+	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
 
-// 	obs.events = events
+	s.events = events
 
-// 	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
+	s.deliveryRetryMaxGauge.Set(float64(s.deliveryRetries))
 
-// 	// if matcher list is empty set it nil for Queue() logic
-// 	obs.matcher = nil
-// 	if 0 < len(matcher) {
-// 		obs.matcher = matcher
-// 	}
+	// if matcher list is empty set it nil for Queue() logic
+	s.matcher = nil
+	if 0 < len(matcher) {
+		s.matcher = matcher
+	}
 
-// 	if 0 == urlCount {
-// 		obs.urls = ring.New(1)
-// 		obs.urls.Value = obs.id
-// 	} else {
-// 		r := ring.New(urlCount)
-// 		for i := 0; i < urlCount; i++ {
-// 			r.Value = wh.Webhook.Config.AlternativeURLs[i]
-// 			r = r.Next()
-// 		}
-// 		obs.urls = r
-// 	}
+	if urlCount == 0 {
+		s.urls = ring.New(1)
+		s.urls.Value = s.id
+	} else {
+		r := ring.New(urlCount)
+		for i := 0; i < urlCount; i++ {
+			r.Value = wh.Webhook.Config.AlternativeURLs[i]
+			r = r.Next()
+		}
+		s.urls = r
+	}
 
-// 	// Randomize where we start so all the instances don't synchronize
-// 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-// 	offset := r.Intn(obs.urls.Len())
-// 	for 0 < offset {
-// 		obs.urls = obs.urls.Next()
-// 		offset--
-// 	}
+	// Randomize where we start so all the instances don't synchronize
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	offset := r.Intn(s.urls.Len())
+	for 0 < offset {
+		s.urls = s.urls.Next()
+		offset--
+	}
 
-// 	// Update this here in case we make this configurable later
-// 	obs.maxWorkersGauge.Set(float64(obs.maxWorkers))
+	// Update this here in case we make this configurable later
+	s.maxWorkersGauge.Set(float64(s.maxWorkers))
 
-// 	obs.mutex.Unlock()
+	s.mutex.Unlock()
 
-// 	return
-// }
+	return
+}
 
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
-func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
+func (s *SinkSender) Shutdown(gentle bool) {
 	if !gentle {
 		// need to close the channel we're going to replace, in case it doesn't
 		// have any events in it.
-		close(obs.queue.Load().(chan *wrp.Message))
-		obs.Empty(obs.droppedExpiredCounter)
+		close(s.queue.Load().(chan *wrp.Message))
+		s.Empty(s.droppedExpiredCounter)
 	}
-	close(obs.queue.Load().(chan *wrp.Message))
-	obs.wg.Wait()
+	close(s.queue.Load().(chan *wrp.Message))
+	s.wg.Wait()
 
-	obs.mutex.Lock()
-	obs.deliverUntil = time.Time{}
-	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
-	obs.queueDepthGauge.Set(0) //just in case
-	obs.mutex.Unlock()
+	s.mutex.Lock()
+	s.deliverUntil = time.Time{}
+	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
+	s.queueDepthGauge.Set(0) //just in case
+	s.mutex.Unlock()
 }
 
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
-func (obs *CaduceusOutboundSender) RetiredSince() time.Time {
-	obs.mutex.RLock()
-	deliverUntil := obs.deliverUntil
-	obs.mutex.RUnlock()
+func (s *SinkSender) RetiredSince() time.Time {
+	s.mutex.RLock()
+	deliverUntil := s.deliverUntil
+	s.mutex.RUnlock()
 	return deliverUntil
 }
 
@@ -346,28 +333,28 @@ func overlaps(sl1 []string, sl2 []string) bool {
 // Queue is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
-	obs.mutex.RLock()
-	deliverUntil := obs.deliverUntil
-	dropUntil := obs.dropUntil
-	events := obs.events
-	matcher := obs.matcher
-	obs.mutex.RUnlock()
+func (s *SinkSender) Queue(msg *wrp.Message) {
+	s.mutex.RLock()
+	deliverUntil := s.deliverUntil
+	dropUntil := s.dropUntil
+	events := s.events
+	matcher := s.matcher
+	s.mutex.RUnlock()
 
 	now := time.Now()
 
-	if !obs.isValidTimeWindow(now, dropUntil, deliverUntil) {
-		obs.logger.Debug("invalid time window for event", zap.Any("now", now), zap.Any("dropUntil", dropUntil), zap.Any("deliverUntil", deliverUntil))
+	if !s.isValidTimeWindow(now, dropUntil, deliverUntil) {
+		s.logger.Debug("invalid time window for event", zap.Any("now", now), zap.Any("dropUntil", dropUntil), zap.Any("deliverUntil", deliverUntil))
 		return
 	}
 
 	//check the partnerIDs
-	if !obs.disablePartnerIDs {
+	if !s.disablePartnerIDs {
 		if len(msg.PartnerIDs) == 0 {
-			msg.PartnerIDs = obs.customPIDs
+			msg.PartnerIDs = s.customPIDs
 		}
-		// if !overlaps(obs.listener.PartnerIDs, msg.PartnerIDs) {
-		// 	obs.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", obs.listener.PartnerIDs), zap.Strings("event.partnerIDs", msg.PartnerIDs))
+		// if !overlaps(s.listener.PartnerIDs, msg.PartnerIDs) {
+		// 	s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.PartnerIDs), zap.Strings("event.partnerIDs", msg.PartnerIDs))
 		// 	return
 		// }
 	}
@@ -383,7 +370,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		}
 	}
 	if !matchEvent {
-		obs.logger.Debug("destination regex doesn't match", zap.String("event.dest", msg.Destination))
+		s.logger.Debug("destination regex doesn't match", zap.String("event.dest", msg.Destination))
 		return
 	}
 
@@ -398,31 +385,31 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 	}
 
 	if !matchDevice {
-		obs.logger.Debug("device regex doesn't match", zap.String("event.source", msg.Source))
+		s.logger.Debug("device regex doesn't match", zap.String("event.source", msg.Source))
 		return
 	}
 
 	select {
-	case obs.queue.Load().(chan *wrp.Message) <- msg:
-		obs.queueDepthGauge.Add(1.0)
-		obs.logger.Debug("event added to outbound queue", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
+	case s.queue.Load().(chan *wrp.Message) <- msg:
+		s.queueDepthGauge.Add(1.0)
+		s.logger.Debug("event added to outbound queue", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 	default:
-		obs.logger.Debug("queue full. event dropped", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-		obs.queueOverflow()
-		obs.droppedQueueFullCounter.Add(1.0)
+		s.logger.Debug("queue full. event dropped", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
+		s.queueOverflow()
+		s.droppedQueueFullCounter.Add(1.0)
 	}
 }
 
-func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
+func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	if !now.After(dropUntil) {
 		// client was cut off
-		obs.droppedCutoffCounter.Add(1.0)
+		s.droppedCutoffCounter.Add(1.0)
 		return false
 	}
 
 	if !now.Before(deliverUntil) {
 		// outside delivery window
-		obs.droppedExpiredBeforeQueueCounter.Add(1.0)
+		s.droppedExpiredBeforeQueueCounter.Add(1.0)
 		return false
 	}
 
@@ -433,15 +420,15 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 // a fresh one, counting any current messages in the queue as dropped.
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
-func (obs *CaduceusOutboundSender) Empty(droppedCounter prometheus.Counter) {
-	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
-	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
+func (s *SinkSender) Empty(droppedCounter prometheus.Counter) {
+	droppedMsgs := s.queue.Load().(chan *wrp.Message)
+	s.queue.Store(make(chan *wrp.Message, s.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
-	obs.queueDepthGauge.Set(0.0)
+	s.queueDepthGauge.Set(0.0)
 }
 
-func (obs *CaduceusOutboundSender) dispatcher() {
-	defer obs.wg.Done()
+func (s *SinkSender) dispatcher() {
+	defer s.wg.Done()
 	var (
 		msg            *wrp.Message
 		urls           *ring.Ring
@@ -453,7 +440,7 @@ Loop:
 	for {
 		// Always pull a new queue in case we have been cutoff or are shutting
 		// down.
-		msgQueue := obs.queue.Load().(chan *wrp.Message)
+		msgQueue := s.queue.Load().(chan *wrp.Message)
 		// nolint:gosimple
 		select {
 		// The dispatcher cannot get stuck blocking here forever (caused by an
@@ -480,50 +467,50 @@ Loop:
 			if !ok {
 				break Loop
 			}
-			obs.queueDepthGauge.Add(-1.0)
-			obs.mutex.RLock()
-			urls = obs.urls
+			s.queueDepthGauge.Add(-1.0)
+			s.mutex.RLock()
+			urls = s.urls
 			// Move to the next URL to try 1st the next time.
 			// This is okay because we run a single dispatcher and it's the
 			// only one updating this field.
-			obs.urls = obs.urls.Next()
-			deliverUntil := obs.deliverUntil
-			dropUntil := obs.dropUntil
-			// secret = obs.listener.Webhook.Config.Secret
-			// accept = obs.listener.Webhook.Config.ContentType
-			obs.mutex.RUnlock()
+			s.urls = s.urls.Next()
+			deliverUntil := s.deliverUntil
+			dropUntil := s.dropUntil
+			// secret = s.listener.Webhook.Config.Secret
+			// accept = s.listener.Webhook.Config.ContentType
+			s.mutex.RUnlock()
 
 			now := time.Now()
 
 			if now.Before(dropUntil) {
-				obs.droppedCutoffCounter.Add(1.0)
+				s.droppedCutoffCounter.Add(1.0)
 				continue
 			}
 			if now.After(deliverUntil) {
-				obs.Empty(obs.droppedExpiredCounter)
+				s.Empty(s.droppedExpiredCounter)
 				continue
 			}
-			obs.workers.Acquire()
-			obs.currentWorkersGauge.Add(1.0)
+			s.workers.Acquire()
+			s.currentWorkersGauge.Add(1.0)
 
-			go obs.send(urls, secret, accept, msg)
+			go s.send(urls, secret, accept, msg)
 		}
 	}
-	for i := 0; i < obs.maxWorkers; i++ {
-		obs.workers.Acquire()
+	for i := 0; i < s.maxWorkers; i++ {
+		s.workers.Acquire()
 	}
 }
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
+func (s *SinkSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
 	defer func() {
 		if r := recover(); nil != r {
-			obs.droppedPanic.Add(1.0)
-			obs.logger.Error("goroutine send() panicked", zap.String("id", obs.id), zap.Any("panic", r))
+			s.droppedPanic.Add(1.0)
+			s.logger.Error("goroutine send() panicked", zap.String("id", s.id), zap.Any("panic", r))
 		}
-		obs.workers.Release()
-		obs.currentWorkersGauge.Add(-1.0)
+		s.workers.Release()
+		s.currentWorkersGauge.Add(-1.0)
 	}()
 
 	payload := msg.Payload
@@ -547,8 +534,8 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
 	if nil != err {
 		// Report drop
-		obs.droppedInvalidConfig.Add(1.0)
-		obs.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", obs.id), zap.Error(err))
+		s.droppedInvalidConfig.Add(1.0)
+		s.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", s.id), zap.Error(err))
 		return
 	}
 
@@ -578,28 +565,21 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	// find the event "short name"
 	event := msg.FindEventStringSubMatch()
 
-	/*TODO: need middleware for:
-	Counter:  obs.deliveryRetryCounter.With("url", obs.id, "event", event)
-	Logger
-	Update Request
-	*/
-	retryConfig := retry.Config{
-		Retries:  obs.deliveryRetries,
-		Interval: obs.deliveryInterval,
-	}
-
 	// Send it
-	obs.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-
-	client := retry.New(retryConfig, obs.clientMiddleware(obs.sender))
+	s.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
+	client, _ := retryhttp.NewClient(
+		retryhttp.WithHTTPClient(s.clientMiddleware(s.client)),
+		retryhttp.WithRunner(s.addRunner(req, event)),
+		retryhttp.WithRequesters(s.updateRequest(urls)),
+	)
 	resp, err := client.Do(req)
 
 	code := "failure"
-	l := obs.logger
+	l := s.logger
 	if nil != err {
 		// Report failure
-		obs.droppedNetworkErrCounter.Add(1.0)
-		l = obs.logger.With(zap.Error(err))
+		s.droppedNetworkErrCounter.Add(1.0)
+		l = s.logger.With(zap.Error(err))
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
@@ -611,37 +591,37 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			resp.Body.Close()
 		}
 	}
-	obs.deliveryCounter.With(prometheus.Labels{UrlLabel: obs.id, CodeLabel: code, EventLabel: event}).Add(1.0)
+	s.deliveryCounter.With(prometheus.Labels{UrlLabel: s.id, CodeLabel: code, EventLabel: event}).Add(1.0)
 	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows:
 // cutting off the webhook for a time and sending a cut off notification
 // to the failure URL.
-func (obs *CaduceusOutboundSender) queueOverflow() {
-	obs.mutex.Lock()
-	if time.Now().Before(obs.dropUntil) {
-		obs.mutex.Unlock()
+func (s *SinkSender) queueOverflow() {
+	s.mutex.Lock()
+	if time.Now().Before(s.dropUntil) {
+		s.mutex.Unlock()
 		return
 	}
-	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
-	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
-	// secret := obs.listener.Webhook.Config.Secret
+	s.dropUntil = time.Now().Add(s.cutOffPeriod)
+	s.dropUntilGauge.Set(float64(s.dropUntil.Unix()))
+	// secret := s.listener.Webhook.Config.Secret
 	secret := "placeholderSecret"
-	failureMsg := obs.failureMsg
-	// failureURL := obs.listener.Webhook.FailureURL
+	failureMsg := s.failureMsg
+	// failureURL := s.listener.Webhook.FailureURL
 	failureURL := "placeholderURL"
-	obs.mutex.Unlock()
+	s.mutex.Unlock()
 
-	obs.cutOffCounter.Add(1.0)
+	s.cutOffCounter.Add(1.0)
 
 	// We empty the queue but don't close the channel, because we're not
 	// shutting down.
-	obs.Empty(obs.droppedCutoffCounter)
+	s.Empty(s.droppedCutoffCounter)
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
-		obs.logger.Error("Cut-off notification json.Marshal failed", zap.Any("failureMessage", obs.failureMsg), zap.String("for", obs.id), zap.Error(err))
+		s.logger.Error("Cut-off notification json.Marshal failed", zap.Any("failureMessage", s.failureMsg), zap.String("for", s.id), zap.Error(err))
 		return
 	}
 
@@ -655,8 +635,8 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	req, err := http.NewRequest("POST", failureURL, payload)
 	if nil != err {
 		// Failure
-		obs.logger.Error("Unable to send cut-off notification", zap.String("notification",
-			failureURL), zap.String("for", obs.id), zap.Error(err))
+		s.logger.Error("Unable to send cut-off notification", zap.String("notification",
+			failureURL), zap.String("for", s.id), zap.Error(err))
 		return
 	}
 	req.Header.Set("Content-Type", wrp.MimeTypeJson)
@@ -668,16 +648,16 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
-	resp, err := obs.sender.Do(req)
+	resp, err := s.client.Do(req)
 	if nil != err {
 		// Failure
-		obs.logger.Error("Unable to send cut-off notification", zap.String("notification", failureURL), zap.String("for", obs.id), zap.Error(err))
+		s.logger.Error("Unable to send cut-off notification", zap.String("notification", failureURL), zap.String("for", s.id), zap.Error(err))
 		return
 	}
 
 	if nil == resp {
 		// Failure
-		obs.logger.Error("Unable to send cut-off notification, nil response", zap.String("notification", failureURL))
+		s.logger.Error("Unable to send cut-off notification, nil response", zap.String("notification", failureURL))
 		return
 	}
 
@@ -690,8 +670,45 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 }
 
-func CreateOutbounderMetrics(m OutboundSenderMetrics, c *CaduceusOutboundSender) {
-	c.deliveryRetryCounter = m.DeliveryRetryCounter.With(prometheus.Labels{UrlLabel: c.id})
+func (s *SinkSender) addRunner(request *http.Request, event string) retry.Runner[*http.Response] {
+	//TODO: need to handle error
+	runner, _ := retry.NewRunner[*http.Response](
+		retry.WithPolicyFactory[*http.Response](retry.Config{
+			Interval:   s.deliveryInterval,
+			MaxRetries: s.deliveryRetries,
+		}),
+		retry.WithOnAttempt[*http.Response](s.onAttempt(request, event)),
+	)
+	return runner
+
+}
+
+func (s *SinkSender) updateRequest(urls *ring.Ring) func(*http.Request) *http.Request {
+	return func(request *http.Request) *http.Request {
+		urls = urls.Next()
+		tmp, err := url.Parse(urls.Value.(string))
+		if err != nil {
+			s.logger.Error("failed to update url", zap.String(UrlLabel, urls.Value.(string)), zap.Error(err))
+		}
+		request.URL = tmp
+		return request
+	}
+}
+
+func (s *SinkSender) onAttempt(request *http.Request, event string) retry.OnAttempt[*http.Response] {
+
+	return func(attempt retry.Attempt[*http.Response]) {
+		if attempt.Retries > 0 {
+			s.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: s.id, EventLabel: event}).Add(1.0)
+			s.logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
+		}
+
+	}
+
+}
+
+func CreateOutbounderMetrics(m SinkSenderMetrics, c *SinkSender) {
+	c.deliveryRetryCounter = m.DeliveryRetryCounter
 	c.deliveryRetryMaxGauge = m.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: c.id})
 	c.cutOffCounter = m.CutOffCounter.With(prometheus.Labels{UrlLabel: c.id})
 	c.droppedQueueFullCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: c.id, ReasonLabel: "queue_full"})

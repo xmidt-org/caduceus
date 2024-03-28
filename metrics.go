@@ -6,7 +6,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 
-	// nolint:staticcheck
 	"github.com/xmidt-org/touchstone"
 )
 
@@ -50,20 +49,19 @@ const (
 
 type SenderMetricsIn struct {
 	fx.In
-	QueryLatency                    prometheus.HistogramVec `name:"query_duration_histogram_seconds"`
-	EventType                       prometheus.CounterVec   `name:"incoming_event_type_count"`
-	DeliveryCounter                 prometheus.CounterVec   `name:"delivery_count"`
-	DeliveryRetryCounter            prometheus.CounterVec   `name:"DeliveryRetryCounter"`
-	DeliveryRetryMaxGauge           prometheus.GaugeVec     `name:"delivery_retry_max"`
-	CutOffCounter                   prometheus.CounterVec   `name:"slow_consumer_cut_off_count"`
-	SlowConsumerDroppedMsgCounter   prometheus.CounterVec   `name:"slow_consumer_dropped_message_count"`
-	DropsDueToPanic                 prometheus.CounterVec   `name:"drops_due_to_panic"`
-	ConsumerDeliverUntilGauge       prometheus.GaugeVec     `name:"consumer_deliver_until"`
-	ConsumerDropUntilGauge          prometheus.GaugeVec     `name:"consumer_drop_until"`
-	ConsumerDeliveryWorkersGauge    prometheus.GaugeVec     `name:"consumer_delivery_workers"`
-	ConsumerMaxDeliveryWorkersGauge prometheus.GaugeVec     `name:"consumer_delivery_workers_max"`
-	OutgoingQueueDepth              prometheus.GaugeVec     `name:"outgoing_queue_depths"`
-	ConsumerRenewalTimeGauge        prometheus.GaugeVec     `name:"consumer_renewal_time"`
+	QueryLatency                    prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
+	DeliveryCounter                 *prometheus.CounterVec `name:"delivery_count"`
+	DeliveryRetryCounter            *prometheus.CounterVec `name:"delivery_retry_count"`
+	DeliveryRetryMaxGauge           *prometheus.GaugeVec   `name:"delivery_retry_max"`
+	CutOffCounter                   *prometheus.CounterVec `name:"slow_consumer_cut_off_count"`
+	SlowConsumerDroppedMsgCounter   *prometheus.CounterVec `name:"slow_consumer_dropped_message_count"`
+	DropsDueToPanic                 *prometheus.CounterVec `name:"drops_due_to_panic"`
+	ConsumerDeliverUntilGauge       *prometheus.GaugeVec   `name:"consumer_deliver_until"`
+	ConsumerDropUntilGauge          *prometheus.GaugeVec   `name:"consumer_drop_until"`
+	ConsumerDeliveryWorkersGauge    *prometheus.GaugeVec   `name:"consumer_delivery_workers"`
+	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec   `name:"consumer_delivery_workers_max"`
+	OutgoingQueueDepth              *prometheus.GaugeVec   `name:"outgoing_queue_depths"`
+	ConsumerRenewalTimeGauge        *prometheus.GaugeVec   `name:"consumer_renewal_time"`
 }
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
@@ -151,32 +149,5 @@ func ProvideMetrics() fx.Option {
 			Help:    "A histogram of latencies for the incoming queue.",
 			Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		}, EventLabel),
-	)
-}
-
-func ProvideSenderMetrics() fx.Option {
-	return fx.Provide(
-		func(in SenderMetricsIn) (SenderWrapperMetrics, OutboundSenderMetrics) {
-			outbounderMetrics := OutboundSenderMetrics{
-				DeliveryCounter:                 in.DeliveryCounter,
-				DeliveryRetryCounter:            in.DeliveryRetryCounter,
-				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
-				CutOffCounter:                   in.CutOffCounter,
-				SlowConsumerDroppedMsgCounter:   in.SlowConsumerDroppedMsgCounter,
-				DropsDueToPanic:                 in.DropsDueToPanic,
-				ConsumerDeliverUntilGauge:       in.ConsumerDeliverUntilGauge,
-				ConsumerDropUntilGauge:          in.ConsumerDropUntilGauge,
-				ConsumerDeliveryWorkersGauge:    in.ConsumerDeliveryWorkersGauge,
-				ConsumerMaxDeliveryWorkersGauge: in.ConsumerMaxDeliveryWorkersGauge,
-				OutgoingQueueDepth:              in.OutgoingQueueDepth,
-				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
-			}
-			wrapperMetrics := SenderWrapperMetrics{
-				QueryLatency: in.QueryLatency,
-				EventType:    in.EventType,
-			}
-
-			return wrapperMetrics, outbounderMetrics
-		},
 	)
 }
