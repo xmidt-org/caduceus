@@ -16,17 +16,6 @@ var (
 	errNilHistogram = errors.New("histogram cannot be nil")
 )
 
-func nopClient(next Client) Client {
-	return next
-}
-
-// DoerFunc implements HTTPClient
-type doerFunc func(*http.Request) (*http.Response, error)
-
-func (d doerFunc) Do(req *http.Request) (*http.Response, error) {
-	return d(req)
-}
-
 type metricWrapper struct {
 	now          func() time.Time
 	queryLatency prometheus.ObserverVec

@@ -8,11 +8,21 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
-//This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
+// This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
+type Listener interface {
+	GetId() string
+	GetAddress() string
+	GetPartnerIds() []string
+	GetUntil() time.Time
+}
+type ListenerV1 struct {
+	PartnerIds   []string
+	Registration RegistrationV1
+}
 
-type ListenerStub struct {
-	PartnerIds []string
-	Webhook    webhook.Registration
+type ListenerV2 struct {
+	PartnerIds   []string
+	Registration RegistrationV2
 }
 
 // Webhook is a substructure with data related to event delivery.
@@ -138,4 +148,85 @@ type RegistrationV2 struct {
 	// Expires describes the time this subscription expires.
 	// TODO: list of supported formats
 	Expires time.Time `json:"expires"`
+}
+
+// Deprecated: This structure should only be used for backwards compatibility
+// matching. Use RegistrationV2 instead.
+// RegistrationV1 is a special struct for unmarshaling a webhook as part of a webhook registration request.
+type RegistrationV1 struct {
+	// Address is the subscription request origin HTTP Address.
+	Address string `json:"registered_from_address"`
+
+	// Config contains data to inform how events are delivered.
+	Config DeliveryConfig `json:"config"`
+
+	// FailureURL is the URL used to notify subscribers when they've been cut off due to event overflow.
+	// Optional, set to "" to disable notifications.
+	FailureURL string `json:"failure_url"`
+
+	// Events is the list of regular expressions to match an event type against.
+	Events []string `json:"events"`
+
+	// Matcher type contains values to match against the metadata.
+	Matcher MetadataMatcherConfig `json:"matcher,omitempty"`
+
+	// Duration describes how long the subscription lasts once added.
+	Duration webhook.CustomDuration `json:"duration"`
+
+	// Until describes the time this subscription expires.
+	Until time.Time `json:"until"`
+}
+
+// MetadataMatcherConfig is Webhook substructure with config to match event metadata.
+type MetadataMatcherConfig struct {
+	// DeviceID is the list of regular expressions to match device id type against.
+	DeviceID []string `json:"device_id"`
+}
+
+// Deprecated: This substructure should only be used for backwards compatibility
+// matching. Use Webhook instead.
+// DeliveryConfig is a Webhook substructure with data related to event delivery.
+type DeliveryConfig struct {
+	// URL is the HTTP URL to deliver messages to.
+	ReceiverURL string `json:"url"`
+
+	// ContentType is content type value to set WRP messages to (unless already specified in the WRP).
+	ContentType string `json:"content_type"`
+
+	// Secret is the string value for the SHA1 HMAC.
+	// (Optional, set to "" to disable behavior).
+	Secret string `json:"secret,omitempty"`
+
+	// AlternativeURLs is a list of explicit URLs that should be round robin through on failure cases to the main URL.
+	AlternativeURLs []string `json:"alt_urls,omitempty"`
+}
+
+func (v1 *ListenerV1) GetId() string {
+	return v1.Registration.Config.ReceiverURL
+}
+func (v1 *ListenerV1) GetPartnerIds() []string {
+	return v1.PartnerIds
+}
+
+func (v1 *ListenerV1) GetAddress() string {
+	return v1.Registration.Address
+}
+
+func (v1 *ListenerV1) GetUntil() time.Time {
+	return v1.Registration.Until
+}
+func (v2 *ListenerV2) GetId() string {
+	return v2.Registration.CanonicalName
+}
+
+func (v2 *ListenerV2) GetAddress() string {
+	return v2.Registration.Address
+}
+
+func (v2 *ListenerV2) GetPartnerIds() []string {
+	return v2.PartnerIds
+}
+
+func (v2 *ListenerV2) GetUntil() time.Time {
+	return v2.Registration.Expires
 }

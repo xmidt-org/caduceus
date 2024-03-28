@@ -44,7 +44,7 @@ type Service struct {
 }
 type Consul struct {
 	Client            ConsulClient
-	Registrations     []Registration
+	Registrations     []ConsulRegistration
 	DisableGenerateId bool
 }
 type ConsulClient struct {
@@ -52,7 +52,7 @@ type ConsulClient struct {
 	Scheme   string
 	WaitTime string
 }
-type Registration struct {
+type ConsulRegistration struct {
 	Id      string
 	Name    string
 	Tags    []string
