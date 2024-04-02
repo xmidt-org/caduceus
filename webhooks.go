@@ -24,7 +24,10 @@ func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
 }
 
 type WebhookI interface {
-	CheckMsg(*wrp.Message) error
+	IsMatch(*wrp.Message) bool
+
+	//TODO: not sure if this will be functionality of all webhooks or just v1
+	//leaving for now - will make changes if running into roadblock with this
 	getUrls() *ring.Ring
 }
 type WebhookV1 struct {
@@ -129,7 +132,7 @@ func (w1 *WebhookV1) Update(l ListenerV1) error {
 
 }
 
-func (w1 *WebhookV1) CheckMsg(msg *wrp.Message) (err error) {
+func (w1 *WebhookV1) IsMatch(msg *wrp.Message) bool {
 	w1.mutex.RLock()
 	events := w1.events
 	matcher := w1.matcher
@@ -147,8 +150,7 @@ func (w1 *WebhookV1) CheckMsg(msg *wrp.Message) (err error) {
 	}
 	if !matchEvent {
 		w1.logger.Debug("destination regex doesn't match", zap.String("event.dest", msg.Destination))
-		//TODO: return an error here?
-		return
+		return false
 	}
 
 	if matcher != nil {
@@ -163,10 +165,9 @@ func (w1 *WebhookV1) CheckMsg(msg *wrp.Message) (err error) {
 
 	if !matchDevice {
 		w1.logger.Debug("device regex doesn't match", zap.String("event.source", msg.Source))
-		//TODO: return an error here?
-		return
+		return false
 	}
-	return
+	return true
 }
 
 func (w1 *WebhookV1) getUrls() (urls *ring.Ring) {
@@ -176,23 +177,4 @@ func (w1 *WebhookV1) getUrls() (urls *ring.Ring) {
 	// only one updating this field.
 	w1.urls = w1.urls.Next()
 	return
-}
-
-type WebhookV2 struct {
-	//nolint:staticcheck
-	placeholder string
-	CommonWebhook
-}
-
-func (w2 *WebhookV2) Update(l ListenerV2) error {
-
-	return nil
-}
-
-func (w2 *WebhookV2) CheckMsg(msg *wrp.Message) error {
-	return nil
-}
-
-func (w2 *WebhookV2) getUrls() *ring.Ring {
-	return nil
 }

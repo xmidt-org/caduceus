@@ -54,17 +54,30 @@ type Sender interface {
 	Queue(*wrp.Message)
 }
 type SinkSender struct {
-	id                               string
-	queueSize                        int
-	deliveryRetries                  int
-	maxWorkers                       int
-	disablePartnerIDs                bool
-	customPIDs                       []string
-	mutex                            sync.RWMutex
-	deliverUntil                     time.Time
-	dropUntil                        time.Time
-	deliveryInterval                 time.Duration
-	cutOffPeriod                     time.Duration
+	id                string
+	queueSize         int
+	deliveryRetries   int
+	maxWorkers        int
+	disablePartnerIDs bool
+	customPIDs        []string
+	mutex             sync.RWMutex
+	deliverUntil      time.Time
+	dropUntil         time.Time
+	deliveryInterval  time.Duration
+	cutOffPeriod      time.Duration
+	queue             atomic.Value
+	wg                sync.WaitGroup
+	workers           semaphore.Interface
+	logger            *zap.Logger
+	client            Client
+	clientMiddleware  func(Client) Client
+	failureMessage    FailureMessage
+	listener          Listener
+	webhook           WebhookI
+	SinkMetrics
+}
+
+type SinkMetrics struct {
 	deliverUntilGauge                prometheus.Gauge
 	deliveryRetryMaxGauge            prometheus.Gauge
 	renewalTimeGauge                 prometheus.Gauge
@@ -82,15 +95,6 @@ type SinkSender struct {
 	queueDepthGauge                  prometheus.Gauge
 	dropUntilGauge                   prometheus.Gauge
 	currentWorkersGauge              prometheus.Gauge
-	queue                            atomic.Value
-	wg                               sync.WaitGroup
-	workers                          semaphore.Interface
-	logger                           *zap.Logger
-	client                           Client
-	clientMiddleware                 func(Client) Client
-	failureMessage                   FailureMessage
-	listener                         Listener
-	webhook                          WebhookI
 }
 
 func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) {
@@ -132,26 +136,11 @@ func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) 
 			QueueSize:    sw.config.QueueSizePerSender,
 			Workers:      sw.config.NumWorkersPerSender,
 		},
-		customPIDs:                       sw.config.CustomPIDs,
-		disablePartnerIDs:                sw.config.DisablePartnerIDs,
-		clientMiddleware:                 sw.clientMiddleware,
-		deliveryRetryCounter:             sw.metrics.DeliveryRetryCounter,
-		deliveryRetryMaxGauge:            sw.metrics.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: id}),
-		cutOffCounter:                    sw.metrics.CutOffCounter.With(prometheus.Labels{UrlLabel: id}),
-		droppedQueueFullCounter:          sw.metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "queue_full"}),
-		droppedExpiredCounter:            sw.metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "expired"}),
-		droppedExpiredBeforeQueueCounter: sw.metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "expired_before_queueing"}),
-		droppedCutoffCounter:             sw.metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "cut_off"}),
-		droppedInvalidConfig:             sw.metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: "invalid_config"}),
-		droppedNetworkErrCounter:         sw.metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: id, ReasonLabel: networkError}),
-		droppedPanic:                     sw.metrics.DropsDueToPanic.With(prometheus.Labels{UrlLabel: id}),
-		queueDepthGauge:                  sw.metrics.OutgoingQueueDepth.With(prometheus.Labels{UrlLabel: id}),
-		renewalTimeGauge:                 sw.metrics.ConsumerRenewalTimeGauge.With(prometheus.Labels{UrlLabel: id}),
-		deliverUntilGauge:                sw.metrics.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: id}),
-		dropUntilGauge:                   sw.metrics.ConsumerDropUntilGauge.With(prometheus.Labels{UrlLabel: id}),
-		currentWorkersGauge:              sw.metrics.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: id}),
-		maxWorkersGauge:                  sw.metrics.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: id}),
+		customPIDs:        sw.config.CustomPIDs,
+		disablePartnerIDs: sw.config.DisablePartnerIDs,
+		clientMiddleware:  sw.clientMiddleware,
 	}
+	sender.CreateMetrics(sw.metrics)
 	sender.queueDepthGauge.Set(0)
 	sender.currentWorkersGauge.Set(0)
 	//TODO: need to figure out how to set this up
@@ -172,21 +161,15 @@ func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) 
 }
 
 func (s *SinkSender) Update(l Listener) (err error) {
-	switch v := s.webhook.(type) {
-	case *WebhookV1:
-		listener, ok := l.(*ListenerV1)
-		if !ok {
-			err = errors.New("invalid listener")
+	switch v := l.(type) {
+	case *ListenerV1:
+		wh := &WebhookV1{}
+		if err = wh.Update(*v); err != nil {
 			return
 		}
-		err = v.Update(*listener)
-	case *WebhookV2:
-		listener, ok := l.(*ListenerV2)
-		if !ok {
-			err = errors.New("invalid listener")
-			return
-		}
-		err = v.Update(*listener)
+		s.webhook = wh
+	default:
+		err = fmt.Errorf("invalid listner")
 	}
 
 	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
@@ -231,10 +214,10 @@ func (s *SinkSender) Queue(msg *wrp.Message) {
 			s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.GetPartnerIds()), zap.Strings("event.partnerIDs", msg.PartnerIDs))
 			return
 		}
-		err := s.webhook.CheckMsg(msg)
-		if err != nil {
+		if ok := s.webhook.IsMatch(msg); !ok {
 			return
 		}
+
 	}
 
 	select {
@@ -537,11 +520,11 @@ func (s *SinkSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 	resp, err := client.Do(req)
 
 	code := "failure"
-	log := s.logger
+	logger := s.logger
 	if nil != err {
 		// Report failure
 		s.droppedNetworkErrCounter.Add(1.0)
-		log = s.logger.With(zap.Error(err))
+		logger = s.logger.With(zap.Error(err))
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
@@ -554,7 +537,7 @@ func (s *SinkSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 		}
 	}
 	s.deliveryCounter.With(prometheus.Labels{UrlLabel: s.id, CodeLabel: code, EventLabel: event}).Add(1.0)
-	log.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
+	logger.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
 func (s *SinkSender) addRunner(request *http.Request, event string) retry.Runner[*http.Response] {
@@ -589,4 +572,24 @@ func (s *SinkSender) onAttempt(request *http.Request, event string) retry.OnAtte
 		}
 
 	}
+}
+
+func (s *SinkSender) CreateMetrics(metrics Metrics) {
+	s.deliveryRetryCounter = metrics.DeliveryRetryCounter
+	s.deliveryRetryMaxGauge = metrics.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: s.id})
+	s.cutOffCounter = metrics.CutOffCounter.With(prometheus.Labels{UrlLabel: s.id})
+	s.droppedQueueFullCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "queue_full"})
+	s.droppedExpiredCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "expired"})
+	s.droppedExpiredBeforeQueueCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "expired_before_queueing"})
+	s.droppedCutoffCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "cut_off"})
+	s.droppedInvalidConfig = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "invalid_config"})
+	s.droppedNetworkErrCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: networkError})
+	s.droppedPanic = metrics.DropsDueToPanic.With(prometheus.Labels{UrlLabel: s.id})
+	s.queueDepthGauge = metrics.OutgoingQueueDepth.With(prometheus.Labels{UrlLabel: s.id})
+	s.renewalTimeGauge = metrics.ConsumerRenewalTimeGauge.With(prometheus.Labels{UrlLabel: s.id})
+	s.deliverUntilGauge = metrics.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: s.id})
+	s.dropUntilGauge = metrics.ConsumerDropUntilGauge.With(prometheus.Labels{UrlLabel: s.id})
+	s.currentWorkersGauge = metrics.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: s.id})
+	s.maxWorkersGauge = metrics.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: s.id})
+
 }

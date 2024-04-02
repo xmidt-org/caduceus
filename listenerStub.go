@@ -11,7 +11,6 @@ import (
 // This is a stub for the webhook and kafka listeners. This will be removed once the webhook-schema configuration is approved
 type Listener interface {
 	GetId() string
-	GetAddress() string
 	GetPartnerIds() []string
 	GetUntil() time.Time
 }
@@ -208,19 +207,11 @@ func (v1 *ListenerV1) GetPartnerIds() []string {
 	return v1.PartnerIds
 }
 
-func (v1 *ListenerV1) GetAddress() string {
-	return v1.Registration.Address
-}
-
 func (v1 *ListenerV1) GetUntil() time.Time {
 	return v1.Registration.Until
 }
 func (v2 *ListenerV2) GetId() string {
 	return v2.Registration.CanonicalName
-}
-
-func (v2 *ListenerV2) GetAddress() string {
-	return v2.Registration.Address
 }
 
 func (v2 *ListenerV2) GetPartnerIds() []string {
