@@ -69,11 +69,11 @@ type SinkSender struct {
 	wg                sync.WaitGroup
 	workers           semaphore.Interface
 	logger            *zap.Logger
-	client            Client
+	sink              SinkI
 	clientMiddleware  func(Client) Client
 	failureMessage    FailureMessage
 	listener          Listener
-	webhook           WebhookI
+	matcher           Matcher
 	SinkMetrics
 }
 
@@ -121,7 +121,6 @@ func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) 
 	sender = &SinkSender{
 		id:           id,
 		listener:     l,
-		client:       sw.client,
 		queueSize:    sw.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
 		// dropUntil:        where is this being set in old caduceus?,
@@ -163,11 +162,11 @@ func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) 
 func (s *SinkSender) Update(l Listener) (err error) {
 	switch v := l.(type) {
 	case *ListenerV1:
-		wh := &WebhookV1{}
-		if err = wh.Update(*v); err != nil {
+		m := &MatcherV1{}
+		if err = m.Update(*v); err != nil {
 			return
 		}
-		s.webhook = wh
+		s.matcher = m
 	default:
 		err = fmt.Errorf("invalid listner")
 	}
@@ -175,6 +174,7 @@ func (s *SinkSender) Update(l Listener) (err error) {
 	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	s.deliverUntil = l.GetUntil()
 	s.deliverUntilGauge.Set(float64(s.deliverUntil.Unix()))
@@ -193,6 +193,7 @@ func (s *SinkSender) Update(l Listener) (err error) {
 // Queue is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
+// TODO: can pass in message along with webhook information
 func (s *SinkSender) Queue(msg *wrp.Message) {
 	s.mutex.RLock()
 	deliverUntil := s.deliverUntil
@@ -214,12 +215,13 @@ func (s *SinkSender) Queue(msg *wrp.Message) {
 			s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.GetPartnerIds()), zap.Strings("event.partnerIDs", msg.PartnerIDs))
 			return
 		}
-		if ok := s.webhook.IsMatch(msg); !ok {
+		if ok := s.matcher.IsMatch(msg); !ok {
 			return
 		}
 
 	}
 
+	//TODO: this code will be changing will take away queue and send to the sink interface (not webhook interface)
 	select {
 	case s.queue.Load().(chan *wrp.Message) <- msg:
 		s.queueDepthGauge.Add(1.0)
@@ -418,7 +420,7 @@ Loop:
 			}
 			s.queueDepthGauge.Add(-1.0)
 			s.mutex.RLock()
-			urls = s.webhook.getUrls()
+			urls = s.matcher.getUrls()
 			deliverUntil := s.deliverUntil
 			dropUntil := s.dropUntil
 			// secret = s.listener.Webhook.Config.Secret
@@ -445,6 +447,8 @@ Loop:
 		s.workers.Acquire()
 	}
 }
+
+//TODO:
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
@@ -513,7 +517,7 @@ func (s *SinkSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 	// Send it
 	s.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 	client, _ := retryhttp.NewClient(
-		// retryhttp.WithHTTPClient(w.clientMiddleware(w.client)),
+		// retryhttp.WithHTTPClient(s.clientMiddleware(s.client)),
 		retryhttp.WithRunner(s.addRunner(req, event)),
 		retryhttp.WithRequesters(s.updateRequest(urls)),
 	)
