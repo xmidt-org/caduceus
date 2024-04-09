@@ -63,12 +63,11 @@ type SinkSender struct {
 	wg                sync.WaitGroup
 	workers           semaphore.Interface
 	logger            *zap.Logger
-	sink              SinkI
-	client            http.Client
-	clientMiddleware  func(Client) Client
-	failureMessage    FailureMessage
-	listener          Listener
-	matcher           Matcher
+	sink              Sink
+	// failureMessage is sent during a queue overflow.
+	failureMessage FailureMessage
+	listener       Listener
+	matcher        Matcher
 	SinkMetrics
 }
 
@@ -132,7 +131,6 @@ func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) 
 		},
 		customPIDs:        sw.config.CustomPIDs,
 		disablePartnerIDs: sw.config.DisablePartnerIDs,
-		clientMiddleware:  sw.clientMiddleware,
 	}
 
 	sender.CreateMetrics(sw.metrics)
@@ -163,7 +161,7 @@ func (s *SinkSender) Update(l Listener) (err error) {
 			return
 		}
 		s.matcher = m
-		NewSinkWebhookV1(s)
+		NewWebhookV1(s)
 	default:
 		err = fmt.Errorf("invalid listner")
 	}

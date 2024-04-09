@@ -21,34 +21,37 @@ import (
 	"go.uber.org/zap"
 )
 
-type SinkI interface {
+type Sink interface {
 	Update(Listener) error
 	Send(*ring.Ring, string, string, *wrp.Message) error
 }
 
-type SinkWebhookV1 struct {
+type WebhookV1 struct {
 	id               string
 	deliveryInterval time.Duration
 	deliveryRetries  int
 	logger           *zap.Logger
+	//TODO: need to determine best way to add client and client middleware to WebhooV1
+	client           http.Client
+	clientMiddleware func(http.Client) http.Client
 }
 
-func NewSinkWebhookV1(s *SinkSender) {
-	v1 := &SinkWebhookV1{
+func NewWebhookV1(s *SinkSender) {
+	v1 := &WebhookV1{
 		id:               s.id,
 		deliveryInterval: s.deliveryInterval,
 		deliveryRetries:  s.deliveryRetries,
 	}
 	s.sink = v1
 }
-func (v1 *SinkWebhookV1) Update(l Listener) (err error) {
+func (v1 *WebhookV1) Update(l Listener) (err error) {
 	v1.id = l.GetId()
 	return nil
 }
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v1 *SinkWebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) error {
+func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) error {
 	defer func() {
 		if r := recover(); nil != r {
 			// s.droppedPanic.Add(1.0)
@@ -142,7 +145,7 @@ func (v1 *SinkWebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *w
 	return nil
 }
 
-func (v1 *SinkWebhookV1) addRunner(request *http.Request, event string) retry.Runner[*http.Response] {
+func (v1 *WebhookV1) addRunner(request *http.Request, event string) retry.Runner[*http.Response] {
 	runner, _ := retry.NewRunner[*http.Response](
 		retry.WithPolicyFactory[*http.Response](retry.Config{
 			Interval:   v1.deliveryInterval,
@@ -153,7 +156,7 @@ func (v1 *SinkWebhookV1) addRunner(request *http.Request, event string) retry.Ru
 	return runner
 }
 
-func (v1 *SinkWebhookV1) updateRequest(urls *ring.Ring) func(*http.Request) *http.Request {
+func (v1 *WebhookV1) updateRequest(urls *ring.Ring) func(*http.Request) *http.Request {
 	return func(request *http.Request) *http.Request {
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
@@ -165,7 +168,7 @@ func (v1 *SinkWebhookV1) updateRequest(urls *ring.Ring) func(*http.Request) *htt
 	}
 }
 
-func (v1 *SinkWebhookV1) onAttempt(request *http.Request, event string) retry.OnAttempt[*http.Response] {
+func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAttempt[*http.Response] {
 
 	return func(attempt retry.Attempt[*http.Response]) {
 		if attempt.Retries > 0 {
