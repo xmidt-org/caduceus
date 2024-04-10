@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
@@ -33,9 +32,9 @@ type WebhookV1 struct {
 	deliveryInterval time.Duration
 	deliveryRetries  int
 	logger           *zap.Logger
-	//TODO: need to figure out best way to add client and middleware to webhook
+	//TODO: need to determine best way to add client and client middleware to WebhooV1
 	client           http.Client
-	clientMiddleware func(client.Client) client.Client
+	clientMiddleware func(http.Client) http.Client
 }
 
 func NewWebhookV1(s *SinkSender) {
