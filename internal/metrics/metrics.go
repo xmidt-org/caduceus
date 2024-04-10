@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -33,11 +33,11 @@ const (
 )
 
 const (
-	emptyContentTypeReason = "empty_content_type"
-	emptyUUIDReason        = "empty_uuid"
-	bothEmptyReason        = "empty_uuid_and_content_type"
-	networkError           = "network_err"
-	unknownEventType       = "unknown"
+	EmptyContentTypeReason = "empty_content_type"
+	EmptyUUIDReason        = "empty_uuid"
+	BothEmptyReason        = "empty_uuid_and_content_type"
+	NetworkError           = "network_err"
+	UnknownEventType       = "unknown"
 )
 
 const (

@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package handler
 
 import (
 	"io"
@@ -13,14 +13,15 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	uuid "github.com/satori/go.uuid"
-
+	"github.com/xmidt-org/caduceus/internal/metrics"
+	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
 type ServerHandlerIn struct {
 	fx.In
-	SinkWrapper *SinkWrapper
+	SinkWrapper *sink.SinkWrapper
 	Logger      *zap.Logger
 	Telemetry   *HandlerTelemetry
 }
@@ -57,7 +58,7 @@ type HandlerTelemetry struct {
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	eventType := unknownEventType
+	eventType := metrics.UnknownEventType
 	logger := sallust.Get(request.Context())
 	// find time difference, add to metric after function finishes
 	defer func(s time.Time) {
@@ -155,16 +156,16 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	// use the one the source specified.
 	if msg.ContentType == "" {
 		msg.ContentType = wrp.MimeTypeJson
-		reason = emptyContentTypeReason
+		reason = metrics.EmptyContentTypeReason
 	}
 
 	// Ensure there is a transaction id even if we make one up
 	if msg.TransactionUUID == "" {
 		msg.TransactionUUID = uuid.NewV4().String()
 		if reason == "" {
-			reason = emptyUUIDReason
+			reason = metrics.EmptyUUIDReason
 		} else {
-			reason = bothEmptyReason
+			reason = metrics.BothEmptyReason
 		}
 	}
 
@@ -196,11 +197,11 @@ func ProvideHandler() fx.Option {
 		},
 	)
 }
-func New(sw *SinkWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+func New(sw *sink.SinkWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
 		caduceusHandler: &CaduceusHandler{
 			wrapper: sw,
-			Logger:      log,
+			Logger:  log,
 		},
 		telemetry:          t,
 		maxOutstanding:     maxOutstanding,

@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package mocks
 
 import (
 	"time"
@@ -12,33 +12,33 @@ import (
 )
 
 // mockHandler only needs to mock the `HandleRequest` method
-type mockHandler struct {
+type MockHandler struct {
 	mock.Mock
 }
 
-func (m *mockHandler) HandleRequest(workerID int, msg *wrp.Message) {
+func (m *MockHandler) HandleRequest(workerID int, msg *wrp.Message) {
 	m.Called(workerID, msg)
 }
 
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does
-type mockSenderWrapper struct {
+type MockSinkWrapper struct {
 	mock.Mock
 }
 
-// func (m *mockSenderWrapper) Update(list []ancla.InternalWebhook) {
+// func (m *MockSinkWrapper) Update(list []ancla.InternalWebhook) {
 // 	m.Called(list)
 // }
 
-func (m *mockSenderWrapper) Queue(msg *wrp.Message) {
+func (m *MockSinkWrapper) Queue(msg *wrp.Message) {
 	m.Called(msg)
 }
 
-func (m *mockSenderWrapper) Shutdown(gentle bool) {
+func (m *MockSinkWrapper) Shutdown(gentle bool) {
 	m.Called(gentle)
 }
 
 // mockTime provides two mock time values
-func mockTime(one, two time.Time) func() time.Time {
+func MockTime(one, two time.Time) func() time.Time {
 	var called bool
 	return func() time.Time {
 		if called {
@@ -49,18 +49,18 @@ func mockTime(one, two time.Time) func() time.Time {
 	}
 }
 
-type mockCounter struct {
+type MockCounter struct {
 	mock.Mock
 }
 
-func (m *mockCounter) Add(delta float64) {
+func (m *MockCounter) Add(delta float64) {
 	m.Called(delta)
 }
 
-func (m *mockCounter) Inc (){
+func (m *MockCounter) Inc() {
 	m.Called(1)
 }
-func (m *mockCounter) With(labelValues ...string) prometheus.Counter {
+func (m *MockCounter) With(labelValues ...string) prometheus.Counter {
 	for _, v := range labelValues {
 		if !utf8.ValidString(v) {
 			panic("not UTF-8")

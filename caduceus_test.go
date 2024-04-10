@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package caduceus
 
 import (
 	"testing"
@@ -86,10 +86,10 @@ func Test_caduceus(t *testing.T) {
 
 			if tc.panic {
 				assert.Panics(func() {
-					_ = caduceus(tc.args, false)
+					_ = Caduceus(tc.args, false)
 				})
 			} else {
-				err := caduceus(tc.args, false)
+				err := Caduceus(tc.args, false)
 
 				assert.ErrorIs(err, tc.expectedErr)
 			}

@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package sink
 
 import (
 	"crypto/tls"
@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/caduceus/internal/client"
+	"github.com/xmidt-org/caduceus/internal/metrics"
+
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -24,7 +27,7 @@ type SinkWrapperIn struct {
 
 	Tracing    candlelight.Tracing
 	SinkConfig SinkConfig
-	Metrics    Metrics
+	Metrics    metrics.Metrics
 	EventType  *prometheus.CounterVec
 	Logger     *zap.Logger
 }
@@ -53,16 +56,16 @@ type SinkWrapper struct {
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
-	metrics          Metrics
-	client           Client              //TODO: keeping here for now - but might move to SinkSender in a later PR
-	clientMiddleware func(Client) Client //TODO: keeping here for now - but might move to SinkSender in a later PR
+	metrics          metrics.Metrics
+	client           client.Client                     //TODO: keeping here for now - but might move to SinkSender in a later PR
+	clientMiddleware func(client.Client) client.Client //TODO: keeping here for now - but might move to SinkSender in a later PR
 
 }
 
 func ProvideWrapper() fx.Option {
 	return fx.Provide(
-		func(in MetricsIn) Metrics {
-			senderMetrics := Metrics{
+		func(in metrics.MetricsIn) metrics.Metrics {
+			senderMetrics := metrics.Metrics{
 				DeliveryCounter:                 in.DeliveryCounter,
 				DeliveryRetryCounter:            in.DeliveryRetryCounter,
 				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
@@ -152,14 +155,14 @@ func (sw *SinkWrapper) Update(list []Listener) {
 			var err error
 
 			listener := inValue.Listener
-			metricWrapper, err := newMetricWrapper(time.Now, sw.metrics.QueryLatency, inValue.ID)
+			metricWrapper, err := client.NewMetricWrapper(time.Now, sw.metrics.QueryLatency, inValue.ID)
 
 			if err != nil {
 				continue
 			}
 
 			ss, err = NewSinkSender(sw, listener)
-			sw.clientMiddleware = metricWrapper.roundTripper
+			sw.clientMiddleware = metricWrapper.RoundTripper
 
 			// {
 			// 	ss, err = newSinkSender(sw, r1)

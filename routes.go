@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package caduceus
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/arrange/arrangepprof"
+	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux"
 	"github.com/xmidt-org/httpaux/recovery"
@@ -19,11 +20,18 @@ import (
 	"go.uber.org/fx"
 )
 
+const (
+	apiVersion         = "v4"
+	prevAPIVersion     = "v3"
+	apiBase            = "api/" + apiVersion
+	apiBaseDualVersion = "api/{version:" + apiVersion + "|" + prevAPIVersion + "}"
+)
+
 type RoutesIn struct {
 	fx.In
 	PrimaryMetrics         touchhttp.ServerInstrumenter `name:"servers.primary.metrics"`
 	AlternateMetrics       touchhttp.ServerInstrumenter `name:"servers.alternate.metrics"`
-	Handler                *ServerHandler
+	Handler                *handler.ServerHandler
 	Tracing                candlelight.Tracing
 	PreviousVersionSupport bool
 }
@@ -35,7 +43,7 @@ type RoutesOut struct {
 }
 
 // The name should be 'primary' or 'alternate'.
-func provideCoreEndpoints() fx.Option {
+func ProvideCoreEndpoints() fx.Option {
 	return fx.Provide(
 		fx.Annotated{
 			Name: "servers.primary.metrics",
@@ -88,7 +96,7 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 
 }
 
-func provideHealthCheck() fx.Option {
+func ProvideHealthCheck() fx.Option {
 	return fx.Provide(
 		fx.Annotated{
 			Name: "servers.health.metrics",
@@ -114,7 +122,7 @@ func provideHealthCheck() fx.Option {
 	)
 }
 
-func provideMetricEndpoint() fx.Option {
+func ProvideMetricEndpoint() fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(metrics touchhttp.Handler, path MetricsPath) arrangehttp.Option[http.Server] {
@@ -131,7 +139,7 @@ func provideMetricEndpoint() fx.Option {
 	)
 }
 
-func providePprofEndpoint() fx.Option {
+func ProvidePprofEndpoint() fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(pathPrefix PprofPathPrefix) arrangehttp.Option[http.Server] {

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package caduceus
 
 import (
 	"fmt"
@@ -11,7 +11,10 @@ import (
 	"github.com/goschtalt/goschtalt"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/arrange/arrangepprof"
+	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/candlelight"
+	"github.com/xmidt-org/clortho"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
 	"gopkg.in/dealancer/validate.v2"
@@ -26,7 +29,7 @@ type Config struct {
 	Servers                Servers
 	ArgusClientTimeout     HttpClientTimeout
 	JWTValidator           JWTValidator
-	Sink                   SinkConfig
+	Sink                   sink.SinkConfig
 	Service                Service
 	AuthHeader             []string
 	Server                 string
@@ -112,6 +115,16 @@ type HttpClientTimeout struct {
 type MetricsOption struct {
 	Namespace string
 	Subsystem string
+}
+
+// JWTValidator provides a convenient way to define jwt validator through config files
+type JWTValidator struct {
+	// Config is used to create the clortho Resolver & Refresher for JWT verification keys
+	Config clortho.Config `json:"config"`
+
+	// Leeway is used to set the amount of time buffer should be given to JWT
+	// time values, such as nbf
+	Leeway bascule.Leeway
 }
 
 // Collect and process the configuration files and env vars and

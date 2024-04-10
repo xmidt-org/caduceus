@@ -1,6 +1,6 @@
 // // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // // SPDX-License-Identifier: Apache-2.0
-package main
+package handler
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"go.uber.org/zap/zaptest"
+	"github.com/xmidt-org/caduceus/internal/metrics"
 
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -79,7 +79,7 @@ func TestServerHandler(t *testing.T) {
 			expectedResponse:      http.StatusBadRequest,
 			request:               exampleRequest(1),
 			throwStatusBadRequest: true,
-			expectedEventType:     unknownEventType,
+			expectedEventType:     metrics.UnknownEventType,
 			startTime:             date1,
 			endTime:               date2,
 		},
@@ -88,7 +88,6 @@ func TestServerHandler(t *testing.T) {
 	for _, tc := range tcs {
 		assert := assert.New(t)
 
-		logger := zaptest.NewLogger(t)
 		fakeHandler := new(mockHandler)
 		if !tc.throwStatusBadRequest {
 			fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
@@ -110,17 +109,18 @@ func TestServerHandler(t *testing.T) {
 		fakeLatency := date2.Sub(date1)
 		fakeHist.On("With", histogramFunctionCall).Return().Once()
 		fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-
-		serverWrapper := &ServerHandler{
-			log:                      logger,
-			caduceusHandler:          fakeHandler,
+		fakeTel := &HandlerTelemetry{
 			errorRequests:            fakeErrorRequests,
 			emptyRequests:            fakeEmptyRequests,
 			invalidCount:             fakeInvalidCount,
 			incomingQueueDepthMetric: fakeQueueDepth,
-			maxOutstanding:           1,
 			incomingQueueLatency:     fakeHist,
-			now:                      fakeTime,
+		}
+		serverWrapper := &ServerHandler{
+			caduceusHandler: fakeHandler,
+			telemetry:       fakeTel,
+			maxOutstanding:  1,
+			now:             fakeTime,
 		}
 		t.Run(tc.desc, func(t *testing.T) {
 			w := httptest.NewRecorder()
@@ -145,7 +145,6 @@ func TestServerHandlerFixWrp(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := zaptest.NewLogger(t)
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).Return().Once()
@@ -162,7 +161,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
 
 	fakeModifiedWRPCount := new(mockCounter)
-	fakeModifiedWRPCount.On("With", []string{"reason", bothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
+	fakeModifiedWRPCount.On("With", []string{"reason", metrics.BothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
 	fakeModifiedWRPCount.On("Add", 1.0).Return().Once()
 
 	fakeHist := new(mockHistogram)
@@ -170,18 +169,19 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-
-	serverWrapper := &ServerHandler{
-		log:                      logger,
-		caduceusHandler:          fakeHandler,
+	fakeTel := &HandlerTelemetry{
 		errorRequests:            fakeErrorRequests,
 		emptyRequests:            fakeEmptyRequests,
 		invalidCount:             fakeInvalidCount,
 		modifiedWRPCount:         fakeModifiedWRPCount,
 		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
 		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+	}
+	serverWrapper := &ServerHandler{
+		caduceusHandler: fakeHandler,
+		telemetry:       fakeTel,
+		maxOutstanding:  1,
+		now:             mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
@@ -206,7 +206,6 @@ func TestServerHandlerFull(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := zaptest.NewLogger(t)
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -215,18 +214,19 @@ func TestServerHandlerFull(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{"event", unknownEventType}
+	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-
-	serverWrapper := &ServerHandler{
-		log:                      logger,
-		caduceusHandler:          fakeHandler,
+	fakeTel := &HandlerTelemetry{
 		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
 		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+	}
+	serverWrapper := &ServerHandler{
+		caduceusHandler: fakeHandler,
+		telemetry:       fakeTel,
+		maxOutstanding:  1,
+		now:             mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -259,7 +259,6 @@ func TestServerEmptyPayload(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := zaptest.NewLogger(t)
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -270,19 +269,20 @@ func TestServerEmptyPayload(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{"event", unknownEventType}
+	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-
-	serverWrapper := &ServerHandler{
-		log:                      logger,
-		caduceusHandler:          fakeHandler,
+	fakeTel := &HandlerTelemetry{
 		emptyRequests:            fakeEmptyRequests,
 		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
 		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+	}
+	serverWrapper := &ServerHandler{
+		caduceusHandler: fakeHandler,
+		telemetry:       fakeTel,
+		maxOutstanding:  1,
+		now:             mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -314,7 +314,6 @@ func TestServerUnableToReadBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := zaptest.NewLogger(t)
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -325,19 +324,20 @@ func TestServerUnableToReadBody(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{"event", unknownEventType}
+	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-
-	serverWrapper := &ServerHandler{
-		log:                      logger,
-		caduceusHandler:          fakeHandler,
+	fakeTel := &HandlerTelemetry{
 		errorRequests:            fakeErrorRequests,
 		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
 		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+	}
+	serverWrapper := &ServerHandler{
+		caduceusHandler: fakeHandler,
+		telemetry:       fakeTel,
+		maxOutstanding:  1,
+		now:             mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -368,7 +368,6 @@ func TestServerInvalidBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := zaptest.NewLogger(t)
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("HandleRequest", mock.AnythingOfType("int"),
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -380,19 +379,20 @@ func TestServerInvalidBody(t *testing.T) {
 	fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{"event", unknownEventType}
+	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-
-	serverWrapper := &ServerHandler{
-		log:                      logger,
-		caduceusHandler:          fakeHandler,
+	fakeTel := &HandlerTelemetry{
 		invalidCount:             fakeInvalidCount,
 		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
 		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+	}
+	serverWrapper := &ServerHandler{
+		caduceusHandler: fakeHandler,
+		telemetry:       fakeTel,
+		maxOutstanding:  1,
+		now:             mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -415,21 +415,21 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
-	histogramFunctionCall := []string{"event", unknownEventType}
+	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 
 	assert := assert.New(t)
 
-	logger := zaptest.NewLogger(t)
 	fakeHandler := new(mockHandler)
 
 	fakeQueueDepth := new(mockGauge)
-
-	serverWrapper := &ServerHandler{
-		log:                      logger,
-		caduceusHandler:          fakeHandler,
+	fakeTel := &HandlerTelemetry{
 		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
+	}
+	serverWrapper := &ServerHandler{
+		caduceusHandler: fakeHandler,
+		telemetry:       fakeTel,
+		maxOutstanding:  1,
 	}
 	testCases := []struct {
 		name    string
@@ -449,7 +449,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			fakeHist := new(mockHistogram)
-			serverWrapper.incomingQueueLatency = fakeHist
+			serverWrapper.telemetry.incomingQueueLatency = fakeHist
 			serverWrapper.now = mockTime(date1, date2)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
 			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()

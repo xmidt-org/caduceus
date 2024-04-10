@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package sink
 
 import (
 	"bytes"
@@ -20,6 +20,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/caduceus/internal/client"
+	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -63,12 +65,11 @@ type SinkSender struct {
 	wg                sync.WaitGroup
 	workers           semaphore.Interface
 	logger            *zap.Logger
-	sink              SinkI
-	client            http.Client
-	clientMiddleware  func(Client) Client
-	failureMessage    FailureMessage
-	listener          Listener
-	matcher           Matcher
+	sink              Sink
+	// failureMessage is sent during a queue overflow.
+	failureMessage FailureMessage
+	listener       Listener
+	matcher        Matcher
 	SinkMetrics
 }
 
@@ -95,7 +96,7 @@ type SinkMetrics struct {
 func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) {
 
 	if sw.clientMiddleware == nil {
-		sw.clientMiddleware = nopClient
+		sw.clientMiddleware = client.NopClient
 	}
 	if sw.client == nil {
 		err = errors.New("nil Client")
@@ -132,7 +133,6 @@ func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) 
 		},
 		customPIDs:        sw.config.CustomPIDs,
 		disablePartnerIDs: sw.config.DisablePartnerIDs,
-		clientMiddleware:  sw.clientMiddleware,
 	}
 
 	sender.CreateMetrics(sw.metrics)
@@ -163,7 +163,7 @@ func (s *SinkSender) Update(l Listener) (err error) {
 			return
 		}
 		s.matcher = m
-		NewSinkWebhookV1(s)
+		NewWebhookV1(s)
 	default:
 		err = fmt.Errorf("invalid listner")
 	}
@@ -445,22 +445,22 @@ Loop:
 	}
 }
 
-func (s *SinkSender) CreateMetrics(metrics Metrics) {
-	s.deliveryRetryCounter = metrics.DeliveryRetryCounter
-	s.deliveryRetryMaxGauge = metrics.DeliveryRetryMaxGauge.With(prometheus.Labels{UrlLabel: s.id})
-	s.cutOffCounter = metrics.CutOffCounter.With(prometheus.Labels{UrlLabel: s.id})
-	s.droppedQueueFullCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "queue_full"})
-	s.droppedExpiredCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "expired"})
-	s.droppedExpiredBeforeQueueCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "expired_before_queueing"})
-	s.droppedCutoffCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "cut_off"})
-	s.droppedInvalidConfig = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: "invalid_config"})
-	s.droppedNetworkErrCounter = metrics.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{UrlLabel: s.id, ReasonLabel: networkError})
-	s.droppedPanic = metrics.DropsDueToPanic.With(prometheus.Labels{UrlLabel: s.id})
-	s.queueDepthGauge = metrics.OutgoingQueueDepth.With(prometheus.Labels{UrlLabel: s.id})
-	s.renewalTimeGauge = metrics.ConsumerRenewalTimeGauge.With(prometheus.Labels{UrlLabel: s.id})
-	s.deliverUntilGauge = metrics.ConsumerDeliverUntilGauge.With(prometheus.Labels{UrlLabel: s.id})
-	s.dropUntilGauge = metrics.ConsumerDropUntilGauge.With(prometheus.Labels{UrlLabel: s.id})
-	s.currentWorkersGauge = metrics.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: s.id})
-	s.maxWorkersGauge = metrics.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{UrlLabel: s.id})
+func (s *SinkSender) CreateMetrics(m metrics.Metrics) {
+	s.deliveryRetryCounter = m.DeliveryRetryCounter
+	s.deliveryRetryMaxGauge = m.DeliveryRetryMaxGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.cutOffCounter = m.CutOffCounter.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.droppedQueueFullCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "queue_full"})
+	s.droppedExpiredCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "expired"})
+	s.droppedExpiredBeforeQueueCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "expired_before_queueing"})
+	s.droppedCutoffCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "cut_off"})
+	s.droppedInvalidConfig = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "invalid_config"})
+	s.droppedNetworkErrCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError})
+	s.droppedPanic = m.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.queueDepthGauge = m.OutgoingQueueDepth.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.renewalTimeGauge = m.ConsumerRenewalTimeGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.deliverUntilGauge = m.ConsumerDeliverUntilGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.dropUntilGauge = m.ConsumerDropUntilGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.currentWorkersGauge = m.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
+	s.maxWorkersGauge = m.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 
 }

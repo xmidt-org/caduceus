@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package logging
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/sallust"
+
 	"go.uber.org/zap"
 )
 
@@ -27,7 +28,7 @@ func sanitizeHeaders(headers http.Header) (filtered http.Header) {
 	return
 }
 
-func setLogger(logger *zap.Logger) func(delegate http.Handler) http.Handler {
+func SetLogger(logger *zap.Logger) func(delegate http.Handler) http.Handler {
 	return func(delegate http.Handler) http.Handler {
 		return http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +41,7 @@ func setLogger(logger *zap.Logger) func(delegate http.Handler) http.Handler {
 	}
 }
 
-func getLogger(ctx context.Context) *zap.Logger {
+func GetLogger(ctx context.Context) *zap.Logger {
 	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
 	return logger
 }

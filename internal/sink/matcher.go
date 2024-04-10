@@ -1,4 +1,4 @@
-package main
+package sink
 
 import (
 	"container/ring"
