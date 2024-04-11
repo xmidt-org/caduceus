@@ -28,7 +28,7 @@ import (
 func TestMetrics(t *testing.T) {
 	assert := assert.New(t)
 
-	m := ProvideMetrics()
+	m := Provide()
 
 	assert.NotNil(m)
 }

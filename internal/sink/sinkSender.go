@@ -49,7 +49,7 @@ type Sender interface {
 	RetiredSince() time.Time
 	Queue(*wrp.Message)
 }
-type SinkSender struct {
+type sender struct {
 	id                string
 	queueSize         int
 	deliveryRetries   int
@@ -93,69 +93,69 @@ type SinkMetrics struct {
 	currentWorkersGauge              prometheus.Gauge
 }
 
-func NewSinkSender(sw *SinkWrapper, l Listener) (sender *SinkSender, err error) {
+func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 
-	if sw.clientMiddleware == nil {
-		sw.clientMiddleware = client.NopClient
+	if w.clientMiddleware == nil {
+		w.clientMiddleware = client.NopClient
 	}
-	if sw.client == nil {
+	if w.client == nil {
 		err = errors.New("nil Client")
 		return
 	}
 
-	if sw.config.CutOffPeriod.Nanoseconds() == 0 {
+	if w.config.CutOffPeriod.Nanoseconds() == 0 {
 		err = errors.New("invalid CutOffPeriod")
 		return
 	}
 
-	if sw.logger == nil {
+	if w.logger == nil {
 		err = errors.New("logger required")
 		return
 	}
 	id := l.GetId()
 
-	sender = &SinkSender{
+	s = &sender{
 		id:           id,
 		listener:     l,
-		queueSize:    sw.config.QueueSizePerSender,
+		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
 		// dropUntil:        where is this being set in old caduceus?,
-		cutOffPeriod:     sw.config.CutOffPeriod,
-		deliveryRetries:  sw.config.DeliveryRetries,
-		deliveryInterval: sw.config.DeliveryInterval,
-		maxWorkers:       sw.config.NumWorkersPerSender,
+		cutOffPeriod:     w.config.CutOffPeriod,
+		deliveryRetries:  w.config.DeliveryRetries,
+		deliveryInterval: w.config.DeliveryInterval,
+		maxWorkers:       w.config.NumWorkersPerSender,
 		failureMessage: FailureMessage{
 			Original:     l,
 			Text:         failureText,
-			CutOffPeriod: sw.config.CutOffPeriod.String(),
-			QueueSize:    sw.config.QueueSizePerSender,
-			Workers:      sw.config.NumWorkersPerSender,
+			CutOffPeriod: w.config.CutOffPeriod.String(),
+			QueueSize:    w.config.QueueSizePerSender,
+			Workers:      w.config.NumWorkersPerSender,
 		},
-		customPIDs:        sw.config.CustomPIDs,
-		disablePartnerIDs: sw.config.DisablePartnerIDs,
+		customPIDs:        w.config.CustomPIDs,
+		disablePartnerIDs: w.config.DisablePartnerIDs,
 	}
 
-	sender.CreateMetrics(sw.metrics)
-	sender.queueDepthGauge.Set(0)
-	sender.currentWorkersGauge.Set(0)
+	s.CreateMetrics(w.metrics)
+	s.queueDepthGauge.Set(0)
+	s.currentWorkersGauge.Set(0)
 	//TODO: need to figure out how to set this up
 	// Don't share the secret with others when there is an error.
 	// sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-	sender.queue.Store(make(chan *wrp.Message, sw.config.QueueSizePerSender))
+	s.queue.Store(make(chan *wrp.Message, w.config.QueueSizePerSender))
 
-	if err = sender.Update(l); nil != err {
+	if err = s.Update(l); nil != err {
 		return
 	}
 
-	sender.workers = semaphore.New(sender.maxWorkers)
-	sender.wg.Add(1)
-	go sender.dispatcher()
+	s.workers = semaphore.New(s.maxWorkers)
+	s.wg.Add(1)
+	go s.dispatcher()
 
 	return
 }
 
-func (s *SinkSender) Update(l Listener) (err error) {
+func (s *sender) Update(l Listener) (err error) {
 	switch v := l.(type) {
 	case *ListenerV1:
 		m := &MatcherV1{}
@@ -191,7 +191,7 @@ func (s *SinkSender) Update(l Listener) (err error) {
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
 // TODO: can pass in message along with webhook information
-func (s *SinkSender) Queue(msg *wrp.Message) {
+func (s *sender) Queue(msg *wrp.Message) {
 	s.mutex.RLock()
 	deliverUntil := s.deliverUntil
 	dropUntil := s.dropUntil
@@ -233,7 +233,7 @@ func (s *SinkSender) Queue(msg *wrp.Message) {
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
-func (s *SinkSender) Shutdown(gentle bool) {
+func (s *sender) Shutdown(gentle bool) {
 	if !gentle {
 		// need to close the channel we're going to replace, in case it doesn't
 		// have any events in it.
@@ -252,7 +252,7 @@ func (s *SinkSender) Shutdown(gentle bool) {
 
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
-func (s *SinkSender) RetiredSince() time.Time {
+func (s *sender) RetiredSince() time.Time {
 	s.mutex.RLock()
 	deliverUntil := s.deliverUntil
 	s.mutex.RUnlock()
@@ -270,7 +270,7 @@ func overlaps(sl1 []string, sl2 []string) bool {
 	return false
 }
 
-func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
+func (s *sender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	if !now.After(dropUntil) {
 		// client was cut off
 		s.droppedCutoffCounter.Add(1.0)
@@ -290,7 +290,7 @@ func (s *SinkSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) b
 // a fresh one, counting any current messages in the queue as dropped.
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
-func (s *SinkSender) Empty(droppedCounter prometheus.Counter) {
+func (s *sender) Empty(droppedCounter prometheus.Counter) {
 	droppedMsgs := s.queue.Load().(chan *wrp.Message)
 	s.queue.Store(make(chan *wrp.Message, s.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
@@ -300,7 +300,7 @@ func (s *SinkSender) Empty(droppedCounter prometheus.Counter) {
 // queueOverflow handles the logic of what to do when a queue overflows:
 // cutting off the webhook for a time and sending a cut off notification
 // to the failure URL.
-func (s *SinkSender) queueOverflow() {
+func (s *sender) queueOverflow() {
 	s.mutex.Lock()
 	if time.Now().Before(s.dropUntil) {
 		s.mutex.Unlock()
@@ -375,7 +375,7 @@ func (s *SinkSender) queueOverflow() {
 	}
 }
 
-func (s *SinkSender) dispatcher() {
+func (s *sender) dispatcher() {
 	defer s.wg.Done()
 	var (
 		msg            *wrp.Message
@@ -445,7 +445,7 @@ Loop:
 	}
 }
 
-func (s *SinkSender) CreateMetrics(m metrics.Metrics) {
+func (s *sender) CreateMetrics(m metrics.Metrics) {
 	s.deliveryRetryCounter = m.DeliveryRetryCounter
 	s.deliveryRetryMaxGauge = m.DeliveryRetryMaxGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 	s.cutOffCounter = m.CutOffCounter.With(prometheus.Labels{metrics.UrlLabel: s.id})

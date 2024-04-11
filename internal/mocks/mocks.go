@@ -3,25 +3,35 @@
 package mocks
 
 import (
+	"net/http"
 	"time"
 	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 // mockHandler only needs to mock the `HandleRequest` method
-type MockHandler struct {
+type Handler struct {
 	mock.Mock
+
+	SinkWrapper        sink.Wrapper
+	Logger             *zap.Logger
+	Telemetry          *Telemetry
+	IncomingQueueDepth int64
+	MaxOutstanding     int64
+	Now                func() time.Time
 }
 
-func (m *MockHandler) HandleRequest(workerID int, msg *wrp.Message) {
-	m.Called(workerID, msg)
+func (m *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	m.Called(r)
 }
 
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does
-type MockSinkWrapper struct {
+type Wrapper struct {
 	mock.Mock
 }
 
@@ -29,16 +39,16 @@ type MockSinkWrapper struct {
 // 	m.Called(list)
 // }
 
-func (m *MockSinkWrapper) Queue(msg *wrp.Message) {
+func (m *Wrapper) Queue(msg *wrp.Message) {
 	m.Called(msg)
 }
 
-func (m *MockSinkWrapper) Shutdown(gentle bool) {
+func (m *Wrapper) Shutdown(gentle bool) {
 	m.Called(gentle)
 }
 
 // mockTime provides two mock time values
-func MockTime(one, two time.Time) func() time.Time {
+func Time(one, two time.Time) func() time.Time {
 	var called bool
 	return func() time.Time {
 		if called {
@@ -49,18 +59,18 @@ func MockTime(one, two time.Time) func() time.Time {
 	}
 }
 
-type MockCounter struct {
+type Counter struct {
 	mock.Mock
 }
 
-func (m *MockCounter) Add(delta float64) {
+func (m *Counter) Add(delta float64) {
 	m.Called(delta)
 }
 
-func (m *MockCounter) Inc() {
+func (m *Counter) Inc() {
 	m.Called(1)
 }
-func (m *MockCounter) With(labelValues ...string) prometheus.Counter {
+func (m *Counter) With(labelValues ...string) prometheus.Counter {
 	for _, v := range labelValues {
 		if !utf8.ValidString(v) {
 			panic("not UTF-8")
@@ -68,4 +78,15 @@ func (m *MockCounter) With(labelValues ...string) prometheus.Counter {
 	}
 	args := m.Called(labelValues)
 	return args.Get(0).(prometheus.Counter)
+}
+
+type Telemetry struct {
+	mock.Mock
+
+	ErrorRequests            prometheus.Counter
+	EmptyRequests            prometheus.Counter
+	InvalidCount             prometheus.Counter
+	IncomingQueueDepthMetric prometheus.Gauge
+	ModifiedWRPCount         *prometheus.CounterVec
+	IncomingQueueLatency     prometheus.ObserverVec
 }

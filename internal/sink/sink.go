@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package sink
 
 import (
@@ -37,7 +39,7 @@ type WebhookV1 struct {
 	clientMiddleware func(http.Client) http.Client
 }
 
-func NewWebhookV1(s *SinkSender) {
+func NewWebhookV1(s *sender) {
 	v1 := &WebhookV1{
 		id:               s.id,
 		deliveryInterval: s.deliveryInterval,

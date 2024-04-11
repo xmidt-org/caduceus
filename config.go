@@ -29,7 +29,7 @@ type Config struct {
 	Servers                Servers
 	ArgusClientTimeout     HttpClientTimeout
 	JWTValidator           JWTValidator
-	Sink                   sink.SinkConfig
+	SinkConfig             sink.Config
 	Service                Service
 	AuthHeader             []string
 	Server                 string

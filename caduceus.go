@@ -5,7 +5,6 @@ package caduceus
 import (
 	"fmt"
 	"os"
-	"runtime/debug"
 
 	"github.com/alecthomas/kong"
 	"github.com/goschtalt/goschtalt"
@@ -78,7 +77,7 @@ func Caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[sallust.Config]("logging"),
 			goschtalt.UnmarshalFunc[candlelight.Config]("tracing"),
 			goschtalt.UnmarshalFunc[touchstone.Config]("prometheus"),
-			goschtalt.UnmarshalFunc[sink.SinkConfig]("sender"),
+			goschtalt.UnmarshalFunc[sink.Config]("sender"),
 			goschtalt.UnmarshalFunc[Service]("service"),
 			goschtalt.UnmarshalFunc[[]string]("authHeader"),
 			goschtalt.UnmarshalFunc[bool]("previousVersionSupport"),
@@ -128,10 +127,10 @@ func Caduceus(arguments []string, run bool) error {
 			candlelight.New,
 		),
 
-		ProvidePprofEndpoint(),
-		ProvideMetricEndpoint(),
-		ProvideHealthCheck(),
-		ProvideCoreEndpoints(),
+		providePprofEndpoint(),
+		provideMetricEndpoint(),
+		provideHealthCheck(),
+		provideCoreEndpoints(),
 
 		arrangehttp.ProvideServer("servers.health"),
 		arrangehttp.ProvideServer("servers.metrics"),
@@ -139,11 +138,11 @@ func Caduceus(arguments []string, run bool) error {
 		arrangehttp.ProvideServer("servers.primary"),
 		arrangehttp.ProvideServer("servers.alternate"),
 
-		handler.ProvideHandler(),
-		sink.ProvideWrapper(),
+		handler.Provide(),
+		sink.Provide(),
 		touchstone.Provide(),
 		touchhttp.Provide(),
-		metrics.ProvideMetrics(),
+		metrics.Provide(),
 		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
 
 	)
@@ -214,21 +213,4 @@ func provideCLIWithOpts(args cliArgs, testOpts bool) (*CLI, error) {
 	}
 
 	return &cli, nil
-}
-
-func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-		}
-	}()
-
-	err := Caduceus(os.Args[1:], true)
-
-	if err == nil {
-		return
-	}
-
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(-1)
 }

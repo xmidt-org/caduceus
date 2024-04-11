@@ -84,7 +84,7 @@ type Metrics struct {
 }
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
-func ProvideMetrics() fx.Option {
+func Provide() fx.Option {
 	return fx.Options(
 		touchstone.Gauge(prometheus.GaugeOpts{
 			Name: IncomingQueueDepth,

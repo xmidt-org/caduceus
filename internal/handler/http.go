@@ -19,11 +19,14 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
+type Handler interface {
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}
 type ServerHandlerIn struct {
 	fx.In
-	SinkWrapper *sink.SinkWrapper
+	SinkWrapper sink.Wrapper
 	Logger      *zap.Logger
-	Telemetry   *HandlerTelemetry
+	Telemetry   *Telemetry
 }
 
 type ServerHandlerOut struct {
@@ -33,13 +36,14 @@ type ServerHandlerOut struct {
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	caduceusHandler    RequestHandler
-	telemetry          *HandlerTelemetry
+	sinkWrapper        sink.Wrapper
+	logger             *zap.Logger
+	telemetry          *Telemetry
 	incomingQueueDepth int64
 	maxOutstanding     int64
 	now                func() time.Time
 }
-type HandlerTelemetryIn struct {
+type TelemetryIn struct {
 	fx.In
 	ErrorRequests            prometheus.Counter     `name:"error_request_body_count"`
 	EmptyRequests            prometheus.Counter     `name:"empty_request_body_count"`
@@ -48,7 +52,7 @@ type HandlerTelemetryIn struct {
 	ModifiedWRPCount         *prometheus.CounterVec `name:"modified_wrp_count"`
 	IncomingQueueLatency     prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
 }
-type HandlerTelemetry struct {
+type Telemetry struct {
 	errorRequests            prometheus.Counter
 	emptyRequests            prometheus.Counter
 	invalidCount             prometheus.Counter
@@ -134,13 +138,18 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	}
 	eventType = msg.FindEventStringSubMatch()
 
-	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
+	sh.handleRequest(sh.fixWrp(msg))
 
 	// return a 202
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
 
 	logger.Debug("event passed to senders.", zap.Any("event", msg))
+}
+
+func (sh *ServerHandler) handleRequest(msg *wrp.Message) {
+	sh.logger.Info("Worker received a request, now passing to sender")
+	sh.sinkWrapper.Queue(msg)
 }
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
@@ -176,10 +185,10 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	return msg
 }
 
-func ProvideHandler() fx.Option {
+func Provide() fx.Option {
 	return fx.Provide(
-		func(in HandlerTelemetryIn) *HandlerTelemetry {
-			return &HandlerTelemetry{
+		func(in TelemetryIn) *Telemetry {
+			return &Telemetry{
 				errorRequests:            in.ErrorRequests,
 				emptyRequests:            in.EmptyRequests,
 				invalidCount:             in.InvalidCount,
@@ -197,12 +206,10 @@ func ProvideHandler() fx.Option {
 		},
 	)
 }
-func New(sw *sink.SinkWrapper, log *zap.Logger, t *HandlerTelemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+func New(w sink.Wrapper, logger *zap.Logger, t *Telemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
-		caduceusHandler: &CaduceusHandler{
-			wrapper: sw,
-			Logger:  log,
-		},
+		sinkWrapper:        w,
+		logger:             logger,
 		telemetry:          t,
 		maxOutstanding:     maxOutstanding,
 		incomingQueueDepth: incomingQueueDepth,

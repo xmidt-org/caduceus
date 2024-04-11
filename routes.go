@@ -43,7 +43,7 @@ type RoutesOut struct {
 }
 
 // The name should be 'primary' or 'alternate'.
-func ProvideCoreEndpoints() fx.Option {
+func provideCoreEndpoints() fx.Option {
 	return fx.Provide(
 		fx.Annotated{
 			Name: "servers.primary.metrics",
@@ -96,7 +96,7 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 
 }
 
-func ProvideHealthCheck() fx.Option {
+func provideHealthCheck() fx.Option {
 	return fx.Provide(
 		fx.Annotated{
 			Name: "servers.health.metrics",
@@ -122,7 +122,7 @@ func ProvideHealthCheck() fx.Option {
 	)
 }
 
-func ProvideMetricEndpoint() fx.Option {
+func provideMetricEndpoint() fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(metrics touchhttp.Handler, path MetricsPath) arrangehttp.Option[http.Server] {
@@ -139,7 +139,7 @@ func ProvideMetricEndpoint() fx.Option {
 	)
 }
 
-func ProvidePprofEndpoint() fx.Option {
+func providePprofEndpoint() fx.Option {
 	return fx.Provide(
 		fx.Annotate(
 			func(pathPrefix PprofPathPrefix) arrangehttp.Option[http.Server] {
