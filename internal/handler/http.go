@@ -53,12 +53,12 @@ type TelemetryIn struct {
 	IncomingQueueLatency     prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
 }
 type Telemetry struct {
-	errorRequests            prometheus.Counter
-	emptyRequests            prometheus.Counter
-	invalidCount             prometheus.Counter
-	incomingQueueDepthMetric prometheus.Gauge
-	modifiedWRPCount         *prometheus.CounterVec
-	incomingQueueLatency     prometheus.ObserverVec
+	ErrorRequests            prometheus.Counter
+	EmptyRequests            prometheus.Counter
+	InvalidCount             prometheus.Counter
+	IncomingQueueDepthMetric prometheus.Gauge
+	ModifiedWRPCount         *prometheus.CounterVec
+	IncomingQueueLatency     prometheus.ObserverVec
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -90,19 +90,19 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
-	sh.telemetry.incomingQueueDepthMetric.Add(1.0)
-	defer sh.telemetry.incomingQueueDepthMetric.Add(-1.0)
+	sh.telemetry.IncomingQueueDepthMetric.Add(1.0)
+	defer sh.telemetry.IncomingQueueDepthMetric.Add(-1.0)
 
 	payload, err := io.ReadAll(request.Body)
 	if err != nil {
-		sh.telemetry.errorRequests.Add(1.0)
+		sh.telemetry.ErrorRequests.Add(1.0)
 		logger.Error("Unable to retrieve the request body.", zap.Error(err))
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(payload) == 0 {
-		sh.telemetry.emptyRequests.Add(1.0)
+		sh.telemetry.EmptyRequests.Add(1.0)
 		logger.Error("Empty payload.")
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Empty payload.\n"))
@@ -115,7 +115,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = decoder.Decode(msg)
 	if err != nil || msg.MessageType() != 4 {
 		// return a 400
-		sh.telemetry.invalidCount.Add(1.0)
+		sh.telemetry.InvalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			response.Write([]byte("Invalid payload format.\n"))
@@ -130,7 +130,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = wrp.UTF8(msg)
 	if err != nil {
 		// return a 400
-		sh.telemetry.invalidCount.Add(1.0)
+		sh.telemetry.InvalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
 		logger.Debug("Strings must be UTF-8.")
@@ -154,7 +154,7 @@ func (sh *ServerHandler) handleRequest(msg *wrp.Message) {
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.telemetry.incomingQueueLatency.With(prometheus.Labels{"event": eventType}).Observe(endTime.Sub(startTime).Seconds())
+	sh.telemetry.IncomingQueueLatency.With(prometheus.Labels{"event": eventType}).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -179,7 +179,7 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	}
 
 	if reason != "" {
-		sh.telemetry.modifiedWRPCount.With(prometheus.Labels{"reason": reason}).Add(1.0)
+		sh.telemetry.ModifiedWRPCount.With(prometheus.Labels{"reason": reason}).Add(1.0)
 	}
 
 	return msg
@@ -189,12 +189,12 @@ func Provide() fx.Option {
 	return fx.Provide(
 		func(in TelemetryIn) *Telemetry {
 			return &Telemetry{
-				errorRequests:            in.ErrorRequests,
-				emptyRequests:            in.EmptyRequests,
-				invalidCount:             in.InvalidCount,
-				incomingQueueDepthMetric: in.IncomingQueueDepthMetric,
-				modifiedWRPCount:         in.ModifiedWRPCount,
-				incomingQueueLatency:     in.IncomingQueueLatency,
+				ErrorRequests:            in.ErrorRequests,
+				EmptyRequests:            in.EmptyRequests,
+				InvalidCount:             in.InvalidCount,
+				IncomingQueueDepthMetric: in.IncomingQueueDepthMetric,
+				ModifiedWRPCount:         in.ModifiedWRPCount,
+				IncomingQueueLatency:     in.IncomingQueueLatency,
 			}
 		},
 		func(in ServerHandlerIn) (ServerHandlerOut, error) {

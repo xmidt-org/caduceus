@@ -1,6 +1,6 @@
 // // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // // SPDX-License-Identifier: Apache-2.0
-package handler
+package handler_test
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/caduceus/internal/mocks"
 	"go.uber.org/zap/zaptest"
@@ -112,7 +113,7 @@ func TestServerHandler(t *testing.T) {
 		fakeLatency := date2.Sub(date1)
 		fakeHist.On("With", histogramFunctionCall).Return().Once()
 		fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-		fakeTel := &mocks.Telemetry{
+		fakeTel := &handler.Telemetry{
 			ErrorRequests:            fakeErrorRequests,
 			EmptyRequests:            fakeEmptyRequests,
 			InvalidCount:             fakeInvalidCount,
@@ -174,12 +175,12 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-	fakeTel := &mocks.Telemetry{
+	fakeTel := &handler.Telemetry{
 		ErrorRequests:            fakeErrorRequests,
 		EmptyRequests:            fakeEmptyRequests,
 		InvalidCount:             fakeInvalidCount,
-		ModifiedWRPCount:         fakeModifiedWRPCount,
 		IncomingQueueDepthMetric: fakeQueueDepth,
+		ModifiedWRPCount:         fakeModifiedWRPCount,
 		IncomingQueueLatency:     fakeHist,
 	}
 	fakeHandler.SinkWrapper = new(mocks.Wrapper)
@@ -223,10 +224,11 @@ func TestServerHandlerFull(t *testing.T) {
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-	fakeTel := &mocks.Telemetry{
+	fakeTel := &handler.Telemetry{
 		IncomingQueueDepthMetric: fakeQueueDepth,
 		IncomingQueueLatency:     fakeHist,
 	}
+
 	fakeHandler.SinkWrapper = new(mocks.Wrapper)
 	fakeHandler.Logger = logger
 	fakeHandler.Telemetry = fakeTel
@@ -277,7 +279,7 @@ func TestServerEmptyPayload(t *testing.T) {
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-	fakeTel := &mocks.Telemetry{
+	fakeTel := &handler.Telemetry{
 		EmptyRequests:            fakeEmptyRequests,
 		IncomingQueueDepthMetric: fakeQueueDepth,
 		IncomingQueueLatency:     fakeHist,
@@ -333,7 +335,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-	fakeTel := &mocks.Telemetry{
+	fakeTel := &handler.Telemetry{
 		ErrorRequests:            fakeErrorRequests,
 		IncomingQueueDepthMetric: fakeQueueDepth,
 		IncomingQueueLatency:     fakeHist,
@@ -389,7 +391,7 @@ func TestServerInvalidBody(t *testing.T) {
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
-	fakeTel := &mocks.Telemetry{
+	fakeTel := &handler.Telemetry{
 		InvalidCount:             fakeInvalidCount,
 		IncomingQueueDepthMetric: fakeQueueDepth,
 		IncomingQueueLatency:     fakeHist,
@@ -430,7 +432,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	fakeHandler := new(mocks.Handler)
 
 	fakeQueueDepth := new(mocks.Gauge)
-	fakeTel := &mocks.Telemetry{
+	fakeTel := &handler.Telemetry{
 		IncomingQueueDepthMetric: fakeQueueDepth,
 	}
 

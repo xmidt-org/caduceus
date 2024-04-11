@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
@@ -20,7 +21,7 @@ type Handler struct {
 
 	SinkWrapper        sink.Wrapper
 	Logger             *zap.Logger
-	Telemetry          *Telemetry
+	Telemetry          *handler.Telemetry
 	IncomingQueueDepth int64
 	MaxOutstanding     int64
 	Now                func() time.Time
@@ -78,15 +79,4 @@ func (m *Counter) With(labelValues ...string) prometheus.Counter {
 	}
 	args := m.Called(labelValues)
 	return args.Get(0).(prometheus.Counter)
-}
-
-type Telemetry struct {
-	mock.Mock
-
-	ErrorRequests            prometheus.Counter
-	EmptyRequests            prometheus.Counter
-	InvalidCount             prometheus.Counter
-	IncomingQueueDepthMetric prometheus.Gauge
-	ModifiedWRPCount         *prometheus.CounterVec
-	IncomingQueueLatency     prometheus.ObserverVec
 }
