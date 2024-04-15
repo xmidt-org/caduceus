@@ -84,7 +84,7 @@ type SinkMetrics struct {
 	droppedCutoffCounter             prometheus.Counter
 	droppedExpiredCounter            prometheus.Counter
 	droppedExpiredBeforeQueueCounter prometheus.Counter
-	droppedNetworkErrCounter         prometheus.Counter
+	droppedMessage                   prometheus.Counter
 	droppedInvalidConfig             prometheus.Counter
 	droppedPanic                     prometheus.Counter
 	cutOffCounter                    prometheus.Counter
@@ -454,7 +454,7 @@ func (s *sender) CreateMetrics(m metrics.Metrics) {
 	s.droppedExpiredBeforeQueueCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "expired_before_queueing"})
 	s.droppedCutoffCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "cut_off"})
 	s.droppedInvalidConfig = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "invalid_config"})
-	s.droppedNetworkErrCounter = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError})
+	s.droppedMessage = m.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError})
 	s.droppedPanic = m.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id})
 	s.queueDepthGauge = m.OutgoingQueueDepth.With(prometheus.Labels{metrics.UrlLabel: s.id})
 	s.renewalTimeGauge = m.ConsumerRenewalTimeGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})

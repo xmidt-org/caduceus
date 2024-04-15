@@ -109,7 +109,7 @@ func TestServerHandler(t *testing.T) {
 
 		fakeTime := mocks.Time(tc.startTime, tc.endTime)
 		fakeHist := new(mocks.Histogram)
-		histogramFunctionCall := []string{"event", tc.expectedEventType}
+		histogramFunctionCall := []string{metrics.EventLabel, tc.expectedEventType}
 		fakeLatency := date2.Sub(date1)
 		fakeHist.On("With", histogramFunctionCall).Return().Once()
 		fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -167,11 +167,11 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
 
 	fakeModifiedWRPCount := new(mocks.Counter)
-	fakeModifiedWRPCount.On("With", []string{"reason", metrics.BothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
+	fakeModifiedWRPCount.On("With", []string{metrics.ReasonLabel, metrics.BothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
 	fakeModifiedWRPCount.On("Add", 1.0).Return().Once()
 
 	fakeHist := new(mocks.Histogram)
-	histogramFunctionCall := []string{"event", "bob"}
+	histogramFunctionCall := []string{metrics.EventLabel, "bob"}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -220,7 +220,7 @@ func TestServerHandlerFull(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mocks.Histogram)
-	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
+	histogramFunctionCall := []string{metrics.EventLabel, metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -275,7 +275,7 @@ func TestServerEmptyPayload(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mocks.Histogram)
-	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
+	histogramFunctionCall := []string{metrics.EventLabel, metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -331,7 +331,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mocks.Histogram)
-	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
+	histogramFunctionCall := []string{metrics.EventLabel, metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -387,7 +387,7 @@ func TestServerInvalidBody(t *testing.T) {
 	fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
 
 	fakeHist := new(mocks.Histogram)
-	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
+	histogramFunctionCall := []string{metrics.EventLabel, metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -423,7 +423,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
-	histogramFunctionCall := []string{"event", metrics.UnknownEventType}
+	histogramFunctionCall := []string{metrics.EventLabel, metrics.UnknownEventType}
 	fakeLatency := date2.Sub(date1)
 
 	assert := assert.New(t)

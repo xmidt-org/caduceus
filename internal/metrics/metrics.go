@@ -3,6 +3,12 @@
 package metrics
 
 import (
+	"context"
+	"errors"
+	"net"
+	"net/url"
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
 
@@ -33,18 +39,39 @@ const (
 )
 
 const (
+	NoErrReason            = "no_err"
+	GenericDoReason        = "do_error"
 	EmptyContentTypeReason = "empty_content_type"
 	EmptyUUIDReason        = "empty_uuid"
 	BothEmptyReason        = "empty_uuid_and_content_type"
 	NetworkError           = "network_err"
 	UnknownEventType       = "unknown"
-)
+	// metric labels
 
-const (
-	ReasonLabel = "reason"
+	CodeLabel   = "code"
 	UrlLabel    = "url"
 	EventLabel  = "event"
-	CodeLabel   = "code"
+	ReasonLabel = "reason"
+
+	// metric label values
+	// dropped messages reasons
+	genericDoReason                       = "do_error"
+	deadlineExceededReason                = "context_deadline_exceeded"
+	contextCanceledReason                 = "context_canceled"
+	addressErrReason                      = "address_error"
+	parseAddrErrReason                    = "parse_address_error"
+	invalidAddrReason                     = "invalid_address"
+	dnsErrReason                          = "dns_error"
+	hostNotFoundReason                    = "host_not_found"
+	connClosedReason                      = "connection_closed"
+	opErrReason                           = "op_error"
+	networkErrReason                      = "unknown_network_err"
+	UpdateRequestURLFailedReason          = "update_request_url_failed"
+	connectionUnexpectedlyClosedEOFReason = "connection_unexpectedly_closed_eof"
+	noErrReason                           = "no_err"
+
+	// dropped message codes
+	MessageDroppedCode = "message_dropped"
 )
 
 // MetricsIn will be populated automatically by the ProvideMetrics function
@@ -169,4 +196,50 @@ func Provide() fx.Option {
 			Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		}, EventLabel),
 	)
+}
+
+func GetDoErrReason(err error) string {
+	var d *net.DNSError
+	if err == nil {
+		return NoErrReason
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		return deadlineExceededReason
+
+	} else if errors.Is(err, context.Canceled) {
+		return contextCanceledReason
+
+	} else if errors.Is(err, &net.AddrError{}) {
+		return addressErrReason
+
+	} else if errors.Is(err, &net.ParseError{}) {
+		return parseAddrErrReason
+
+	} else if errors.Is(err, net.InvalidAddrError("")) {
+		return invalidAddrReason
+
+	} else if errors.As(err, &d) {
+		if d.IsNotFound {
+			return hostNotFoundReason
+		}
+
+		return dnsErrReason
+	} else if errors.Is(err, net.ErrClosed) {
+		return connClosedReason
+
+	} else if errors.Is(err, &net.OpError{}) {
+		return opErrReason
+
+	} else if errors.Is(err, net.UnknownNetworkError("")) {
+		return networkErrReason
+
+	}
+	// nolint: errorlint
+	if err, ok := err.(*url.Error); ok {
+		if strings.TrimSpace(strings.ToLower(err.Unwrap().Error())) == "eof" {
+			return connectionUnexpectedlyClosedEOFReason
+		}
+
+	}
+
+	return GenericDoReason
 }

@@ -49,42 +49,42 @@ func (t *swTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // 	fakeGauge := new(mockGauge)
 // 	fakeGauge.On("Add", 1.0).Return().
 // 		On("Add", -1.0).Return().
-// 		//On("With", []string{"url", "unknown"}).Return(fakeGauge).
-// 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeGauge).
-// 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeGauge)
+// 		//On("With", []string{metrics.UrlLabel, "unknown"}).Return(fakeGauge).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo"}).Return(fakeGauge).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo"}).Return(fakeGauge)
 
 // 	// Fake Latency
 // 	fakeLatency := new(mockHistogram)
-// 	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo", "code", "200"}).Return(fakeLatency)
-// 	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo", "code", "200"}).Return(fakeLatency)
-// 	fakeLatency.On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeLatency)
-// 	fakeLatency.On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeLatency)
+// 	fakeLatency.On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.CodeLabel, "200"}).Return(fakeLatency)
+// 	fakeLatency.On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.CodeLabel, "200"}).Return(fakeLatency)
+// 	fakeLatency.On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo"}).Return(fakeLatency)
+// 	fakeLatency.On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo"}).Return(fakeLatency)
 // 	fakeLatency.On("Observe", 1.0).Return()
 
 // 	fakeIgnore := new(mockCounter)
 // 	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
-// 		On("With", []string{"url", "http://localhost:8888/foo"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "event", "unknown"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "event", "unknown"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "cut_off"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "queue_full"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "expired"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "expired_before_queueing"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "network_err"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "reason", "invalid_config"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "cut_off"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "queue_full"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "expired"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "expired_before_queueing"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "network_err"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "reason", "invalid_config"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:8888/foo", "code", "200", "event", "unknown"}).Return(fakeIgnore).
-// 		On("With", []string{"url", "http://localhost:9999/foo", "code", "200", "event", "unknown"}).Return(fakeIgnore).
-// 		On("With", []string{"event", "iot"}).Return(fakeIgnore).
-// 		On("With", []string{"event", "test/extra-stuff"}).Return(fakeIgnore).
-// 		On("With", []string{"event", "bob/magic/dog"}).Return(fakeIgnore).
-// 		On("With", []string{"event", "unknown"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.EventLabel, "unknown"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.EventLabel, "unknown"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.ReasonLabel, "cut_off"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.ReasonLabel, "queue_full"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.ReasonLabel, "expired"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.ReasonLabel, "expired_before_queueing"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.ReasonLabel, "network_err"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.ReasonLabel, "invalid_config"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.ReasonLabel, "cut_off"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.ReasonLabel, "queue_full"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.ReasonLabel, "expired"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.ReasonLabel, "expired_before_queueing"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.ReasonLabel, "network_err"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.ReasonLabel, "invalid_config"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:8888/foo", metrics.CodeLabel, "200", metrics.EventLabel, "unknown"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.UrlLabel, "http://localhost:9999/foo", metrics.CodeLabel, "200", metrics.EventLabel, "unknown"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.EventLabel, "iot"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.EventLabel, "test/extra-stuff"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.EventLabel, "bob/magic/dog"}).Return(fakeIgnore).
+// 		On("With", []string{metrics.EventLabel, "unknown"}).Return(fakeIgnore).
 // 		On("With", []string{"content_type", "msgpack"}).Return(fakeIgnore).
 // 		On("With", []string{"content_type", "json"}).Return(fakeIgnore).
 // 		On("With", []string{"content_type", "http"}).Return(fakeIgnore).

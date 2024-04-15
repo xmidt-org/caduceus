@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -93,7 +94,7 @@ func (m1 *MatcherV1) Update(l ListenerV1) error {
 	for i := 0; i < urlCount; i++ {
 		_, err := url.Parse(l.Registration.Config.AlternativeURLs[i])
 		if err != nil {
-			m1.logger.Error("failed to update url", zap.Any("url", l.Registration.Config.AlternativeURLs[i]), zap.Error(err))
+			m1.logger.Error("failed to update url", zap.Any(metrics.UrlLabel, l.Registration.Config.AlternativeURLs[i]), zap.Error(err))
 			return err
 		}
 	}
@@ -160,7 +161,7 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 	if matcher != nil {
 		matchDevice = false
 		for _, deviceRegex := range matcher {
-			if deviceRegex.MatchString(msg.Source) {
+			if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
 				matchDevice = true
 				break
 			}

@@ -154,7 +154,7 @@ func (sh *ServerHandler) handleRequest(msg *wrp.Message) {
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.telemetry.IncomingQueueLatency.With(prometheus.Labels{"event": eventType}).Observe(endTime.Sub(startTime).Seconds())
+	sh.telemetry.IncomingQueueLatency.With(prometheus.Labels{metrics.EventLabel: eventType}).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -179,7 +179,7 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	}
 
 	if reason != "" {
-		sh.telemetry.ModifiedWRPCount.With(prometheus.Labels{"reason": reason}).Add(1.0)
+		sh.telemetry.ModifiedWRPCount.With(prometheus.Labels{metrics.ReasonLabel: reason}).Add(1.0)
 	}
 
 	return msg

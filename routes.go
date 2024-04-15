@@ -81,6 +81,7 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 				otelmux.WithPropagators(in.Tracing.Propagator()),
 			}
 
+
 			// TODO: should probably customize things a bit
 			mux.Use(recovery.Middleware(recovery.WithStatusCode(555)), otelmux.Middleware("server_primary", options...),
 				candlelight.EchoFirstTraceNodeInfo(in.Tracing.Propagator(), true))
