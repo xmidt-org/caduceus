@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package caduceus
 
 import (
 	"fmt"
 	"os"
-	"runtime/debug"
 
 	"github.com/alecthomas/kong"
 	"github.com/goschtalt/goschtalt"
@@ -14,6 +13,10 @@ import (
 	_ "github.com/goschtalt/yaml-decoder"
 	_ "github.com/goschtalt/yaml-encoder"
 	"github.com/xmidt-org/arrange/arrangehttp"
+	"github.com/xmidt-org/caduceus/internal/handler"
+	"github.com/xmidt-org/caduceus/internal/metrics"
+	"github.com/xmidt-org/caduceus/internal/sink"
+
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
@@ -47,7 +50,7 @@ type CLI struct {
 // Provides a named type so it's a bit easier to flow through & use in fx.
 type cliArgs []string
 
-func caduceus(arguments []string, run bool) error {
+func Caduceus(arguments []string, run bool) error {
 	var (
 		gscfg *goschtalt.Config
 
@@ -74,7 +77,7 @@ func caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[sallust.Config]("logging"),
 			goschtalt.UnmarshalFunc[candlelight.Config]("tracing"),
 			goschtalt.UnmarshalFunc[touchstone.Config]("prometheus"),
-			goschtalt.UnmarshalFunc[SinkConfig]("sender"),
+			goschtalt.UnmarshalFunc[sink.Config]("sender"),
 			goschtalt.UnmarshalFunc[Service]("service"),
 			goschtalt.UnmarshalFunc[[]string]("authHeader"),
 			goschtalt.UnmarshalFunc[bool]("previousVersionSupport"),
@@ -135,11 +138,11 @@ func caduceus(arguments []string, run bool) error {
 		arrangehttp.ProvideServer("servers.primary"),
 		arrangehttp.ProvideServer("servers.alternate"),
 
-		ProvideHandler(),
-		ProvideWrapper(),
+		handler.Provide(),
+		sink.Provide(),
 		touchstone.Provide(),
 		touchhttp.Provide(),
-		ProvideMetrics(),
+		metrics.Provide(),
 		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
 
 	)
@@ -210,21 +213,4 @@ func provideCLIWithOpts(args cliArgs, testOpts bool) (*CLI, error) {
 	}
 
 	return &cli, nil
-}
-
-func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-		}
-	}()
-
-	err := caduceus(os.Args[1:], true)
-
-	if err == nil {
-		return
-	}
-
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(-1)
 }

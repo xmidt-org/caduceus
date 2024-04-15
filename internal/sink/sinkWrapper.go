@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package sink
 
 import (
 	"crypto/tls"
@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/caduceus/internal/client"
+	"github.com/xmidt-org/caduceus/internal/metrics"
+
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -19,14 +22,14 @@ import (
 )
 
 // WrapperIn configures the Wrapper for creation
-type SinkWrapperIn struct {
+type WrapperIn struct {
 	fx.In
 
-	Tracing    candlelight.Tracing
-	SinkConfig SinkConfig
-	Metrics    Metrics
-	EventType  *prometheus.CounterVec
-	Logger     *zap.Logger
+	Tracing   candlelight.Tracing
+	Config    Config
+	Metrics   metrics.Metrics
+	EventType *prometheus.CounterVec
+	Logger    *zap.Logger
 }
 
 // SinkWrapper interface is needed for unit testing.
@@ -37,7 +40,7 @@ type Wrapper interface {
 }
 
 // Wrapper contains the configuration that will be shared with each outbound sender. It contains no external parameters.
-type SinkWrapper struct {
+type wrapper struct {
 	// The amount of time to let expired SinkSenders linger before
 	// shutting them down and cleaning up the resources associated with them.
 	linger time.Duration
@@ -46,23 +49,23 @@ type SinkWrapper struct {
 	logger *zap.Logger
 
 	//the configuration needed for eash sinkSender
-	config SinkConfig
+	config Config
 
 	mutex            *sync.RWMutex
 	senders          map[string]Sender
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
-	metrics          Metrics
-	client           Client              //TODO: keeping here for now - but might move to SinkSender in a later PR
-	clientMiddleware func(Client) Client //TODO: keeping here for now - but might move to SinkSender in a later PR
+	metrics          metrics.Metrics
+	client           client.Client                     //TODO: keeping here for now - but might move to SinkSender in a later PR
+	clientMiddleware func(client.Client) client.Client //TODO: keeping here for now - but might move to SinkSender in a later PR
 
 }
 
-func ProvideWrapper() fx.Option {
+func Provide() fx.Option {
 	return fx.Provide(
-		func(in MetricsIn) Metrics {
-			senderMetrics := Metrics{
+		func(in metrics.MetricsIn) metrics.Metrics {
+			senderMetrics := metrics.Metrics{
 				DeliveryCounter:                 in.DeliveryCounter,
 				DeliveryRetryCounter:            in.DeliveryRetryCounter,
 				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
@@ -79,39 +82,39 @@ func ProvideWrapper() fx.Option {
 			}
 			return senderMetrics
 		},
-		func(in SinkWrapperIn) (*SinkWrapper, error) {
-			csw, err := NewSinkWrapper(in)
-			return csw, err
+		func(in WrapperIn) (Wrapper, error) {
+			w, err := NewWrapper(in)
+			return w, err
 		},
 	)
 }
 
-func NewSinkWrapper(in SinkWrapperIn) (sw *SinkWrapper, err error) {
-	sw = &SinkWrapper{
-		linger:    in.SinkConfig.Linger,
+func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
+	w := &wrapper{
+		linger:    in.Config.Linger,
 		logger:    in.Logger,
 		eventType: in.EventType,
-		config:    in.SinkConfig,
+		config:    in.Config,
 		metrics:   in.Metrics,
 	}
 
-	if in.SinkConfig.Linger <= 0 {
-		linger := fmt.Sprintf("linger not positive: %v", in.SinkConfig.Linger)
+	if in.Config.Linger <= 0 {
+		linger := fmt.Sprintf("linger not positive: %v", in.Config.Linger)
 		err = errors.New(linger)
-		sw = nil
+		w = nil
 		return
 	}
-	sw.senders = make(map[string]Sender)
-	sw.shutdown = make(chan struct{})
+	w.senders = make(map[string]Sender)
+	w.shutdown = make(chan struct{})
 
-	sw.wg.Add(1)
-	go undertaker(sw)
+	w.wg.Add(1)
+	go undertaker(w)
 
 	return
 }
 
 // no longer being initialized at start up - needs to be initialized by the creation of the outbound sender
-func NewRoundTripper(config SinkConfig, tracing candlelight.Tracing) (tr http.RoundTripper) {
+func NewRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundTripper) {
 	tr = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: config.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   config.NumWorkersPerSender,
@@ -130,7 +133,7 @@ func NewRoundTripper(config SinkConfig, tracing candlelight.Tracing) (tr http.Ro
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *SinkWrapper) Update(list []Listener) {
+func (w *wrapper) Update(list []Listener) {
 
 	ids := make([]struct {
 		Listener Listener
@@ -142,31 +145,31 @@ func (sw *SinkWrapper) Update(list []Listener) {
 		ids[i].ID = v.GetId()
 	}
 
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 
 	for _, inValue := range ids {
-		sender, ok := sw.senders[inValue.ID]
+		sender, ok := w.senders[inValue.ID]
 		if !ok {
 			var ss Sender
 			var err error
 
 			listener := inValue.Listener
-			metricWrapper, err := newMetricWrapper(time.Now, sw.metrics.QueryLatency, inValue.ID)
+			metricWrapper, err := client.NewMetricWrapper(time.Now, w.metrics.QueryLatency, inValue.ID)
 
 			if err != nil {
 				continue
 			}
 
-			ss, err = NewSinkSender(sw, listener)
-			sw.clientMiddleware = metricWrapper.roundTripper
+			ss, err = NewSender(w, listener)
+			w.clientMiddleware = metricWrapper.RoundTripper
 
 			// {
 			// 	ss, err = newSinkSender(sw, r1)
 			// }
 
 			if err == nil {
-				sw.senders[inValue.ID] = ss
+				w.senders[inValue.ID] = ss
 			}
 			continue
 		}
@@ -177,13 +180,13 @@ func (sw *SinkWrapper) Update(list []Listener) {
 
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
-func (sw *SinkWrapper) Queue(msg *wrp.Message) {
-	sw.mutex.RLock()
-	defer sw.mutex.RUnlock()
+func (w *wrapper) Queue(msg *wrp.Message) {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
 
-	sw.eventType.With(prometheus.Labels{"event": msg.FindEventStringSubMatch()}).Add(1)
+	w.eventType.With(prometheus.Labels{"event": msg.FindEventStringSubMatch()}).Add(1)
 
-	for _, v := range sw.senders {
+	for _, v := range w.senders {
 		v.Queue(msg)
 	}
 }
@@ -191,57 +194,57 @@ func (sw *SinkWrapper) Queue(msg *wrp.Message) {
 // Shutdown closes down the delivery mechanisms and cleans up the underlying
 // OutboundSenders either gently (waiting for delivery queues to empty) or not
 // (dropping enqueued messages)
-func (sw *SinkWrapper) Shutdown(gentle bool) {
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
-	for k, v := range sw.senders {
+func (w *wrapper) Shutdown(gentle bool) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	for k, v := range w.senders {
 		v.Shutdown(gentle)
-		delete(sw.senders, k)
+		delete(w.senders, k)
 	}
-	close(sw.shutdown)
+	close(w.shutdown)
 }
 
 // undertaker looks at the OutboundSenders periodically and prunes the ones
 // that have been retired for too long, freeing up resources.
-func undertaker(sw *SinkWrapper) {
-	defer sw.wg.Done()
+func undertaker(w *wrapper) {
+	defer w.wg.Done()
 	// Collecting unused OutboundSenders isn't a huge priority, so do it
 	// slowly.
-	ticker := time.NewTicker(2 * sw.linger)
+	ticker := time.NewTicker(2 * w.linger)
 	for {
 		select {
 		case <-ticker.C:
-			threshold := time.Now().Add(-1 * sw.linger)
+			threshold := time.Now().Add(-1 * w.linger)
 
 			// Actually shutting these down could take longer then we
 			// want to lock the mutex, so just remove them from the active
 			// list & shut them down afterwards.
-			deadList := createDeadlist(sw, threshold)
+			deadList := createDeadlist(w, threshold)
 
 			// Shut them down
 			for _, v := range deadList {
 				v.Shutdown(false)
 			}
-		case <-sw.shutdown:
+		case <-w.shutdown:
 			ticker.Stop()
 			return
 		}
 	}
 }
 
-func createDeadlist(sw *SinkWrapper, threshold time.Time) map[string]Sender {
-	if sw == nil || threshold.IsZero() {
+func createDeadlist(w *wrapper, threshold time.Time) map[string]Sender {
+	if w == nil || threshold.IsZero() {
 		return nil
 	}
 
 	deadList := make(map[string]Sender)
-	sw.mutex.Lock()
-	defer sw.mutex.Unlock()
-	for k, v := range sw.senders {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	for k, v := range w.senders {
 		retired := v.RetiredSince()
 		if threshold.After(retired) {
 			deadList[k] = v
-			delete(sw.senders, k)
+			delete(w.senders, k)
 		}
 	}
 	return deadList

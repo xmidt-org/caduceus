@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package handler
 
 import (
 	"bytes"
@@ -22,6 +22,7 @@ import (
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/bascule/basculehttp"
+	"github.com/xmidt-org/caduceus/internal/logging"
 	"github.com/xmidt-org/clortho"
 	"github.com/xmidt-org/clortho/clorthozap"
 	"github.com/xmidt-org/sallust"
@@ -42,16 +43,6 @@ type CapabilityConfig struct {
 	Prefix          string
 	AcceptAllMethod string
 	EndpointBuckets []string
-}
-
-// JWTValidator provides a convenient way to define jwt validator through config files
-type JWTValidator struct {
-	// Config is used to create the clortho Resolver & Refresher for JWT verification keys
-	Config clortho.Config `json:"config"`
-
-	// Leeway is used to set the amount of time buffer should be given to JWT
-	// time values, such as nbf
-	Leeway bascule.Leeway
 }
 
 func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, sw *ServerHandler, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
@@ -98,7 +89,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain,
 	logger.Debug("Created list of allowed basic auths", zap.Any("allowed", basicAllowed), zap.Any("config", basicAuth))
 
 	options := []basculehttp.COption{
-		basculehttp.WithCLogger(getLogger),
+		basculehttp.WithCLogger(logging.GetLogger),
 		// basculehttp.WithCErrorResponseFunc(listener.OnErrorResponse),
 	}
 	if len(basicAllowed) > 0 {
@@ -219,7 +210,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain,
 	}
 
 	authEnforcer := basculehttp.NewEnforcer(
-		basculehttp.WithELogger(getLogger),
+		basculehttp.WithELogger(logging.GetLogger),
 		basculehttp.WithRules("Basic", bascule.Validators{
 			basculechecks.AllowAll(),
 		}),
@@ -227,8 +218,8 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger) (*alice.Chain,
 		// basculehttp.WithEErrorResponseFunc(listener.OnErrorResponse),
 	)
 
-	authChain := alice.New(setLogger(logger), authConstructor, authEnforcer)             //removing: basculehttp.NewListenerDecorator(listener). commenting for now in case needed later
-	authChainLegacy := alice.New(setLogger(logger), authConstructorLegacy, authEnforcer) //removing: basculehttp.NewListenerDecorator(listener) commenting for now in case needed later
+	authChain := alice.New(logging.SetLogger(logger), authConstructor, authEnforcer)             //removing: basculehttp.NewListenerDecorator(listener). commenting for now in case needed later
+	authChainLegacy := alice.New(logging.SetLogger(logger), authConstructorLegacy, authEnforcer) //removing: basculehttp.NewListenerDecorator(listener) commenting for now in case needed later
 
 	versionCompatibleAuth := alice.New(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(r http.ResponseWriter, req *http.Request) {

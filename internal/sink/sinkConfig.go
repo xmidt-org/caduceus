@@ -1,18 +1,12 @@
-// SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+// SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package sink
 
-import (
-	"time"
-
-	"go.uber.org/zap"
-
-	"github.com/xmidt-org/wrp-go/v3"
-)
+import "time"
 
 // Below is the struct we're using to contain the data from a provided config file
 // TODO: Try to figure out how to make bucket ranges configurable
-type SinkConfig struct {
+type Config struct {
 	// The number of workers to assign to each SinkSender created.
 	NumWorkersPerSender int
 
@@ -53,18 +47,4 @@ type SinkConfig struct {
 	// (keep-alive) connection will remain idle before closing
 	// itself.
 	IdleConnTimeout time.Duration
-}
-
-type RequestHandler interface {
-	HandleRequest(workerID int, msg *wrp.Message)
-}
-
-type CaduceusHandler struct {
-	wrapper Wrapper
-	*zap.Logger
-}
-
-func (ch *CaduceusHandler) HandleRequest(workerID int, msg *wrp.Message) {
-	ch.Logger.Info("Worker received a request, now passing to sender", zap.Int("workerId", workerID))
-	ch.wrapper.Queue(msg)
 }

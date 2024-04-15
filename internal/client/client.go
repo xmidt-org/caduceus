@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package client
 
 import "net/http"
 
@@ -10,7 +10,7 @@ type Client interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-func nopClient(next Client) Client {
+func NopClient(next Client) Client {
 	return next
 }
 

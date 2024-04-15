@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package client
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/caduceus/internal/metrics"
 )
 
 var (
@@ -22,7 +23,7 @@ type metricWrapper struct {
 	id           string
 }
 
-func newMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec, id string) (*metricWrapper, error) {
+func NewMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec, id string) (*metricWrapper, error) {
 	if now == nil {
 		now = time.Now
 	}
@@ -36,12 +37,12 @@ func newMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec,
 	}, nil
 }
 
-func (m *metricWrapper) roundTripper(next Client) Client {
+func (m *metricWrapper) RoundTripper(next Client) Client {
 	return doerFunc(func(req *http.Request) (*http.Response, error) {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()
-		code := networkError
+		code := metrics.NetworkError
 
 		if err == nil {
 			code = strconv.Itoa(resp.StatusCode)
@@ -49,7 +50,7 @@ func (m *metricWrapper) roundTripper(next Client) Client {
 
 		// find time difference, add to metric
 		var latency = endTime.Sub(startTime)
-		m.queryLatency.With(prometheus.Labels{UrlLabel: m.id, CodeLabel: code}).Observe(latency.Seconds())
+		m.queryLatency.With(prometheus.Labels{metrics.UrlLabel: m.id, metrics.CodeLabel: code}).Observe(latency.Seconds())
 
 		return resp, err
 	})

@@ -1,44 +1,55 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package main
+package mocks
 
 import (
+	"net/http"
 	"time"
 	"unicode/utf8"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/caduceus/internal/handler"
+	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 // mockHandler only needs to mock the `HandleRequest` method
-type mockHandler struct {
+type Handler struct {
 	mock.Mock
+
+	SinkWrapper        sink.Wrapper
+	Logger             *zap.Logger
+	Telemetry          *handler.Telemetry
+	IncomingQueueDepth int64
+	MaxOutstanding     int64
+	Now                func() time.Time
 }
 
-func (m *mockHandler) HandleRequest(workerID int, msg *wrp.Message) {
-	m.Called(workerID, msg)
+func (m *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	m.Called(r)
 }
 
 // mockSenderWrapper needs to mock things that the `SenderWrapper` does
-type mockSenderWrapper struct {
+type Wrapper struct {
 	mock.Mock
 }
 
-// func (m *mockSenderWrapper) Update(list []ancla.InternalWebhook) {
+// func (m *MockSinkWrapper) Update(list []ancla.InternalWebhook) {
 // 	m.Called(list)
 // }
 
-func (m *mockSenderWrapper) Queue(msg *wrp.Message) {
+func (m *Wrapper) Queue(msg *wrp.Message) {
 	m.Called(msg)
 }
 
-func (m *mockSenderWrapper) Shutdown(gentle bool) {
+func (m *Wrapper) Shutdown(gentle bool) {
 	m.Called(gentle)
 }
 
 // mockTime provides two mock time values
-func mockTime(one, two time.Time) func() time.Time {
+func Time(one, two time.Time) func() time.Time {
 	var called bool
 	return func() time.Time {
 		if called {
@@ -49,18 +60,18 @@ func mockTime(one, two time.Time) func() time.Time {
 	}
 }
 
-type mockCounter struct {
+type Counter struct {
 	mock.Mock
 }
 
-func (m *mockCounter) Add(delta float64) {
+func (m *Counter) Add(delta float64) {
 	m.Called(delta)
 }
 
-func (m *mockCounter) Inc (){
+func (m *Counter) Inc() {
 	m.Called(1)
 }
-func (m *mockCounter) With(labelValues ...string) prometheus.Counter {
+func (m *Counter) With(labelValues ...string) prometheus.Counter {
 	for _, v := range labelValues {
 		if !utf8.ValidString(v) {
 			panic("not UTF-8")

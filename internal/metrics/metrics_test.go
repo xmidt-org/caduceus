@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package main
+package metrics
 
 // Using Caduceus's test suite:
 //
@@ -28,7 +28,7 @@ import (
 func TestMetrics(t *testing.T) {
 	assert := assert.New(t)
 
-	m := ProvideMetrics()
+	m := Provide()
 
 	assert.NotNil(m)
 }

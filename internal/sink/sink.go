@@ -1,4 +1,6 @@
-package main
+// SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
+package sink
 
 import (
 	"bytes"
@@ -14,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -36,7 +39,7 @@ type WebhookV1 struct {
 	clientMiddleware func(http.Client) http.Client
 }
 
-func NewWebhookV1(s *SinkSender) {
+func NewWebhookV1(s *sender) {
 	v1 := &WebhookV1{
 		id:               s.id,
 		deliveryInterval: s.deliveryInterval,
@@ -161,7 +164,7 @@ func (v1 *WebhookV1) updateRequest(urls *ring.Ring) func(*http.Request) *http.Re
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
-			v1.logger.Error("failed to update url", zap.String(UrlLabel, urls.Value.(string)), zap.Error(err))
+			v1.logger.Error("failed to update url", zap.String(metrics.UrlLabel, urls.Value.(string)), zap.Error(err))
 		}
 		request.URL = tmp
 		return request
