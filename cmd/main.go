@@ -6,17 +6,11 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime/debug"
 
 	"github.com/xmidt-org/caduceus"
 )
 
 func main() {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
-		}
-	}()
 
 	err := caduceus.Caduceus(os.Args[1:], true)
 
