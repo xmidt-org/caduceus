@@ -35,8 +35,8 @@ type WebhookV1 struct {
 	deliveryRetries  int
 	logger           *zap.Logger
 	//TODO: need to determine best way to add client and client middleware to WebhooV1
-	client           http.Client
-	clientMiddleware func(http.Client) http.Client
+	// client           http.Client
+	// clientMiddleware func(http.Client) http.Client
 }
 
 func NewWebhookV1(s *sender) {
@@ -140,6 +140,7 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 
 		logger = v1.logger.With(zap.String(metrics.ReasonLabel, reason), zap.Error(err))
 		deliveryCounterLabels = []string{metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason, metrics.CodeLabel, code, metrics.EventLabel, event}
+		fmt.Print(deliveryCounterLabels)
 		// v1.droppedMessage.With(metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason).Add(1)
 		logger.Error("Dropped Network Error", zap.Error(err))
 		return err
@@ -156,6 +157,8 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 
 		deliveryCounterLabels = []string{metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason, metrics.CodeLabel, code, metrics.EventLabel, event}
 	}
+	fmt.Print(deliveryCounterLabels)
+
 	//TODO: do we add deliveryCounter to webhook metrics and remove from sink sender?
 	// v1.deliveryCounter.With(prometheus.Labels{deliveryCounterLabels}).Add(1.0)
 	logger.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String(metrics.CodeLabel, code), zap.String(metrics.UrlLabel, req.URL.String()))
@@ -191,6 +194,7 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 
 	return func(attempt retry.Attempt[*http.Response]) {
 		if attempt.Retries > 0 {
+			fmt.Print(event)
 			// s.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: v1.id, EventLabel: event}).Add(1.0)
 			v1.logger.Debug("retrying HTTP transaction", zap.String(metrics.UrlLabel, request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
 		}

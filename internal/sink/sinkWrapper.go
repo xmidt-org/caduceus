@@ -28,7 +28,7 @@ type WrapperIn struct {
 	Tracing   candlelight.Tracing
 	Config    Config
 	Metrics   metrics.Metrics
-	EventType *prometheus.CounterVec
+	EventType *prometheus.CounterVec `name:"incoming_event_type_count"`
 	Logger    *zap.Logger
 }
 
@@ -51,7 +51,7 @@ type wrapper struct {
 	//the configuration needed for eash sinkSender
 	config Config
 
-	mutex            *sync.RWMutex
+	mutex            sync.RWMutex
 	senders          map[string]Sender
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
@@ -109,6 +109,7 @@ func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
 
 	w.wg.Add(1)
 	go undertaker(w)
+	wr = w
 
 	return
 }
@@ -219,7 +220,10 @@ func undertaker(w *wrapper) {
 			// Actually shutting these down could take longer then we
 			// want to lock the mutex, so just remove them from the active
 			// list & shut them down afterwards.
-			deadList := createDeadlist(w, threshold)
+			deadList, err := createDeadlist(w, threshold)
+			if err != nil {
+				break
+			}
 
 			// Shut them down
 			for _, v := range deadList {
@@ -232,20 +236,23 @@ func undertaker(w *wrapper) {
 	}
 }
 
-func createDeadlist(w *wrapper, threshold time.Time) map[string]Sender {
+func createDeadlist(w *wrapper, threshold time.Time) (map[string]Sender, error) {
 	if w == nil || threshold.IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	deadList := make(map[string]Sender)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	for k, v := range w.senders {
-		retired := v.RetiredSince()
+		retired, err := v.RetiredSince()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get retirement time for sender %s: %w", k, err)
+		}
 		if threshold.After(retired) {
 			deadList[k] = v
 			delete(w.senders, k)
 		}
 	}
-	return deadList
+	return deadList, nil
 }
