@@ -237,7 +237,6 @@ func onStart(logger *zap.Logger) func(context.Context) error {
 			}
 		}()
 
-
 		return nil
 	}
 }
