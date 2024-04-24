@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/metrics"
@@ -155,7 +156,7 @@ func (w *wrapper) Update(list []Listener) {
 			var err error
 
 			listener := inValue.Listener
-			metricWrapper, err := client.NewMetricWrapper(time.Now, w.metrics.QueryLatency, inValue.ID)
+			metricWrapper, err := client.NewMetricWrapper(time.Now, w.metrics.QueryLatency.With(prometheus.Labels{metrics.UrlLabel: inValue.ID}))
 
 			if err != nil {
 				continue
@@ -184,7 +185,7 @@ func (w *wrapper) Queue(msg *wrp.Message) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
-	w.eventType.With(prometheus.Labels{"event": msg.FindEventStringSubMatch()}).Add(1)
+	w.eventType.With(prometheus.Labels{metrics.EventLabel: msg.FindEventStringSubMatch()}).Add(1)
 
 	for _, v := range w.senders {
 		v.Queue(msg)

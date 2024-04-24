@@ -86,7 +86,7 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 	if err != nil {
 		// Report drop
 		// s.droppedInvalidConfig.Add(1.0)
-		v1.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", v1.id), zap.Error(err))
+		v1.logger.Error("Invalid URL", zap.String(metrics.UrlLabel, urls.Value.(string)), zap.String("id", v1.id), zap.Error(err))
 		return err
 	}
 
@@ -125,11 +125,22 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 	)
 	resp, err := client.Do(req)
 
-	code := "failure"
+	var deliveryCounterLabels []string
+	code := metrics.MessageDroppedCode
+	reason := metrics.NoErrReason
 	logger := v1.logger
 	if err != nil {
 		// Report failure
-		// s.droppedNetworkErrCounter.Add(1.0)
+		//TODO: add droppedMessage to webhook metrics and remove from sink sender?
+		// v1.droppedMessage.Add(1.0)
+		reason = metrics.GetDoErrReason(err)
+		if resp != nil {
+			code = strconv.Itoa(resp.StatusCode)
+		}
+
+		logger = v1.logger.With(zap.String(metrics.ReasonLabel, reason), zap.Error(err))
+		deliveryCounterLabels = []string{metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason, metrics.CodeLabel, code, metrics.EventLabel, event}
+		// v1.droppedMessage.With(metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason).Add(1)
 		logger.Error("Dropped Network Error", zap.Error(err))
 		return err
 	} else {
@@ -142,9 +153,12 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
+
+		deliveryCounterLabels = []string{metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason, metrics.CodeLabel, code, metrics.EventLabel, event}
 	}
-	// s.deliveryCounter.With(prometheus.Labels{UrlLabel: s.id, CodeLabel: code, EventLabel: event}).Add(1.0)
-	logger.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
+	//TODO: do we add deliveryCounter to webhook metrics and remove from sink sender?
+	// v1.deliveryCounter.With(prometheus.Labels{deliveryCounterLabels}).Add(1.0)
+	logger.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String(metrics.CodeLabel, code), zap.String(metrics.UrlLabel, req.URL.String()))
 	return nil
 }
 
@@ -165,6 +179,8 @@ func (v1 *WebhookV1) updateRequest(urls *ring.Ring) func(*http.Request) *http.Re
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
 			v1.logger.Error("failed to update url", zap.String(metrics.UrlLabel, urls.Value.(string)), zap.Error(err))
+			//TODO: do we add droppedMessage metric to webhook and remove from sink sender?
+			// v1.droppedMessage.With(metrics.UrlLabel, request.URL.String(), metrics.ReasonLabel, metrics.UpdateRequestURLFailedReason).Add(1)
 		}
 		request.URL = tmp
 		return request
@@ -176,7 +192,7 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 	return func(attempt retry.Attempt[*http.Response]) {
 		if attempt.Retries > 0 {
 			// s.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: v1.id, EventLabel: event}).Add(1.0)
-			v1.logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
+			v1.logger.Debug("retrying HTTP transaction", zap.String(metrics.UrlLabel, request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
 		}
 
 	}
