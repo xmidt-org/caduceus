@@ -246,7 +246,7 @@ func onStop(shutdowner fx.Shutdowner, logger *zap.Logger) func(context.Context) 
 
 	return func(_ context.Context) error {
 		defer func() {
-			if r := recover(); nil != r {
+			if r := recover(); r != nil {
 				logger.Error("stacktrace from panic", zap.String("stacktrace", string(debug.Stack())), zap.Any("panic", r))
 			}
 
