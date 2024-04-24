@@ -237,8 +237,6 @@ func onStart(logger *zap.Logger) func(context.Context) error {
 			}
 		}()
 
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
 
 		return nil
 	}
