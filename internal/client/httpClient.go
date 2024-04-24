@@ -23,7 +23,7 @@ type metricWrapper struct {
 	id           string
 }
 
-func NewMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec) (*metricWrapper, error) {
+func NewMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec, id string) (*metricWrapper, error) {
 	if now == nil {
 		now = time.Now
 	}
@@ -33,6 +33,7 @@ func NewMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec)
 	return &metricWrapper{
 		now:          now,
 		queryLatency: queryLatency,
+		id:           id,
 	}, nil
 }
 
@@ -53,7 +54,7 @@ func (m *metricWrapper) RoundTripper(next Client) Client {
 		}
 
 		// find time difference, add to metric
-		m.queryLatency.With(prometheus.Labels{metrics.UrlLabel: req.URL.String(), metrics.CodeLabel: code, metrics.ReasonLabel: reason}).Observe(endTime.Sub(startTime).Seconds())
+		m.queryLatency.With(prometheus.Labels{"id": m.id, metrics.UrlLabel: req.URL.String(), metrics.CodeLabel: code, metrics.ReasonLabel: reason}).Observe(endTime.Sub(startTime).Seconds())
 		return resp, err
 	})
 }

@@ -3,8 +3,11 @@
 package caduceus
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/goschtalt/goschtalt"
@@ -40,6 +43,12 @@ var (
 	builtBy = "undefined"
 )
 
+type LifeCycleIn struct {
+	fx.In
+	Logger     *zap.Logger
+	LC         fx.Lifecycle
+	Shutdowner fx.Shutdowner
+}
 type CLI struct {
 	Dev   bool     `optional:"" short:"d" help:"Run in development mode."`
 	Show  bool     `optional:"" short:"s" help:"Show the configuration and exit."`
@@ -145,6 +154,9 @@ func Caduceus(arguments []string, run bool) error {
 		metrics.Provide(),
 		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
 
+		fx.Invoke(
+			lifeCycle,
+		),
 	)
 
 	if cli != nil && cli.Graph != "" {
@@ -213,4 +225,46 @@ func provideCLIWithOpts(args cliArgs, testOpts bool) (*CLI, error) {
 	}
 
 	return &cli, nil
+}
+
+func onStart(logger *zap.Logger) func(context.Context) error {
+	logger = logger.Named("on_start")
+
+	return func(ctx context.Context) error {
+		defer func() {
+			if r := recover(); nil != r {
+				logger.Error("stacktrace from panic", zap.String("stacktrace", string(debug.Stack())), zap.Any("panic", r))
+			}
+		}()
+
+		return nil
+	}
+}
+
+func onStop(shutdowner fx.Shutdowner, logger *zap.Logger) func(context.Context) error {
+	logger = logger.Named("on_stop")
+
+	return func(_ context.Context) error {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("stacktrace from panic", zap.String("stacktrace", string(debug.Stack())), zap.Any("panic", r))
+			}
+
+			if err := shutdowner.Shutdown(); err != nil {
+				logger.Error("encountered error trying to shutdown app: ", zap.Error(err))
+			}
+		}()
+
+		return nil
+	}
+}
+
+func lifeCycle(in LifeCycleIn) {
+	logger := in.Logger.Named("fx_lifecycle")
+	in.LC.Append(
+		fx.Hook{
+			OnStart: onStart(logger),
+			OnStop:  onStop(in.Shutdowner, logger),
+		},
+	)
 }

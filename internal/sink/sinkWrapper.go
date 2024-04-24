@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/metrics"
@@ -156,7 +155,7 @@ func (w *wrapper) Update(list []Listener) {
 			var err error
 
 			listener := inValue.Listener
-			metricWrapper, err := client.NewMetricWrapper(time.Now, w.metrics.QueryLatency.With(prometheus.Labels{metrics.UrlLabel: inValue.ID}))
+			metricWrapper, err := client.NewMetricWrapper(time.Now, w.metrics.QueryLatency, inValue.ID)
 
 			if err != nil {
 				continue
