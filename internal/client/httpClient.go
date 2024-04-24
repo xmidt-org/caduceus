@@ -38,7 +38,7 @@ func NewMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec,
 }
 
 func (m *metricWrapper) RoundTripper(next Client) Client {
-	return doerFunc(func(req *http.Request) (*http.Response, error) {
+	return DoerFunc(func(req *http.Request) (*http.Response, error) {
 		startTime := m.now()
 		resp, err := next.Do(req)
 		endTime := m.now()

@@ -233,6 +233,8 @@ var defaultConfig = Config{
 		ApplicationName: applicationName,
 	},
 	Sender: sink.Config{
-		Linger: 180,
+		Linger:              180,
+		CutOffPeriod:        10,
+		NumWorkersPerSender: 5000,
 	},
 }

@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package client
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Client is the interface used to requests messages to the desired location.
 // The Client can be either and HTTP Client or a Kafka Producer.
@@ -15,8 +17,8 @@ func NopClient(next Client) Client {
 }
 
 // DoerFunc implements Client
-type doerFunc func(*http.Request) (*http.Response, error)
+type DoerFunc func(*http.Request) (*http.Response, error)
 
-func (d doerFunc) Do(req *http.Request) (*http.Response, error) {
+func (d DoerFunc) Do(req *http.Request) (*http.Response, error) {
 	return d(req)
 }

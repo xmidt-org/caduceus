@@ -119,6 +119,7 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 		listener:     l,
 		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
+		logger:       w.logger,
 		// dropUntil:        where is this being set in old caduceus?,
 		cutOffPeriod:     w.config.CutOffPeriod,
 		deliveryRetries:  w.config.DeliveryRetries,
@@ -159,11 +160,13 @@ func (s *sender) Update(l Listener) (err error) {
 	switch v := l.(type) {
 	case *ListenerV1:
 		m := &MatcherV1{}
+		m.logger = s.logger
 		if err = m.Update(*v); err != nil {
 			return
 		}
 		s.matcher = m
 		NewWebhookV1(s)
+
 	default:
 		err = fmt.Errorf("invalid listner")
 	}

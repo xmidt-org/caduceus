@@ -34,7 +34,7 @@ type WrapperIn struct {
 
 // SinkWrapper interface is needed for unit testing.
 type Wrapper interface {
-	// Update([]ancla.InternalWebhook)
+	Update([]Listener)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -98,6 +98,12 @@ func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
 		metrics:   in.Metrics,
 	}
 
+	tr := newRoundTripper(in.Config, in.Tracing)
+	w.client = client.DoerFunc((&http.Client{
+		Transport: tr,
+		Timeout:   in.Config.ClientTimeout,
+	}).Do)
+
 	if in.Config.Linger <= 0 {
 		linger := fmt.Sprintf("linger not positive: %v", in.Config.Linger)
 		err = errors.New(linger)
@@ -115,7 +121,7 @@ func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
 }
 
 // no longer being initialized at start up - needs to be initialized by the creation of the outbound sender
-func NewRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundTripper) {
+func newRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundTripper) {
 	tr = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: config.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   config.NumWorkersPerSender,
@@ -165,13 +171,10 @@ func (w *wrapper) Update(list []Listener) {
 			ss, err = NewSender(w, listener)
 			w.clientMiddleware = metricWrapper.RoundTripper
 
-			// {
-			// 	ss, err = newSinkSender(sw, r1)
-			// }
-
 			if err == nil {
 				w.senders[inValue.ID] = ss
 			}
+
 			continue
 		}
 		fmt.Println(sender)

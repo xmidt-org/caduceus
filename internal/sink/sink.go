@@ -44,6 +44,7 @@ func NewWebhookV1(s *sender) {
 		id:               s.id,
 		deliveryInterval: s.deliveryInterval,
 		deliveryRetries:  s.deliveryRetries,
+		logger:           s.logger,
 	}
 	s.sink = v1
 }
