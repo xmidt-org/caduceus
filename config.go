@@ -29,7 +29,7 @@ type Config struct {
 	Servers                Servers
 	ArgusClientTimeout     HttpClientTimeout
 	JWTValidator           JWTValidator
-	SinkConfig             sink.Config
+	Sender                 sink.Config
 	Service                Service
 	AuthHeader             []string
 	Server                 string
@@ -196,7 +196,7 @@ var defaultConfig = Config{
 				Network: "tcp",
 				Address: ":80",
 			},
-			Path: HealthPath("/"),
+			Path: HealthPath("/health"),
 		},
 		Metrics: MetricsServer{
 			HTTP: arrangehttp.ServerConfig{
@@ -231,5 +231,10 @@ var defaultConfig = Config{
 	},
 	Tracing: candlelight.Config{
 		ApplicationName: applicationName,
+	},
+	Sender: sink.Config{
+		Linger:              180,
+		CutOffPeriod:        10,
+		NumWorkersPerSender: 5000,
 	},
 }

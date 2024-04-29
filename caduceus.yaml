@@ -68,6 +68,7 @@ servers:
       # ":80" is ideal, but may require some special handling due to it being
       # a reserved (by the kernel) port.
       address: ":6001"
+    path: "/health"
 
       # logInterval appears to be present from before we had formal metrics
       # (Deprecated)
@@ -90,6 +91,7 @@ servers:
     http:
       # address provides the port number for the endpoint to bind to.
       address: ":6002"
+    path: "debug/pprof"
 
   ########################################
   #   Metrics Configuration

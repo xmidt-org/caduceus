@@ -28,13 +28,13 @@ type WrapperIn struct {
 	Tracing   candlelight.Tracing
 	Config    Config
 	Metrics   metrics.Metrics
-	EventType *prometheus.CounterVec
+	EventType *prometheus.CounterVec `name:"incoming_event_type_count"`
 	Logger    *zap.Logger
 }
 
 // SinkWrapper interface is needed for unit testing.
 type Wrapper interface {
-	// Update([]ancla.InternalWebhook)
+	Update([]Listener)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -51,7 +51,7 @@ type wrapper struct {
 	//the configuration needed for eash sinkSender
 	config Config
 
-	mutex            *sync.RWMutex
+	mutex            sync.RWMutex
 	senders          map[string]Sender
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
@@ -98,6 +98,12 @@ func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
 		metrics:   in.Metrics,
 	}
 
+	tr := newRoundTripper(in.Config, in.Tracing)
+	w.client = client.DoerFunc((&http.Client{
+		Transport: tr,
+		Timeout:   in.Config.ClientTimeout,
+	}).Do)
+
 	if in.Config.Linger <= 0 {
 		linger := fmt.Sprintf("linger not positive: %v", in.Config.Linger)
 		err = errors.New(linger)
@@ -109,12 +115,13 @@ func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
 
 	w.wg.Add(1)
 	go undertaker(w)
+	wr = w
 
 	return
 }
 
 // no longer being initialized at start up - needs to be initialized by the creation of the outbound sender
-func NewRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundTripper) {
+func newRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundTripper) {
 	tr = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: config.DisableClientHostnameValidation},
 		MaxIdleConnsPerHost:   config.NumWorkersPerSender,
@@ -164,13 +171,10 @@ func (w *wrapper) Update(list []Listener) {
 			ss, err = NewSender(w, listener)
 			w.clientMiddleware = metricWrapper.RoundTripper
 
-			// {
-			// 	ss, err = newSinkSender(sw, r1)
-			// }
-
 			if err == nil {
 				w.senders[inValue.ID] = ss
 			}
+
 			continue
 		}
 		fmt.Println(sender)
@@ -219,7 +223,10 @@ func undertaker(w *wrapper) {
 			// Actually shutting these down could take longer then we
 			// want to lock the mutex, so just remove them from the active
 			// list & shut them down afterwards.
-			deadList := createDeadlist(w, threshold)
+			deadList, err := createDeadlist(w, threshold)
+			if err != nil {
+				break
+			}
 
 			// Shut them down
 			for _, v := range deadList {
@@ -232,20 +239,23 @@ func undertaker(w *wrapper) {
 	}
 }
 
-func createDeadlist(w *wrapper, threshold time.Time) map[string]Sender {
+func createDeadlist(w *wrapper, threshold time.Time) (map[string]Sender, error) {
 	if w == nil || threshold.IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	deadList := make(map[string]Sender)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	for k, v := range w.senders {
-		retired := v.RetiredSince()
+		retired, err := v.RetiredSince()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get retirement time for sender %s: %w", k, err)
+		}
 		if threshold.After(retired) {
 			deadList[k] = v
 			delete(w.senders, k)
 		}
 	}
-	return deadList
+	return deadList, nil
 }

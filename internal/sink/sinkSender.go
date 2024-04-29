@@ -46,7 +46,7 @@ type FailureMessage struct {
 type Sender interface {
 	Update(Listener) error
 	Shutdown(bool)
-	RetiredSince() time.Time
+	RetiredSince() (time.Time, error)
 	Queue(*wrp.Message)
 }
 type sender struct {
@@ -74,11 +74,11 @@ type sender struct {
 }
 
 type SinkMetrics struct {
-	deliverUntilGauge                prometheus.Gauge
-	deliveryRetryMaxGauge            prometheus.Gauge
-	renewalTimeGauge                 prometheus.Gauge
-	maxWorkersGauge                  prometheus.Gauge
-	deliveryCounter                  prometheus.CounterVec
+	deliverUntilGauge     prometheus.Gauge
+	deliveryRetryMaxGauge prometheus.Gauge
+	renewalTimeGauge      prometheus.Gauge
+	maxWorkersGauge       prometheus.Gauge
+	// deliveryCounter                  prometheus.CounterVec
 	deliveryRetryCounter             *prometheus.CounterVec
 	droppedQueueFullCounter          prometheus.Counter
 	droppedCutoffCounter             prometheus.Counter
@@ -119,6 +119,7 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 		listener:     l,
 		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
+		logger:       w.logger,
 		// dropUntil:        where is this being set in old caduceus?,
 		cutOffPeriod:     w.config.CutOffPeriod,
 		deliveryRetries:  w.config.DeliveryRetries,
@@ -159,11 +160,13 @@ func (s *sender) Update(l Listener) (err error) {
 	switch v := l.(type) {
 	case *ListenerV1:
 		m := &MatcherV1{}
+		m.logger = s.logger
 		if err = m.Update(*v); err != nil {
 			return
 		}
 		s.matcher = m
 		NewWebhookV1(s)
+
 	default:
 		err = fmt.Errorf("invalid listner")
 	}
@@ -252,11 +255,15 @@ func (s *sender) Shutdown(gentle bool) {
 
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
-func (s *sender) RetiredSince() time.Time {
+func (s *sender) RetiredSince() (time.Time, error) {
 	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	deliverUntil := s.deliverUntil
-	s.mutex.RUnlock()
-	return deliverUntil
+	if deliverUntil.IsZero() {
+		return time.Time{}, errors.New("deliverUntil is zero")
+	}
+
+	return deliverUntil, nil
 }
 
 func overlaps(sl1 []string, sl2 []string) bool {
