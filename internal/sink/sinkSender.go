@@ -57,6 +57,7 @@ type sender struct {
 	disablePartnerIDs bool
 	customPIDs        []string
 	mutex             sync.RWMutex
+	config            Config
 	deliverUntil      time.Time
 	dropUntil         time.Time
 	deliveryInterval  time.Duration
@@ -120,6 +121,7 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
 		logger:       w.logger,
+		config:       w.config, //TODO: need to figure out which config options are used for just sender, just sink, and both
 		// dropUntil:        where is this being set in old caduceus?,
 		cutOffPeriod:     w.config.CutOffPeriod,
 		deliveryRetries:  w.config.DeliveryRetries,
@@ -157,19 +159,9 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 }
 
 func (s *sender) Update(l Listener) (err error) {
-	switch v := l.(type) {
-	case *ListenerV1:
-		m := &MatcherV1{}
-		m.logger = s.logger
-		if err = m.Update(*v); err != nil {
-			return
-		}
-		s.matcher = m
-		NewWebhookV1(s)
-
-	default:
-		err = fmt.Errorf("invalid listner")
-	}
+	var version int
+	s.matcher, version, err = NewMatcher(l, s.logger)
+	s.sink = NewSink(s.config, s.logger, s.id, version)
 
 	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 

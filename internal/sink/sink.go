@@ -39,15 +39,20 @@ type WebhookV1 struct {
 	// clientMiddleware func(http.Client) http.Client
 }
 
-func NewWebhookV1(s *sender) {
-	v1 := &WebhookV1{
-		id:               s.id,
-		deliveryInterval: s.deliveryInterval,
-		deliveryRetries:  s.deliveryRetries,
-		logger:           s.logger,
+func NewSink(c Config, logger *zap.Logger, id string, version int) Sink {
+	var sink Sink
+	if version == 1 {
+		v1 := &WebhookV1{
+			id:               id,
+			deliveryInterval: c.DeliveryInterval,
+			deliveryRetries:  c.DeliveryRetries,
+			logger:           logger,
+		}
+		sink = v1
 	}
-	s.sink = v1
+	return sink
 }
+
 func (v1 *WebhookV1) Update(l Listener) (err error) {
 	v1.id = l.GetId()
 	return nil

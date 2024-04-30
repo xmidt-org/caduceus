@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
-	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/goschtalt/goschtalt"

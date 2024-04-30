@@ -47,9 +47,24 @@ type CommonWebhook struct {
 	logger *zap.Logger
 }
 
+func NewMatcher(l Listener, logger *zap.Logger) (matcher Matcher, version int, err error) {
+	switch v := l.(type) {
+	case *ListenerV1:
+		m := &MatcherV1{}
+		m.logger = logger
+		if err := m.update(*v); err != nil {
+			return nil, 0, err
+		}
+		matcher = m
+		return matcher, 1, nil
+	default:
+		return nil, 0, fmt.Errorf("invalid listner")
+	}
+}
+
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
-func (m1 *MatcherV1) Update(l ListenerV1) error {
+func (m1 *MatcherV1) update(l ListenerV1) error {
 
 	//TODO: don't believe the logger for webhook is being set anywhere just yet
 	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
