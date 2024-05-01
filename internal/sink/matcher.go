@@ -47,18 +47,18 @@ type CommonWebhook struct {
 	logger *zap.Logger
 }
 
-func NewMatcher(l Listener, logger *zap.Logger) (matcher Matcher, version int, err error) {
+func NewMatcher(l Listener, logger *zap.Logger) (matcher Matcher, err error) {
 	switch v := l.(type) {
 	case *ListenerV1:
 		m := &MatcherV1{}
 		m.logger = logger
 		if err := m.update(*v); err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		matcher = m
-		return matcher, 1, nil
+		return matcher, nil
 	default:
-		return nil, 0, fmt.Errorf("invalid listner")
+		return nil, fmt.Errorf("invalid listner")
 	}
 }
 

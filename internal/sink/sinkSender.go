@@ -159,9 +159,8 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 }
 
 func (s *sender) Update(l Listener) (err error) {
-	var version int
-	s.matcher, version, err = NewMatcher(l, s.logger)
-	s.sink = NewSink(s.config, s.logger, s.id, version)
+	s.matcher, err = NewMatcher(l, s.logger)
+	s.sink = NewSink(s.config, s.logger)
 
 	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
