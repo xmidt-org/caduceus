@@ -291,32 +291,33 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 # Webhooks Related Configuration 
 ##############################################################################
 # webhook provides configuration for storing and obtaining webhook
-# information using Argus.
-# webhook:
-#   # JWTParserType establishes which parser type will be used by the JWT token
-#   # acquirer used by Argus. Options include 'simple' and 'raw'.
-#   # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
-#   # Raw: parser assumes all of the token payload == JWT token
-#   # (Optional). Defaults to 'simple'.
-#   jwtParserType: "raw"
-#   basicClientConfig:
-#     # listen is the subsection that configures the listening feature of the argus client
-#     # (Optional)
-#     # listen:
-#     #   # pullInterval provides how often the current webhooks list gets refreshed.
-#     #   pullInterval: 5s
+# information using Argus
+webhook:
+  # JWTParserType establishes which parser type will be used by the JWT token
+  # acquirer used by Argus. Options include 'simple' and 'raw'.
+  # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
+  # Raw: parser assumes all of the token payload == JWT token
+  # (Optional). Defaults to 'simple'.
+  jwtParserType: "raw"
+  
+  basicClientConfig:
+    # listen is the subsection that configures the listening feature of the argus client
+    # (Optional)
+    # listen:
+    #   # pullInterval provides how often the current webhooks list gets refreshed.
+    #   pullInterval: 5s
 
-#     # bucket is the partition name where webhooks will be stored.
-#     bucket: "webhooks"
+    # bucket is the partition name where webhooks will be stored.
+    bucket: "webhooks"
 
-#     # address is Argus' network location.
-#     address: "http://localhost:6600"
+    # address is Argus' network location.
+    address: "http://localhost:6600"
 
-#     # auth the authentication method for argus.
-#     auth:
-#       # basic configures basic authentication for argus.
-#       # Must be of form: 'Basic xyz=='
-#       basic: "Basic dXNlcjpwYXNz"
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: "Basic Zm9vYmFyOmxvY2FsdGVzdGluZwo="
   #
   #    # jwt configures jwt style authentication for argus.
   #    JWT:

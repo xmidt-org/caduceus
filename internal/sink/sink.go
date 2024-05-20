@@ -16,16 +16,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
+	"github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 	"go.uber.org/zap"
 )
 
 type Sink interface {
-	Update(Listener) error
+	Update(webhook.Register) error
 	Send(*ring.Ring, string, string, *wrp.Message) error
 }
 
@@ -39,10 +41,10 @@ type WebhookV1 struct {
 	// clientMiddleware func(http.Client) http.Client
 }
 
-func NewSink(c Config, logger *zap.Logger, listener Listener) Sink {
+func NewSink(c Config, logger *zap.Logger, listener webhook.Register) Sink {
 	var sink Sink
 	switch l := listener.(type) {
-	case *ListenerV1:
+	case *ancla.RegistryV1:
 		sink = &WebhookV1{
 			id:               l.GetId(),
 			deliveryInterval: c.DeliveryInterval,
@@ -55,7 +57,7 @@ func NewSink(c Config, logger *zap.Logger, listener Listener) Sink {
 	return sink
 }
 
-func (v1 *WebhookV1) Update(l Listener) (err error) {
+func (v1 *WebhookV1) Update(l webhook.Register) (err error) {
 	v1.id = l.GetId()
 	return nil
 }

@@ -6,12 +6,13 @@ package caduceus
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/goschtalt/goschtalt"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/arrange/arrangepprof"
 	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/clortho"
@@ -27,7 +28,7 @@ type Config struct {
 	Tracing                candlelight.Config
 	Prometheus             touchstone.Config
 	Servers                Servers
-	ArgusClientTimeout     HttpClientTimeout
+	ArgusClientTimeout     client.HttpClientTimeout
 	JWTValidator           JWTValidator
 	Sender                 sink.Config
 	Service                Service
@@ -38,8 +39,7 @@ type Config struct {
 	Flavor                 string
 	PreviousVersionSupport bool
 	Region                 string
-	// Webhook                ancla.Config //@TODO: need to fix the ancla/argus dependency issue
-
+	Webhook                ancla.Config
 }
 
 type Service struct {
@@ -102,15 +102,6 @@ type PprofServer struct {
 }
 
 type PprofPathPrefix string
-
-// httpClientTimeout contains timeouts for an HTTP client and its requests.
-type HttpClientTimeout struct {
-	// ClientTimeout is HTTP Client Timeout.
-	ClientTimeout time.Duration
-
-	// NetDialerTimeout is the net dialer timeout
-	NetDialerTimeout time.Duration
-}
 
 type MetricsOption struct {
 	Namespace string

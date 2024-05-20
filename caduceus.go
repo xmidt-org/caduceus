@@ -14,7 +14,10 @@ import (
 	_ "github.com/goschtalt/goschtalt/pkg/typical"
 	_ "github.com/goschtalt/yaml-decoder"
 	_ "github.com/goschtalt/yaml-encoder"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/arrange/arrangehttp"
+	anclahelper "github.com/xmidt-org/caduceus/internal/anclaHelper"
+	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/caduceus/internal/sink"
@@ -87,11 +90,13 @@ func Caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[touchstone.Config]("prometheus"),
 			goschtalt.UnmarshalFunc[sink.Config]("sender"),
 			goschtalt.UnmarshalFunc[Service]("service"),
+			goschtalt.UnmarshalFunc[client.HttpClientTimeout]("argusClientTimeout"),
 			goschtalt.UnmarshalFunc[[]string]("authHeader"),
 			goschtalt.UnmarshalFunc[bool]("previousVersionSupport"),
 			goschtalt.UnmarshalFunc[HealthPath]("servers.health.path"),
 			goschtalt.UnmarshalFunc[MetricsPath]("servers.metrics.path"),
 			goschtalt.UnmarshalFunc[PprofPathPrefix]("servers.pprof.path"),
+			goschtalt.UnmarshalFunc[ancla.Config]("webhook"),
 			fx.Annotated{
 				Name:   "server",
 				Target: goschtalt.UnmarshalFunc[string]("server"),
@@ -151,10 +156,12 @@ func Caduceus(arguments []string, run bool) error {
 		touchstone.Provide(),
 		touchhttp.Provide(),
 		metrics.Provide(),
-		// ancla.ProvideMetrics(), //TODO: need to add back in once we fix the ancla/argus dependency issue
+		client.Provide(),
+		ancla.ProvideMetrics(),
 
 		fx.Invoke(
 			lifeCycle,
+			anclahelper.InitializeAncla,
 		),
 	)
 

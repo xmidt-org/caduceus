@@ -14,7 +14,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
+	webhook "github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -47,9 +49,9 @@ type CommonWebhook struct {
 	logger *zap.Logger
 }
 
-func NewMatcher(l Listener, logger *zap.Logger) (matcher Matcher, err error) {
+func NewMatcher(l webhook.Register, logger *zap.Logger) (matcher Matcher, err error) {
 	switch v := l.(type) {
-	case *ListenerV1:
+	case *ancla.RegistryV1:
 		m := &MatcherV1{}
 		m.logger = logger
 		if err := m.update(*v); err != nil {
@@ -64,18 +66,18 @@ func NewMatcher(l Listener, logger *zap.Logger) (matcher Matcher, err error) {
 
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
-func (m1 *MatcherV1) update(l ListenerV1) error {
+func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
 	//TODO: don't believe the logger for webhook is being set anywhere just yet
-	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
+	m1.logger = m1.logger.With(zap.String("webhook.address", l.Webhook.Address))
 
-	if l.Registration.FailureURL != "" {
-		_, err := url.ParseRequestURI(l.Registration.FailureURL)
+	if l.Webhook.FailureURL != "" {
+		_, err := url.ParseRequestURI(l.Webhook.FailureURL)
 		return err
 	}
 
 	var events []*regexp.Regexp
-	for _, event := range l.Registration.Events {
+	for _, event := range l.Webhook.Events {
 		var re *regexp.Regexp
 		re, err := regexp.Compile(event)
 		if err != nil {
@@ -89,7 +91,7 @@ func (m1 *MatcherV1) update(l ListenerV1) error {
 	}
 
 	var matcher []*regexp.Regexp
-	for _, item := range l.Registration.Matcher.DeviceID {
+	for _, item := range l.Webhook.Matcher.DeviceID {
 		if item == ".*" {
 			// Match everything - skip the filtering
 			matcher = []*regexp.Regexp{}
@@ -105,11 +107,11 @@ func (m1 *MatcherV1) update(l ListenerV1) error {
 	}
 
 	// Validate the various urls
-	urlCount := len(l.Registration.Config.AlternativeURLs)
+	urlCount := len(l.Webhook.Config.AlternativeURLs)
 	for i := 0; i < urlCount; i++ {
-		_, err := url.Parse(l.Registration.Config.AlternativeURLs[i])
+		_, err := url.Parse(l.Webhook.Config.AlternativeURLs[i])
 		if err != nil {
-			m1.logger.Error("failed to update url", zap.Any(metrics.UrlLabel, l.Registration.Config.AlternativeURLs[i]), zap.Error(err))
+			m1.logger.Error("failed to update url", zap.Any(metrics.UrlLabel, l.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
 			return err
 		}
 	}
@@ -120,8 +122,6 @@ func (m1 *MatcherV1) update(l ListenerV1) error {
 
 	m1.events = events
 
-	//TODO: need to figure out how to set this
-
 	// if matcher list is empty set it nil for Queue() logic
 	m1.matcher = nil
 	if 0 < len(matcher) {
@@ -130,11 +130,11 @@ func (m1 *MatcherV1) update(l ListenerV1) error {
 
 	if urlCount == 0 {
 		m1.urls = ring.New(1)
-		m1.urls.Value = l.Registration.Config.ReceiverURL
+		m1.urls.Value = l.Webhook.Config.ReceiverURL
 	} else {
 		ring := ring.New(urlCount)
 		for i := 0; i < urlCount; i++ {
-			ring.Value = l.Registration.Config.AlternativeURLs[i]
+			ring.Value = l.Webhook.Config.AlternativeURLs[i]
 			ring = ring.Next()
 		}
 		m1.urls = ring

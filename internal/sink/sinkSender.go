@@ -22,6 +22,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/metrics"
+	"github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -36,15 +37,15 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text         string   `json:"text"`
-	Original     Listener `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
-	CutOffPeriod string   `json:"cut_off_period"`
-	QueueSize    int      `json:"queue_size"`
-	Workers      int      `json:"worker_count"`
+	Text         string           `json:"text"`
+	Original     webhook.Register `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
+	CutOffPeriod string           `json:"cut_off_period"`
+	QueueSize    int              `json:"queue_size"`
+	Workers      int              `json:"worker_count"`
 }
 
 type Sender interface {
-	Update(Listener) error
+	Update(webhook.Register) error
 	Shutdown(bool)
 	RetiredSince() (time.Time, error)
 	Queue(*wrp.Message)
@@ -69,7 +70,7 @@ type sender struct {
 	sink              Sink
 	// failureMessage is sent during a queue overflow.
 	failureMessage FailureMessage
-	listener       Listener
+	listener       webhook.Register
 	matcher        Matcher
 	SinkMetrics
 }
@@ -94,7 +95,7 @@ type SinkMetrics struct {
 	currentWorkersGauge              prometheus.Gauge
 }
 
-func NewSender(w *wrapper, l Listener) (s *sender, err error) {
+func NewSender(w *wrapper, l webhook.Register) (s *sender, err error) {
 
 	if w.clientMiddleware == nil {
 		w.clientMiddleware = client.NopClient
@@ -158,9 +159,9 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 	return
 }
 
-func (s *sender) Update(l Listener) (err error) {
+func (s *sender) Update(l webhook.Register) (err error) {
 	s.matcher, err = NewMatcher(l, s.logger)
-	s.sink = NewSink(s.config, s.logger)
+	s.sink = NewSink(s.config, s.logger, l)
 
 	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
@@ -202,10 +203,11 @@ func (s *sender) Queue(msg *wrp.Message) {
 		if len(msg.PartnerIDs) == 0 {
 			msg.PartnerIDs = s.customPIDs
 		}
-		if !overlaps(s.listener.GetPartnerIds(), msg.PartnerIDs) {
-			s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.GetPartnerIds()), zap.Strings("event.partnerIDs", msg.PartnerIDs))
-			return
-		}
+		//TOOD: figure this out
+		// if !overlaps(s.listener.GetPartnerIds(), msg.PartnerIDs) {
+		// 	s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.GetPartnerIds()), zap.Strings("event.partnerIDs", msg.PartnerIDs))
+		// 	return
+		// }
 		if ok := s.matcher.IsMatch(msg); !ok {
 			return
 		}
