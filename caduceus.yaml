@@ -317,7 +317,7 @@ webhook:
     auth:
       # basic configures basic authentication for argus.
       # Must be of form: 'Basic xyz=='
-      basic: "Basic Zm9vYmFyOmxvY2FsdGVzdGluZwo="
+      basic: "Basic "
   #
   #    # jwt configures jwt style authentication for argus.
   #    JWT:
