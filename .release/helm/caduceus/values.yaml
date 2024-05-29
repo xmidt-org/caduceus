@@ -21,7 +21,7 @@ pprof:
 metric:
   address:
     host: ""
-    port: "9389"  
+    port: "9389"
 
 service:
   consul:
@@ -32,5 +32,3 @@ service:
 
 # Pull secret used when images are stored in a private repository
 # imagePullSecretName:
-
-
