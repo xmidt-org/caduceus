@@ -35,7 +35,4 @@ rules:
     max: 90
     allow-non-breakable-words: true
     allow-non-breakable-inline-mappings: true
-  truthy:
-    allowed-values:
-      - 'true'
-      - 'false'
+  truthy: disable
