@@ -72,7 +72,7 @@ paths:
         500:
           $ref: '#/components/responses/500'
 
-  
+
 components:
   schemas:
     Event:
@@ -81,11 +81,11 @@ components:
         url: https://xmidt.io/docs/wrp/simple-messages/#simple-event-definition
       type: object
       required:
-       - msg_type
-       - source
-       - dest
-       - payload
-       - session_id
+        - msg_type
+        - source
+        - dest
+        - payload
+        - session_id
       properties:
         msg_type:
           type: integer
@@ -118,8 +118,8 @@ components:
           type: object  # map[string]string
           additionalProperties:
             type: string
-          description: 
-            The map of name/value pairs used by consumers of WRP messages for 
+          description:
+            The map of name/value pairs used by consumers of WRP messages for
             filtering & other purposes.
           example: {"/boot-time": "1542834188","/last-reconnect-reason": "spanish inquisition" }
         payload:
@@ -134,7 +134,7 @@ components:
       description: The information needed to register a webhook with XMiDT.
       type: object
       required:
-      - events
+        - events
       properties:
         registered_from_address:
           type: string
@@ -150,7 +150,7 @@ components:
               example: https://listener.example.com/event
             content_type:
               type: string
-              description: 
+              description:
                 The type of messages desired.  If "application/msgpack" is
                 specific, the full wrp is sent to the webhook.  If not, only the
                 payload is sent.
@@ -163,21 +163,21 @@ components:
               type: array
               items:
                 type: string
-              description:
+              description: |
                  The list of explicit URLs that should be round robin through on
                  failure cases to the main URL.
               example: []
         failure_url:
           type: string
-          description: 
-            The URL used to notify subscribers when they've been cut off due to 
+          description:
+            The URL used to notify subscribers when they've been cut off due to
             event overflow.
           example: https://failure-listener.example.com
         events:
           type: array
           items:
             type: string
-          description: 
+          description:
             The list of [regular expressions](https://github.com/google/re2/wiki/Syntax)
             to match an event type against.
           example: [".*"]
@@ -189,7 +189,7 @@ components:
               type: array
               items:
                 type: string
-              description: 
+              description:
                 The list of [regular expressions](https://github.com/google/re2/wiki/Syntax)
                 to match device id type against.
               example: [".*"]
@@ -200,43 +200,43 @@ components:
         until:
           type: string
           format: date-time
-          description: 
-            The time this subscription expires in 
+          description:
+            The time this subscription expires in
             [RFC3339](https://www.rfc-editor.org/rfc/rfc3339.html) format.
           example: "2021-08-16T07:33:35+00:00"
   responses:
     400:
-      description: 
+      description:
         Bad request. More information can be found in the [HTTP
         RFC](https://tools.ietf.org/html/rfc7231#section-6.5.1).
       content: { }
     401:
-      description: 
+      description:
         Unauthorized. More information can be found in the [HTTP
         RFC](https://httpwg.org/specs/rfc7235.html#status.401).
       content: { }
     403:
-      description: 
+      description:
         Forbidden. More information can be found in the [HTTP
         RFC](https://httpwg.org/specs/rfc7231.html#status.403).
       content: { }
     415:
-      description: 
+      description:
         Unsupported media type. More information can be found in the [HTTP
         RFC](https://datatracker.ietf.org/doc/html/rfc7231#section-6.5.13).
       content: { }
     429:
-      description: 
+      description:
         Too many requests. More information can be found in the [HTTP
         RFC](https://tools.ietf.org/html/rfc6585#section-4).
       content: { }
     500:
-      description: 
+      description:
         An internal error occurred. More information can be found in the [HTTP
         RFC](https://tools.ietf.org/html/rfc7231#section-6.6.1).
       content: { }
     503:
-      description: 
+      description:
         Service unavailable. More information can be found in the [HTTP
         RFC](https://datatracker.ietf.org/doc/html/rfc7231#section-6.6.4).
       content: { }

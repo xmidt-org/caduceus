@@ -44,7 +44,7 @@ data:
         # ":443" is ideal, but may require some special handling due to it being
         # a reserved (by the kernel) port.
         address: "{{ .Values.caduceus.address.host }}:{{ .Values.caduceus.address.port }}"
-        # HTTPS/TLS 
+        # HTTPS/TLS
         #
         # certificateFile provides the public key and CA chain in PEM format if
         # TLS is used.  Note: the certificate needs to match the fqdn for clients
@@ -151,7 +151,7 @@ data:
 
           # registrations defines what services caduceus should register with
           # consul
-          # 
+          #
           #     id      - the VM/container instance name registered with consul
           #     name    - the name of service being registered
           #     tags    - a list of tags to associate with this registration
@@ -165,7 +165,7 @@ data:
           #                                          service is removed due to check
           #                                          failures
           registrations:
-            - 
+            -
               id: "caduceus-instance-123.example.com"
               name: "caduceus"
               tags:
@@ -176,7 +176,7 @@ data:
               address: "caduceus-instance-123.example.com"
               port: 6001
               checks:
-                - 
+                -
                   checkID: "caduceus-instance-123.example.com:ttl"
                   ttl: "30s"
                   deregisterCriticalServiceAfter: "70s"
@@ -224,7 +224,7 @@ data:
       # used as authorization
       # (Optional)
       jwtValidators:
-        - 
+        -
           keys:
             factory:
               uri: "https://jwt.example.com/keys/{keyId}"
