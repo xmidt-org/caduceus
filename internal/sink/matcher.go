@@ -16,7 +16,6 @@ import (
 
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
-	webhook "github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -49,7 +48,8 @@ type CommonWebhook struct {
 	logger *zap.Logger
 }
 
-func NewMatcher(l webhook.Register, logger *zap.Logger) (matcher Matcher, err error) {
+// TODO: need to add matching logic for RegistryV2 & MatcherV2
+func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:
 		m := &MatcherV1{}
@@ -57,10 +57,9 @@ func NewMatcher(l webhook.Register, logger *zap.Logger) (matcher Matcher, err er
 		if err := m.update(*v); err != nil {
 			return nil, err
 		}
-		matcher = m
-		return matcher, nil
+		return m, nil
 	default:
-		return nil, fmt.Errorf("invalid listner")
+		return nil, fmt.Errorf("invalid listener")
 	}
 }
 
@@ -159,8 +158,8 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 	m1.mutex.RUnlock()
 
 	var (
-		matchEvent  bool
-		matchDevice = true
+		matchEvent  = false
+		matchDevice = false
 	)
 	for _, eventRegex := range events {
 		if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
@@ -173,13 +172,10 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 		return false
 	}
 
-	if matcher != nil {
-		matchDevice = false
-		for _, deviceRegex := range matcher {
-			if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-				matchDevice = true
-				break
-			}
+	for _, deviceRegex := range matcher {
+		if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+			matchDevice = true
+			break
 		}
 	}
 

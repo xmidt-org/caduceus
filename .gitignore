@@ -25,6 +25,7 @@ _test
 vendor
 coverage*
 report.json
+yaml
 
 # Architecture specific extensions/prefixes
 *.[568vq]
