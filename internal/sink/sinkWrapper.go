@@ -137,7 +137,6 @@ func newRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundT
 	return
 }
 
-// Commenting out while until ancla/argus dependency issue is fixed.
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.

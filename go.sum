@@ -1636,8 +1636,6 @@ github.com/xdg-go/scram v1.1.1/go.mod h1:RaEWvsqvNKKvBPvcKeFjrG2cJqOkHTiyTpzz23n
 github.com/xdg-go/stringprep v1.0.3/go.mod h1:W3f5j4i+9rC0kuIEJL0ky1VpHXQU3ocBgklLGvcBnW8=
 github.com/xhit/go-str2duration v1.2.0/go.mod h1:3cPSlfZlUHVlneIVfePFWcJZsuwf+P1v2SRTV4cUmp4=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
-github.com/xmidt-org/ancla v0.3.13-0.20240718193746-a3cd5a39560c h1:8mXbUarqTLzJVnMETH5lVEkHXR09bEys3WEixeRXIx0=
-github.com/xmidt-org/ancla v0.3.13-0.20240718193746-a3cd5a39560c/go.mod h1:YSieNJd7PuZ6Nppce9OQnDdjgNWvwa9iiVjtenetmwo=
 github.com/xmidt-org/argus v0.3.9/go.mod h1:mDFS44R704gl9Fif3gkfAyvnZa53SvMepmXjYWABPvk=
 github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
 github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=

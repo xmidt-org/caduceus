@@ -38,7 +38,7 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // when we have to cut and endpoint off.
 type FailureMessage struct {
 	Text         string         `json:"text"`
-	Original     ancla.Register `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
+	Original     ancla.Register `json:"webhook_registration"`
 	CutOffPeriod string         `json:"cut_off_period"`
 	QueueSize    int            `json:"queue_size"`
 	Workers      int            `json:"worker_count"`
@@ -142,9 +142,9 @@ func NewSender(w *wrapper, l ancla.Register) (s *sender, err error) {
 	s.CreateMetrics(w.metrics)
 	s.queueDepthGauge.Set(0)
 	s.currentWorkersGauge.Set(0)
-	//TODO: need to figure out how to set this up
+
 	// Don't share the secret with others when there is an error.
-	// sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	hideSecret(s.failureMessage.Original)
 
 	s.queue.Store(make(chan *wrp.Message, w.config.QueueSizePerSender))
 
@@ -203,11 +203,14 @@ func (s *sender) Queue(msg *wrp.Message) {
 		if len(msg.PartnerIDs) == 0 {
 			msg.PartnerIDs = s.customPIDs
 		}
-		//TOOD: figure this out
-		// if !overlaps(s.listener.GetPartnerIds(), msg.PartnerIDs) {
-		// 	s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.GetPartnerIds()), zap.Strings("event.partnerIDs", msg.PartnerIDs))
-		// 	return
-		// }
+
+		partnerIds, err := getPartnerIds(s.listener)
+		if err == nil {
+			if !overlaps(partnerIds, msg.PartnerIDs) {
+				s.logger.Debug("partner id check failed", zap.Strings("webhook.partnerIDs", partnerIds), zap.Strings("event.partnerIDs", msg.PartnerIDs))
+			}
+		}
+
 		if ok := s.matcher.IsMatch(msg); !ok {
 			return
 		}
@@ -463,4 +466,26 @@ func (s *sender) CreateMetrics(m metrics.Metrics) {
 	s.currentWorkersGauge = m.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 	s.maxWorkersGauge = m.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 
+}
+
+func getPartnerIds(l ancla.Register) ([]string, error) {
+	switch v := l.(type) {
+	case *ancla.RegistryV1:
+		return v.PartnerIDs, nil
+	case *ancla.RegistryV2:
+		return v.PartnerIds, nil
+	default:
+		return nil, fmt.Errorf("invalid register")
+	}
+}
+
+func hideSecret(l ancla.Register) {
+	switch v := l.(type) {
+	case *ancla.RegistryV1:
+		v.Webhook.Config.Secret = "XxxxxX"
+	case *ancla.RegistryV2:
+		for i := range v.Registration.Webhooks {
+			v.Registration.Webhooks[i].Secret = "XxxxxX"
+		}
+	}
 }

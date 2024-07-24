@@ -198,7 +198,7 @@ func TestNewMatcher(t *testing.T) {
 		},
 		{
 			description: "Invalid listener",
-			registry:    ancla.RegistryV1{},
+			registry:    &ancla.RegistryV1{},
 			expectedErr: fmt.Errorf("invalid listener"),
 		},
 	}

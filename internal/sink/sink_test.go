@@ -40,7 +40,7 @@ func TestNewSink(t *testing.T) {
 		},
 		{
 			description: "default case",
-			listener:    ancla.RegistryV1{},
+			listener:    &ancla.RegistryV1{},
 			expected:    nil,
 		},
 	}
@@ -54,7 +54,7 @@ func TestNewSink(t *testing.T) {
 }
 
 func TestUpdateSink(t *testing.T) {
-	listener := ancla.RegistryV1{
+	listener := &ancla.RegistryV1{
 		Webhook: webhook.RegistrationV1{
 			Config: webhook.DeliveryConfig{
 				ReceiverURL: "www.example.com",
