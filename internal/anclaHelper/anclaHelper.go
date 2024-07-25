@@ -13,34 +13,16 @@ import (
 	"go.uber.org/zap"
 )
 
-type AnclaListenerIn struct {
+type ServiceListenerIn struct{
 	fx.In
-	Measures ancla.Measures
-	Logger   *zap.Logger
-}
-type AnclaServiceIn struct {
-	fx.In
-	Config   ancla.Config
 	Listener ancla.ListenerConfig
-	Sink     sink.Wrapper
+	//This is where we would need to add ancla.service struct
 }
-
 func InitializeAncla(lifecycle fx.Lifecycle) fx.Option {
-	return fx.Provide(
-		func(in AnclaListenerIn) ancla.ListenerConfig {
-			listener := ancla.ListenerConfig{
-				Measures: in.Measures,
-				Logger:   in.Logger,
-			}
-			return listener
-		},
-		func(in AnclaServiceIn) int {
-			svc, err := ancla.NewService(in.Config, getLogger)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
-				return 1
-			}
+	return fx.Options(
 
+		//svc is the ancla.service struct that is returned when we call ancla.NewService(config, listener)
+		//can't have this in ancla as it requires the sink struct (implementing the ancla.Watch interface)
 			stopWatches, err := svc.StartListener(in.Listener, setLoggerInContext(), in.Sink)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Webhook service start listener error: %v\n", err)
@@ -48,13 +30,8 @@ func InitializeAncla(lifecycle fx.Lifecycle) fx.Option {
 			}
 			lifecycle.Append(fx.StopHook(stopWatches))
 			return 0
-		},
-	)
-}
-
-func getLogger(ctx context.Context) *zap.Logger {
-	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
-	return logger
+		}
+	),
 }
 
 func setLoggerInContext() func(context.Context, *zap.Logger) context.Context {
