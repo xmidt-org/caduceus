@@ -482,7 +482,7 @@ func getPartnerIds(l ancla.Register) ([]string, error) {
 func hideSecret(l ancla.Register) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:
-		v.Webhook.Config.Secret = "XxxxxX"
+		v.Registration.Config.Secret = "XxxxxX"
 	case *ancla.RegistryV2:
 		for i := range v.Registration.Webhooks {
 			v.Registration.Webhooks[i].Secret = "XxxxxX"

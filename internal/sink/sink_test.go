@@ -21,7 +21,7 @@ func TestNewSink(t *testing.T) {
 		{
 			description: "RegistryV1 - success",
 			listener: &ancla.RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Config: webhook.DeliveryConfig{
 						ReceiverURL: "www.example.com",
 					},
@@ -55,7 +55,7 @@ func TestNewSink(t *testing.T) {
 
 func TestUpdateSink(t *testing.T) {
 	listener := &ancla.RegistryV1{
-		Webhook: webhook.RegistrationV1{
+		Registration: webhook.RegistrationV1{
 			Config: webhook.DeliveryConfig{
 				ReceiverURL: "www.example.com",
 			},

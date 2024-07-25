@@ -68,15 +68,15 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
 	//TODO: don't believe the logger for webhook is being set anywhere just yet
-	m1.logger = m1.logger.With(zap.String("webhook.address", l.Webhook.Address))
+	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
 
-	if l.Webhook.FailureURL != "" {
-		_, err := url.ParseRequestURI(l.Webhook.FailureURL)
+	if l.Registration.FailureURL != "" {
+		_, err := url.ParseRequestURI(l.Registration.FailureURL)
 		return err
 	}
 
 	var events []*regexp.Regexp
-	for _, event := range l.Webhook.Events {
+	for _, event := range l.Registration.Events {
 		var re *regexp.Regexp
 		re, err := regexp.Compile(event)
 		if err != nil {
@@ -90,7 +90,7 @@ func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 	}
 
 	var matcher []*regexp.Regexp
-	for _, item := range l.Webhook.Matcher.DeviceID {
+	for _, item := range l.Registration.Matcher.DeviceID {
 		if item == ".*" {
 			// Match everything - skip the filtering
 			matcher = []*regexp.Regexp{}
@@ -106,11 +106,11 @@ func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 	}
 
 	// Validate the various urls
-	urlCount := len(l.Webhook.Config.AlternativeURLs)
+	urlCount := len(l.Registration.Config.AlternativeURLs)
 	for i := 0; i < urlCount; i++ {
-		_, err := url.Parse(l.Webhook.Config.AlternativeURLs[i])
+		_, err := url.Parse(l.Registration.Config.AlternativeURLs[i])
 		if err != nil {
-			m1.logger.Error("failed to update url", zap.Any(metrics.UrlLabel, l.Webhook.Config.AlternativeURLs[i]), zap.Error(err))
+			m1.logger.Error("failed to update url", zap.Any(metrics.UrlLabel, l.Registration.Config.AlternativeURLs[i]), zap.Error(err))
 			return err
 		}
 	}
@@ -129,11 +129,11 @@ func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
 	if urlCount == 0 {
 		m1.urls = ring.New(1)
-		m1.urls.Value = l.Webhook.Config.ReceiverURL
+		m1.urls.Value = l.Registration.Config.ReceiverURL
 	} else {
 		ring := ring.New(urlCount)
 		for i := 0; i < urlCount; i++ {
-			ring.Value = l.Webhook.Config.AlternativeURLs[i]
+			ring.Value = l.Registration.Config.AlternativeURLs[i]
 			ring = ring.Next()
 		}
 		m1.urls = ring

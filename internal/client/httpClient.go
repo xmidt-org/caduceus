@@ -35,6 +35,7 @@ type HttpClientTimeout struct {
 	// NetDialerTimeout is the net dialer timeout
 	NetDialerTimeout time.Duration
 }
+
 type metricWrapper struct {
 	now          func() time.Time
 	queryLatency prometheus.ObserverVec

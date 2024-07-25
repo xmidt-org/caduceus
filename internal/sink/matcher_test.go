@@ -108,7 +108,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 			description: "success - with device id",
 			matcher:     matcher,
 			registry: ancla.RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Events: []string{"iot"},
 					Matcher: webhook.MetadataMatcherConfig{
 						DeviceID: []string{"mac:112233445566"},
@@ -124,7 +124,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 			description: "success - with .* device id",
 			matcher:     matcher,
 			registry: ancla.RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Events: []string{"iot"},
 					Matcher: webhook.MetadataMatcherConfig{
 						DeviceID: []string{"mac:112233445566", ".*"},
@@ -140,7 +140,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 			description: "failing failureURL",
 			matcher:     matcher,
 			registry: ancla.RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					FailureURL: "localhost.io",
 				},
 			},
@@ -150,7 +150,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 			description: "missing events",
 			matcher:     matcher,
 			registry: ancla.RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Events: []string{},
 				},
 			},
@@ -180,7 +180,7 @@ func TestNewMatcher(t *testing.T) {
 			description: "RegistryV1 - success",
 			registry: &ancla.RegistryV1{
 				PartnerIDs: []string{"comcast"},
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Address: "www.example.com",
 					Events:  []string{"event1", "event2"},
 				},
@@ -190,7 +190,7 @@ func TestNewMatcher(t *testing.T) {
 			description: "RegistryV1 - fail",
 			registry: &ancla.RegistryV1{
 				PartnerIDs: []string{"comcast"},
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Address: "www.example.com",
 				},
 			},
