@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
@@ -36,15 +37,15 @@ const failureText = `Unfortunately, your endpoint is not able to keep up with th
 // FailureMessage is a helper that lets us easily create a json struct to send
 // when we have to cut and endpoint off.
 type FailureMessage struct {
-	Text         string   `json:"text"`
-	Original     Listener `json:"webhook_registration"` //TODO: remove listener stub once ancla/argus issues fixed
-	CutOffPeriod string   `json:"cut_off_period"`
-	QueueSize    int      `json:"queue_size"`
-	Workers      int      `json:"worker_count"`
+	Text         string         `json:"text"`
+	Original     ancla.Register `json:"webhook_registration"`
+	CutOffPeriod string         `json:"cut_off_period"`
+	QueueSize    int            `json:"queue_size"`
+	Workers      int            `json:"worker_count"`
 }
 
 type Sender interface {
-	Update(Listener) error
+	Update(ancla.Register) error
 	Shutdown(bool)
 	RetiredSince() (time.Time, error)
 	Queue(*wrp.Message)
@@ -57,6 +58,7 @@ type sender struct {
 	disablePartnerIDs bool
 	customPIDs        []string
 	mutex             sync.RWMutex
+	config            Config
 	deliverUntil      time.Time
 	dropUntil         time.Time
 	deliveryInterval  time.Duration
@@ -68,7 +70,7 @@ type sender struct {
 	sink              Sink
 	// failureMessage is sent during a queue overflow.
 	failureMessage FailureMessage
-	listener       Listener
+	listener       ancla.Register
 	matcher        Matcher
 	SinkMetrics
 }
@@ -93,7 +95,7 @@ type SinkMetrics struct {
 	currentWorkersGauge              prometheus.Gauge
 }
 
-func NewSender(w *wrapper, l Listener) (s *sender, err error) {
+func NewSender(w *wrapper, l ancla.Register) (s *sender, err error) {
 
 	if w.clientMiddleware == nil {
 		w.clientMiddleware = client.NopClient
@@ -120,6 +122,7 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
 		logger:       w.logger,
+		config:       w.config, //TODO: need to figure out which config options are used for just sender, just sink, and both
 		// dropUntil:        where is this being set in old caduceus?,
 		cutOffPeriod:     w.config.CutOffPeriod,
 		deliveryRetries:  w.config.DeliveryRetries,
@@ -139,9 +142,9 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 	s.CreateMetrics(w.metrics)
 	s.queueDepthGauge.Set(0)
 	s.currentWorkersGauge.Set(0)
-	//TODO: need to figure out how to set this up
+
 	// Don't share the secret with others when there is an error.
-	// sinkSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
+	hideSecret(s.failureMessage.Original)
 
 	s.queue.Store(make(chan *wrp.Message, w.config.QueueSizePerSender))
 
@@ -156,20 +159,9 @@ func NewSender(w *wrapper, l Listener) (s *sender, err error) {
 	return
 }
 
-func (s *sender) Update(l Listener) (err error) {
-	switch v := l.(type) {
-	case *ListenerV1:
-		m := &MatcherV1{}
-		m.logger = s.logger
-		if err = m.Update(*v); err != nil {
-			return
-		}
-		s.matcher = m
-		NewWebhookV1(s)
-
-	default:
-		err = fmt.Errorf("invalid listner")
-	}
+func (s *sender) Update(l ancla.Register) (err error) {
+	s.matcher, err = NewMatcher(l, s.logger)
+	s.sink = NewSink(s.config, s.logger, l)
 
 	s.renewalTimeGauge.Set(float64(time.Now().Unix()))
 
@@ -211,10 +203,14 @@ func (s *sender) Queue(msg *wrp.Message) {
 		if len(msg.PartnerIDs) == 0 {
 			msg.PartnerIDs = s.customPIDs
 		}
-		if !overlaps(s.listener.GetPartnerIds(), msg.PartnerIDs) {
-			s.logger.Debug("parter id check failed", zap.Strings("webhook.partnerIDs", s.listener.GetPartnerIds()), zap.Strings("event.partnerIDs", msg.PartnerIDs))
-			return
+
+		partnerIds, err := getPartnerIds(s.listener)
+		if err == nil {
+			if !overlaps(partnerIds, msg.PartnerIDs) {
+				s.logger.Debug("partner id check failed", zap.Strings("webhook.partnerIDs", partnerIds), zap.Strings("event.partnerIDs", msg.PartnerIDs))
+			}
 		}
+
 		if ok := s.matcher.IsMatch(msg); !ok {
 			return
 		}
@@ -470,4 +466,26 @@ func (s *sender) CreateMetrics(m metrics.Metrics) {
 	s.currentWorkersGauge = m.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 	s.maxWorkersGauge = m.ConsumerMaxDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 
+}
+
+func getPartnerIds(l ancla.Register) ([]string, error) {
+	switch v := l.(type) {
+	case *ancla.RegistryV1:
+		return v.PartnerIDs, nil
+	case *ancla.RegistryV2:
+		return v.PartnerIds, nil
+	default:
+		return nil, fmt.Errorf("invalid register")
+	}
+}
+
+func hideSecret(l ancla.Register) {
+	switch v := l.(type) {
+	case *ancla.RegistryV1:
+		v.Registration.Config.Secret = "XxxxxX"
+	case *ancla.RegistryV2:
+		for i := range v.Registration.Webhooks {
+			v.Registration.Webhooks[i].Secret = "XxxxxX"
+		}
+	}
 }

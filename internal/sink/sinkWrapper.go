@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 
@@ -34,7 +35,7 @@ type WrapperIn struct {
 
 // SinkWrapper interface is needed for unit testing.
 type Wrapper interface {
-	Update([]Listener)
+	Update([]ancla.Register)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -136,14 +137,13 @@ func newRoundTripper(config Config, tracing candlelight.Tracing) (tr http.RoundT
 	return
 }
 
-// Commenting out while until ancla/argus dependency issue is fixed.
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (w *wrapper) Update(list []Listener) {
+func (w *wrapper) Update(list []ancla.Register) {
 
 	ids := make([]struct {
-		Listener Listener
+		Listener ancla.Register
 		ID       string
 	}, len(list))
 

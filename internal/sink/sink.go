@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
@@ -25,7 +26,7 @@ import (
 )
 
 type Sink interface {
-	Update(Listener) error
+	Update(ancla.Register) error
 	Send(*ring.Ring, string, string, *wrp.Message) error
 }
 
@@ -39,16 +40,25 @@ type WebhookV1 struct {
 	// clientMiddleware func(http.Client) http.Client
 }
 
-func NewWebhookV1(s *sender) {
-	v1 := &WebhookV1{
-		id:               s.id,
-		deliveryInterval: s.deliveryInterval,
-		deliveryRetries:  s.deliveryRetries,
-		logger:           s.logger,
+func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
+	var sink Sink
+	switch l := listener.(type) {
+	case *ancla.RegistryV1:
+		sink = &WebhookV1{
+			id:               l.GetId(),
+			deliveryInterval: c.DeliveryInterval,
+			deliveryRetries:  c.DeliveryRetries,
+			logger:           logger,
+		}
+	default:
+		return nil
 	}
-	s.sink = v1
+	return sink
 }
-func (v1 *WebhookV1) Update(l Listener) (err error) {
+
+func (v1 *WebhookV1) Update(l ancla.Register) (err error) {
+	//TODO: is there anything else that needs to be done for this?
+	//do we need to return an error?
 	v1.id = l.GetId()
 	return nil
 }
@@ -65,6 +75,7 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
 
+	//TODO: is there a reason we are setting it up like this?
 	payload := msg.Payload
 	body := payload
 	var payloadReader *bytes.Reader

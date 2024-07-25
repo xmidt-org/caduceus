@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
@@ -47,9 +48,24 @@ type CommonWebhook struct {
 	logger *zap.Logger
 }
 
+// TODO: need to add matching logic for RegistryV2 & MatcherV2
+func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
+	switch v := l.(type) {
+	case *ancla.RegistryV1:
+		m := &MatcherV1{}
+		m.logger = logger
+		if err := m.update(*v); err != nil {
+			return nil, err
+		}
+		return m, nil
+	default:
+		return nil, fmt.Errorf("invalid listener")
+	}
+}
+
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
-func (m1 *MatcherV1) Update(l ListenerV1) error {
+func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
 	//TODO: don't believe the logger for webhook is being set anywhere just yet
 	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
@@ -105,8 +121,6 @@ func (m1 *MatcherV1) Update(l ListenerV1) error {
 
 	m1.events = events
 
-	//TODO: need to figure out how to set this
-
 	// if matcher list is empty set it nil for Queue() logic
 	m1.matcher = nil
 	if 0 < len(matcher) {
@@ -144,8 +158,8 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 	m1.mutex.RUnlock()
 
 	var (
-		matchEvent  bool
-		matchDevice = true
+		matchEvent  = false
+		matchDevice = false
 	)
 	for _, eventRegex := range events {
 		if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
@@ -158,13 +172,10 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 		return false
 	}
 
-	if matcher != nil {
-		matchDevice = false
-		for _, deviceRegex := range matcher {
-			if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-				matchDevice = true
-				break
-			}
+	for _, deviceRegex := range matcher {
+		if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+			matchDevice = true
+			break
 		}
 	}
 
