@@ -158,6 +158,8 @@ func Caduceus(arguments []string, run bool) error {
 		metrics.Provide(),
 		client.Provide(),
 		ancla.ProvideMetrics(),
+		ancla.ProvideListener(),
+		ancla.ProvideService(),
 
 		fx.Invoke(
 			lifeCycle,
