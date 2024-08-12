@@ -23,7 +23,7 @@ func InitializeAncla(in In) error {
 
 	stopWatches, err := in.Svc.StartListener(in.Listener, setLoggerInContext(), in.Sink)
 	if err != nil {
-		return fmt.Errorf("Webhook service start listener error: %v\n", err)
+		return fmt.Errorf("webhook service start listener error: %v", err)
 	}
 	in.LC.Append(fx.StopHook(stopWatches))
 	return nil
