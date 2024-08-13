@@ -41,7 +41,7 @@ func TestNewSink(t *testing.T) {
 		{
 			description: "default case",
 			listener:    &ancla.RegistryV1{},
-			expected:    nil,
+			expected:    &WebhookV1{logger: logger},
 		},
 	}
 
