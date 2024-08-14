@@ -11,7 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.9.0
-	github.com/xmidt-org/ancla v0.3.13-0.20240718193746-a3cd5a39560c
+	github.com/xmidt-org/ancla v0.3.13-0.20240813173230-82d231708d47
 	github.com/xmidt-org/arrange v0.5.1-0.20230914215531-f02b8651b631
 	github.com/xmidt-org/bascule v0.11.7
 	github.com/xmidt-org/candlelight v0.0.21
@@ -95,5 +95,3 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/xmidt-org/ancla => /Users/mforti446/Documents/work/xmidt-repos/ancla

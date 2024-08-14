@@ -141,6 +141,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	sh.handleRequest(sh.fixWrp(msg))
 
 	// return a 202
+	//TODO: do we need to add error handling because i'm getting this response even when event had not been placed on queue
 	response.WriteHeader(http.StatusAccepted)
 	response.Write([]byte("Request placed on to queue.\n"))
 

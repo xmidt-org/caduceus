@@ -1,10 +1,10 @@
+// SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package anclahelper
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"time"
 
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/sink"
@@ -13,48 +13,23 @@ import (
 	"go.uber.org/zap"
 )
 
-type AnclaListenerIn struct {
+type In struct {
 	fx.In
-	Measures ancla.Measures
-	Logger   *zap.Logger
-}
-type AnclaServiceIn struct {
-	fx.In
-	Config   ancla.Config
+	Svc      *ancla.ClientService
 	Listener ancla.ListenerConfig
 	Sink     sink.Wrapper
+	LC       fx.Lifecycle
 }
 
-func InitializeAncla(lifecycle fx.Lifecycle) fx.Option {
-	return fx.Provide(
-		func(in AnclaListenerIn) ancla.ListenerConfig {
-			listener := ancla.ListenerConfig{
-				Measures: in.Measures,
-				Logger:   in.Logger,
-			}
-			return listener
-		},
-		func(in AnclaServiceIn) int {
-			svc, err := ancla.NewService(in.Config, getLogger)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
-				return 1
-			}
+func InitializeAncla(in In) error {
 
-			stopWatches, err := svc.StartListener(in.Listener, setLoggerInContext(), in.Sink)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Webhook service start listener error: %v\n", err)
-				return 1
-			}
-			lifecycle.Append(fx.StopHook(stopWatches))
-			return 0
-		},
-	)
-}
+	stopWatches, err := in.Svc.StartListener(in.Listener, setLoggerInContext(), in.Sink)
+	if err != nil {
+		return fmt.Errorf("webhook service start listener error: %v", err)
+	}
+	in.LC.Append(fx.StopHook(stopWatches))
+	return nil
 
-func getLogger(ctx context.Context) *zap.Logger {
-	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
-	return logger
 }
 
 func setLoggerInContext() func(context.Context, *zap.Logger) context.Context {
