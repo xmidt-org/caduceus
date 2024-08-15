@@ -8,12 +8,15 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xmidt-org/ancla"
@@ -26,29 +29,43 @@ import (
 )
 
 type Sink interface {
-	Update(ancla.Register) error
-	Send(*ring.Ring, string, string, *wrp.Message) error
+	Send(string, string, *wrp.Message) error
 }
 
 type WebhookV1 struct {
-	id               string
-	deliveryInterval time.Duration
-	deliveryRetries  int
-	logger           *zap.Logger
+	failureUrl string
+	urls       *ring.Ring
+	CommonWebhook
 	//TODO: need to determine best way to add client and client middleware to WebhooV1
 	// client           http.Client
 	// clientMiddleware func(http.Client) http.Client
+}
+
+type WebhookV2 struct {
+	whs    []*WebhookV1
+}
+
+type CommonWebhook struct {
+	id               string
+	deliveryInterval time.Duration
+	deliveryRetries  int
+	mutex            sync.RWMutex
+	logger           *zap.Logger
 }
 
 func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	var sink Sink
 	switch l := listener.(type) {
 	case *ancla.RegistryV1:
-		sink = &WebhookV1{
-			id:               l.GetId(),
-			deliveryInterval: c.DeliveryInterval,
-			deliveryRetries:  c.DeliveryRetries,
-			logger:           logger,
+		v1 := &WebhookV1{}
+		v1.Update(c, logger, l.Registration.Config.AlternativeURLs, l.GetId(), l.Registration.FailureURL, l.Registration.Config.ReceiverURL)
+		return v1
+	case *ancla.RegistryV2:
+		var whs []*WebhookV1
+		for _, wh := range l.Registration.Webhooks {
+			v1 := &WebhookV1{}
+			v1.Update(c, logger, wh.ReceiverURLs[1:], l.GetId(), l.Registration.FailureURL, wh.ReceiverURLs[0])
+			whs = append(whs, v1)
 		}
 	default:
 		return nil
@@ -56,16 +73,69 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	return sink
 }
 
-func (v1 *WebhookV1) Update(l ancla.Register) (err error) {
+func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) (err error) {
 	//TODO: is there anything else that needs to be done for this?
-	//do we need to return an error?
-	v1.id = l.GetId()
+	//do we need to return an error
+	v1.id = id
+	v1.failureUrl = failureUrl
+	v1.deliveryInterval = c.DeliveryInterval
+	v1.deliveryRetries = c.DeliveryRetries
+	v1.logger = l
+
+	urlCount, err := getUrls(altUrls)
+	if err != nil {
+		l.Error("error recevied parsing urls", zap.Error(err))
+	}
+	v1.updateUrls(urlCount, receiverUrl, altUrls)
+
 	return nil
+}
+
+func (v1 *WebhookV1) updateUrls(urlCount int, url string, urls []string) {
+	v1.mutex.Lock()
+	defer v1.mutex.Unlock()
+
+	if urlCount == 0 {
+		v1.urls = ring.New(1)
+		v1.urls.Value = url
+	} else {
+		ring := ring.New(urlCount)
+		for i := 0; i < urlCount; i++ {
+			ring.Value = urls[i]
+			ring = ring.Next()
+		}
+		v1.urls = ring
+	}
+
+	// Randomize where we start so all the instances don't synchronize
+	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	offset := rand.Intn(v1.urls.Len())
+	for 0 < offset {
+		v1.urls = v1.urls.Next()
+		offset--
+	}
+}
+
+func getUrls(urls []string) (int, error) {
+	var errs error
+	// Validate the various urls
+	urlCount := 0
+	for _, u := range urls {
+		_, err := url.Parse(u)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to update url: %v; err: %v", u, err))
+			continue
+		}
+		urlCount++
+	}
+
+	return urlCount, errs
+
 }
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) error {
+func (v1 *WebhookV1) Send(secret, acceptType string, msg *wrp.Message) error {
 	defer func() {
 		if r := recover(); nil != r {
 			// s.droppedPanic.Add(1.0)
@@ -94,11 +164,11 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 	}
 	payloadReader = bytes.NewReader(body)
 
-	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
+	req, err := http.NewRequest("POST", v1.urls.Value.(string), payloadReader)
 	if err != nil {
 		// Report drop
 		// s.droppedInvalidConfig.Add(1.0)
-		v1.logger.Error("Invalid URL", zap.String(metrics.UrlLabel, urls.Value.(string)), zap.String("id", v1.id), zap.Error(err))
+		v1.logger.Error("Invalid URL", zap.String(metrics.UrlLabel, v1.urls.Value.(string)), zap.String("id", v1.id), zap.Error(err))
 		return err
 	}
 
@@ -133,7 +203,7 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 	client, _ := retryhttp.NewClient(
 		// retryhttp.WithHTTPClient(s.clientMiddleware(s.client)),
 		retryhttp.WithRunner(v1.addRunner(req, event)),
-		retryhttp.WithRequesters(v1.updateRequest(urls)),
+		retryhttp.WithRequesters(v1.updateRequest(v1.urls)),
 	)
 	resp, err := client.Do(req)
 

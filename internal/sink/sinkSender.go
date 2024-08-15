@@ -4,7 +4,6 @@ package sink
 
 import (
 	"bytes"
-	"container/ring"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -382,7 +381,6 @@ func (s *sender) dispatcher() {
 	defer s.wg.Done()
 	var (
 		msg            *wrp.Message
-		urls           *ring.Ring
 		secret, accept string
 		ok             bool
 	)
@@ -420,7 +418,6 @@ Loop:
 			}
 			s.queueDepthGauge.Add(-1.0)
 			s.mutex.RLock()
-			urls = s.matcher.getUrls()
 			deliverUntil := s.deliverUntil
 			dropUntil := s.dropUntil
 			// secret = s.listener.Webhook.Config.Secret
@@ -440,7 +437,7 @@ Loop:
 			s.workers.Acquire()
 			s.currentWorkersGauge.Add(1.0)
 
-			go s.sink.Send(urls, secret, accept, msg)
+			go s.sink.Send(secret, accept, msg)
 		}
 	}
 	for i := 0; i < s.maxWorkers; i++ {
