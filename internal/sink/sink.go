@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
@@ -40,15 +41,45 @@ type WebhookV1 struct {
 	// clientMiddleware func(http.Client) http.Client
 }
 
+type Kafkas []*Kafka
+type Kafka struct {
+	id         string
+	logger     *zap.Logger
+	brokerAddr []string
+	topic      string
+	config     *sarama.Config
+}
+
 func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	var sink Sink
 	switch l := listener.(type) {
 	case *ancla.RegistryV1:
 		sink = &WebhookV1{
 			id:               l.GetId(),
-			deliveryInterval: c.DeliveryInterval,
-			deliveryRetries:  c.DeliveryRetries,
+			deliveryInterval: c.DeliveryInterval, //TODO: should we be using retry hints for this?
+			deliveryRetries:  c.DeliveryRetries,  //TODO: should we be using retry hints for this?
 			logger:           logger,
+		}
+		return sink
+	case *ancla.RegistryV2:
+		var sinks Kafkas
+		for _, k := range l.Registration.Kafkas {
+			kafka := &Kafka{
+				id:         l.Registration.CanonicalName,
+				brokerAddr: k.BootstrapServers,
+				topic:      "test",
+			}
+
+			//TODO: this is basic set up for now - will need to add more options to config
+			//once we know what we are allowing users to send
+			config := sarama.NewConfig()
+			config.Producer.Return.Successes = true
+			config.Producer.RequiredAcks = sarama.WaitForAll
+			config.Producer.Retry.Max = c.DeliveryRetries
+
+			kafka.config = config
+			sinks = append(sinks, kafka)
+			sink = sinks
 		}
 	default:
 		return nil
@@ -211,5 +242,237 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 			v1.logger.Debug("retrying HTTP transaction", zap.String(metrics.UrlLabel, request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
 		}
 
+	}
+}
+
+func (k Kafkas) Update(l ancla.Register) error {
+	return nil
+}
+
+// TODO: probably get rid of urls
+func (k Kafkas) Send(urls *ring.Ring, secret string, acceptType string, msg *wrp.Message) error {
+	//TODO: is this how we want to set this up?
+	//or do we want to only send to specific kafkas in the list based on an id
+	for _, kafka := range k {
+		err := kafka.send(secret, acceptType, msg)
+		return err
+	}
+	return nil
+}
+
+func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
+
+	defer func() {
+		if r := recover(); nil != r {
+			// s.droppedPanic.Add(1.0)
+			k.logger.Error("goroutine send() panicked", zap.String("id", k.id), zap.Any("panic", r))
+		}
+		// s.workers.Release()
+		// s.currentWorkersGauge.Add(-1.0)
+	}()
+
+	payload := msg.Payload
+	body := payload
+
+	// Use the internal content type unless the accept type is wrp
+	contentType := msg.ContentType
+	switch acceptType {
+	case "wrp", wrp.MimeTypeMsgpack, wrp.MimeTypeWrp:
+		// WTS - We should pass the original, raw WRP event instead of
+		// re-encoding it.
+		contentType = wrp.MimeTypeMsgpack
+		//TODO: do we want to use the wrp encoder or the sarama encoder?
+		buffer := bytes.NewBuffer([]byte{})
+		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
+		encoder.Encode(msg)
+		body = buffer.Bytes()
+	}
+
+	// Create a new Kafka producer
+	producer, err := sarama.NewSyncProducer(k.brokerAddr, k.config)
+	if err != nil {
+		k.logger.Error("Could not create Kafka producer", zap.Error(err))
+		return err
+	}
+	defer producer.Close()
+
+	id, _ := wrp.ParseDeviceID(msg.Source)
+	var sig string
+	if secret != "" {
+		s := hmac.New(sha1.New, []byte(secret))
+		s.Write(body)
+		sig = fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
+	}
+	eventHeader := strings.TrimPrefix(msg.Destination, "event:")
+
+	// Create a Kafka message
+	//TODO: add more header options
+	kafkaMsg := &sarama.ProducerMessage{
+		Topic: k.topic,
+		Key:   nil,
+		Value: sarama.ByteEncoder(msg.Payload),
+		Headers: []sarama.RecordHeader{
+			{
+				Key:   []byte("X-Webpa-Device-Id"),
+				Value: []byte(id),
+			},
+			{
+				Key:   []byte("X-Webpa-Device-Name"),
+				Value: []byte(id),
+			},
+			{
+				Key:   []byte("X-Webpa-Event"),
+				Value: []byte(eventHeader),
+			},
+			{
+				Key:   []byte("X-Webpa-Transaction-Id"),
+				Value: []byte(msg.TransactionUUID),
+			},
+			{
+				Key:   []byte("X-Webpa-Signature"),
+				Value: []byte(sig),
+			},
+			{
+				Key:   []byte("Content-Type"),
+				Value: []byte(contentType),
+			},
+		},
+	}
+
+	// Send the message to Kafka
+
+	partition, offset, err := producer.SendMessage(kafkaMsg)
+	if err != nil {
+		k.logger.Error("Failed to send message to Kafka", zap.Error(err))
+		return err
+	}
+
+	k.logger.Debug("Message sent to Kafka",
+
+		zap.String("Topic", kafkaMsg.Topic),
+		zap.Int32("Partition", partition),
+		zap.Int64("Offset", offset),
+	)
+
+	return nil
+
+}
+
+func AddMessageHeaders(kafkaMsg *sarama.ProducerMessage, m *wrp.Message) {
+	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+		Key:   []byte(wrphttp.MessageTypeHeader),
+		Value: []byte(m.Type.FriendlyName()),
+	})
+
+	if len(m.Source) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.SourceHeader),
+			Value: []byte(m.Source),
+		})
+	}
+
+	if len(m.Destination) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.DestinationHeader),
+			Value: []byte(m.Destination),
+		})
+	}
+
+	if len(m.TransactionUUID) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.TransactionUuidHeader),
+			Value: []byte(m.TransactionUUID),
+		})
+	}
+
+	if m.Status != nil {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.StatusHeader),
+			Value: []byte(strconv.FormatInt(*m.Status, 10)),
+		})
+	}
+
+	if m.RequestDeliveryResponse != nil {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.RequestDeliveryResponseHeader),
+			Value: []byte(strconv.FormatInt(*m.RequestDeliveryResponse, 10)),
+		})
+	}
+
+	// TODO Remove along with `IncludeSpans`
+	// nolint:staticcheck
+	if m.IncludeSpans != nil {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.IncludeSpansHeader),
+			Value: []byte(strconv.FormatBool(*m.IncludeSpans)),
+		})
+	}
+
+	for _, s := range m.Spans {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.SpanHeader),
+			Value: []byte(strings.Join(s, ",")),
+		})
+	}
+
+	if len(m.Accept) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.AcceptHeader),
+			Value: []byte(m.Accept),
+		})
+	}
+
+	if len(m.Path) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.PathHeader),
+			Value: []byte(m.Path),
+		})
+	}
+
+	// for k, v := range m.Metadata {
+	// 	// perform k + "=" + v more efficiently
+	// 	buf := bytes.Buffer{}
+	// 	buf.WriteString(k)
+	// 	buf.WriteString("=")
+	// 	buf.WriteString(v)
+	// 	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+	// 		Key:   []byte(MetadataHeader),
+	// 		Value: []byte(buf.String()),
+	// 	})
+	// }
+
+	// var partnerIds []byte
+	// for _, v := range m.PartnerIDs {
+	// 	partnerIds = append(partnerIds, byte(v))
+	// 	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+	// 		Key:   []byte(PartnerIdHeader),
+	// 		Value: []byte(m.PartnerIDs),
+	// 	})
+	// 	h.Add(PartnerIdHeader, v)
+	// }
+
+	if len(m.SessionID) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.SessionIdHeader),
+			Value: []byte(m.SessionID),
+		})
+	}
+
+	// for _, v := range m.Headers {
+	// 	h.Add(HeadersHeader, v)
+	// }
+
+	if len(m.ServiceName) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.ServiceNameHeader),
+			Value: []byte(m.ServiceName),
+		})
+	}
+
+	if len(m.URL) > 0 {
+		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+			Key:   []byte(wrphttp.URLHeader),
+			Value: []byte(m.URL),
+		})
 	}
 }
