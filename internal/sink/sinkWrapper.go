@@ -177,8 +177,7 @@ func (w *wrapper) Update(list []ancla.Register) {
 
 			continue
 		}
-		fmt.Println(sender)
-		// sender.Update(inValue.Listener) //commenting out until argus/ancla fix
+		sender.Update(inValue.Listener) //commenting out until argus/ancla fix
 	}
 }
 
