@@ -456,9 +456,10 @@ func AddMessageHeaders(kafkaMsg *sarama.ProducerMessage, m *wrp.Message) {
 		})
 	}
 
-	// for _, v := range m.Headers {
-	// 	h.Add(HeadersHeader, v)
-	// }
+	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+		Key:   []byte(wrphttp.HeadersHeader),
+		Value: []byte(strings.Join(m.Headers, ",")),
+	})
 
 	if len(m.ServiceName) > 0 {
 		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
