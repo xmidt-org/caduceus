@@ -1812,8 +1812,8 @@ go.opentelemetry.io/contrib v0.19.0/go.mod h1:G/EtFaa6qaN7+LxqfIAT3GiZa7Wv5DTBUz
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.19.0/go.mod h1:ze4w2zyQP+FvZjaahHaUVD7h4razLhDOsZD3qFKXc3c=
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.38.0/go.mod h1:iUSPEXZM7sckWSTCtzog1lU42Qaiu9U2WY6vdqwFHDI=
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.40.0/go.mod h1:RK3vgddjxVcF1q7IBVppzG6k2cW/NBnZHQ3X4g+EYBQ=
-go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.53.0 h1:KHTx4DmXkuhl/a4/jU5eDMrPuxulzd7m8nusORJ64Fc=
-go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.53.0/go.mod h1:Orsflew5fQlsj8qLxP5A9Y38PGaRxXs93TGaDHDwGT0=
+go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.54.0 h1:ZnulxUIP6SrFICAnNfe8cb0vQb6Oz7oa99ZNt97CFG8=
+go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.54.0/go.mod h1:DjeaP3aYwacDW8M4ha3ZHBBP5hOSuvRu+DGgT1H07sc=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.19.0/go.mod h1:7RDsakVbjb124lYDEjKuHTuzdqf04hLMEvPv/ufmqMs=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.38.0/go.mod h1:w6xNm+kC506KNs5cknSHal6dtdRnc4uema0uN9GSQc0=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0/go.mod h1:pcQ3MM3SWvrA71U4GDqv9UFDJ3HQsW7y5ZO3tDTlUdI=
