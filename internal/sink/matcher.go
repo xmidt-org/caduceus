@@ -16,6 +16,7 @@ import (
 
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
+	"github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -36,9 +37,19 @@ type Matcher interface {
 	getUrls() *ring.Ring
 }
 
+// MatcherV1 holds the matching information related to RegistryV1
 type MatcherV1 struct {
 	events  []*regexp.Regexp
 	matcher []*regexp.Regexp
+	urls    *ring.Ring
+	CommonWebhook
+}
+
+// MatcherV2 holds the matching information related to RegistryV2
+// TODO: will have to determine if we need a Matcher specifically for Kafka and another for the new webhook
+// FOR NOW: leaving as one matcher
+type MatcherV2 struct {
+	matcher []webhook.FieldRegex
 	urls    *ring.Ring
 	CommonWebhook
 }
@@ -53,6 +64,13 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:
 		m := &MatcherV1{}
+		m.logger = logger
+		if err := m.update(*v); err != nil {
+			return nil, err
+		}
+		return m, nil
+	case *ancla.RegistryV2:
+		m := &MatcherV2{}
 		m.logger = logger
 		if err := m.update(*v); err != nil {
 			return nil, err
@@ -159,7 +177,7 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 
 	var (
 		matchEvent  = false
-		matchDevice = false
+		matchDevice = true
 	)
 	for _, eventRegex := range events {
 		if eventRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
@@ -172,10 +190,13 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 		return false
 	}
 
-	for _, deviceRegex := range matcher {
-		if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
-			matchDevice = true
-			break
+	if matcher != nil{
+		matchDevice = false
+		for _, deviceRegex := range matcher {
+			if deviceRegex.MatchString(msg.Source) || deviceRegex.MatchString(strings.TrimPrefix(msg.Destination, "event:")) {
+				matchDevice = true
+				break
+			}
 		}
 	}
 
@@ -192,5 +213,21 @@ func (m1 *MatcherV1) getUrls() (urls *ring.Ring) {
 	// This is okay because we run a single dispatcher and it's the
 	// only one updating this field.
 	m1.urls = m1.urls.Next()
+	return
+}
+
+// TODO: need to add in logic for update
+func (m2 *MatcherV2) update(l ancla.RegistryV2) error {
+	return nil
+}
+
+// TODO: need to add in logic for IsMatch
+func (m2 *MatcherV2) IsMatch(msg *wrp.Message) bool {
+	return true
+}
+
+// TODO: getUrls will probably be removed from the Matcher Interface
+//TODO: want to move the getUrls logic and the urls field to the sink instead of the matcher
+func (m2 *MatcherV2) getUrls() (urls *ring.Ring) {
 	return
 }
