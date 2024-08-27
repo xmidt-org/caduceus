@@ -429,27 +429,25 @@ func AddMessageHeaders(kafkaMsg *sarama.ProducerMessage, m *wrp.Message) {
 		})
 	}
 
-	// for k, v := range m.Metadata {
-	// 	// perform k + "=" + v more efficiently
-	// 	buf := bytes.Buffer{}
-	// 	buf.WriteString(k)
-	// 	buf.WriteString("=")
-	// 	buf.WriteString(v)
-	// 	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
-	// 		Key:   []byte(MetadataHeader),
-	// 		Value: []byte(buf.String()),
-	// 	})
-	// }
+	var bufStrings []string
+	for k, v := range m.Metadata {
+		// perform k + "=" + v more efficiently
+		buf := bytes.Buffer{}
+		buf.WriteString(k)
+		buf.WriteString("=")
+		buf.WriteString(v)
+		bufStrings = append(bufStrings, buf.String())
+	}
 
-	// var partnerIds []byte
-	// for _, v := range m.PartnerIDs {
-	// 	partnerIds = append(partnerIds, byte(v))
-	// 	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
-	// 		Key:   []byte(PartnerIdHeader),
-	// 		Value: []byte(m.PartnerIDs),
-	// 	})
-	// 	h.Add(PartnerIdHeader, v)
-	// }
+	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+		Key:   []byte(wrphttp.MetadataHeader),
+		Value: []byte(strings.Join(bufStrings, ",")),
+	})
+
+	kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
+		Key:   []byte(wrphttp.PartnerIdHeader),
+		Value: []byte(strings.Join(m.PartnerIDs, ",")),
+	})
 
 	if len(m.SessionID) > 0 {
 		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{
