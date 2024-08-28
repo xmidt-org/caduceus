@@ -56,8 +56,8 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	case *ancla.RegistryV1:
 		sink = &WebhookV1{
 			id:               l.GetId(),
-			deliveryInterval: c.DeliveryInterval, //TODO: should we be using retry hints for this?
-			deliveryRetries:  c.DeliveryRetries,  //TODO: should we be using retry hints for this?
+			deliveryInterval: c.DeliveryInterval,
+			deliveryRetries:  c.DeliveryRetries,
 			logger:           logger,
 		}
 		return sink
@@ -75,7 +75,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			config := sarama.NewConfig()
 			config.Producer.Return.Successes = true
 			config.Producer.RequiredAcks = sarama.WaitForAll
-			config.Producer.Retry.Max = c.DeliveryRetries
+			config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
 
 			kafka.config = config
 			sinks = append(sinks, kafka)
@@ -306,7 +306,6 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 	eventHeader := strings.TrimPrefix(msg.Destination, "event:")
 
 	// Create a Kafka message
-	//TODO: add more header options
 	kafkaMsg := &sarama.ProducerMessage{
 		Topic: k.topic,
 		Key:   nil,
@@ -338,6 +337,9 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 			},
 		},
 	}
+
+	//add more headers
+	AddMessageHeaders(kafkaMsg, msg)
 
 	// Send the message to Kafka
 
