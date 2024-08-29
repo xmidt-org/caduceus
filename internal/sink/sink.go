@@ -8,6 +8,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
+	"github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 	"go.uber.org/zap"
@@ -41,8 +43,12 @@ type WebhookV1 struct {
 	// clientMiddleware func(http.Client) http.Client
 }
 
-type Kafkas []*Kafka
+// TODO: want to rename but going with this for now
 type Kafka struct {
+	kafkas []*kafka
+	hash   webhook.FieldRegex
+}
+type kafka struct {
 	id         string
 	logger     *zap.Logger
 	brokerAddr []string
@@ -62,9 +68,10 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 		}
 		return sink
 	case *ancla.RegistryV2:
-		var sinks Kafkas
+		var sink Kafka
+		sink.hash = l.Registration.Hash
 		for _, k := range l.Registration.Kafkas {
-			kafka := &Kafka{
+			kafka := &kafka{
 				id:         l.Registration.CanonicalName,
 				brokerAddr: k.BootstrapServers,
 				topic:      "test",
@@ -78,8 +85,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
 
 			kafka.config = config
-			sinks = append(sinks, kafka)
-			sink = sinks
+			sink.kafkas = append(sink.kafkas, kafka)
 		}
 	default:
 		return nil
@@ -245,22 +251,38 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 	}
 }
 
-func (k Kafkas) Update(l ancla.Register) error {
+func (k *Kafka) Update(l ancla.Register) error {
 	return nil
 }
 
 // TODO: probably get rid of urls
-func (k Kafkas) Send(urls *ring.Ring, secret string, acceptType string, msg *wrp.Message) error {
-	//TODO: is this how we want to set this up?
-	//or do we want to only send to specific kafkas in the list based on an id
-	for _, kafka := range k {
-		err := kafka.send(secret, acceptType, msg)
-		return err
+func (k *Kafka) Send(urls *ring.Ring, secret string, acceptType string, msg *wrp.Message) error {
+	if k.hash.Field != "" && k.hash.Regex != "" {
+		if err := k.Distribute(secret, acceptType, msg); err != nil {
+			return err
+		}
+
+	} else {
+		var errs error
+		for _, kafka := range k.kafkas {
+			err := kafka.send(secret, acceptType, msg)
+			errs = errors.Join(err)
+		}
+		if errs != nil {
+			return errs
+		}
 	}
+
 	return nil
 }
 
-func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
+// TODO: need to add hashing loging based off k.hash
+func (k *Kafka) Distribute(secret, acceptType string, msg *wrp.Message) error {
+	//use k.send by checking if k.kafka meets the hashing logic otherwise skip?
+	return nil
+}
+
+func (k *kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 
 	defer func() {
 		if r := recover(); nil != r {
@@ -289,6 +311,7 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 	}
 
 	// Create a new Kafka producer
+	//cache producer instead of recreate
 	producer, err := sarama.NewSyncProducer(k.brokerAddr, k.config)
 	if err != nil {
 		k.logger.Error("Could not create Kafka producer", zap.Error(err))
@@ -338,7 +361,7 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 		},
 	}
 
-	//add more headers
+	//TODO: need to confirm we will need all these headers
 	AddMessageHeaders(kafkaMsg, msg)
 
 	// Send the message to Kafka
