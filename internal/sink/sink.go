@@ -48,6 +48,7 @@ type Kafka struct {
 	brokerAddr []string
 	topic      string
 	config     *sarama.Config
+	producer   sarama.SyncProducer
 }
 
 func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
@@ -62,7 +63,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 		}
 		return sink
 	case *ancla.RegistryV2:
-		var sinks Kafkas
+		var sink Kafkas
 		for _, k := range l.Registration.Kafkas {
 			kafka := &Kafka{
 				id:         l.Registration.CanonicalName,
@@ -72,15 +73,22 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 
 			//TODO: this is basic set up for now - will need to add more options to config
 			//once we know what we are allowing users to send
-			config := sarama.NewConfig()
-			config.Producer.Return.Successes = true
-			config.Producer.RequiredAcks = sarama.WaitForAll
-			config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
+			kafka.config.Producer.Return.Successes = true			
+			kafka.config.Producer.RequiredAcks = sarama.WaitForAll
+			kafka.config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
 
-			kafka.config = config
-			sinks = append(sinks, kafka)
-			sink = sinks
+			// Create a new Kafka producer
+			producer, err := sarama.NewSyncProducer(kafka.brokerAddr, config)
+			if err != nil {
+				kafka.logger.Error("Could not create Kafka producer", zap.Error(err))
+				return nil
+			}
+			defer producer.Close()
+
+			kafka.producer = producer
+			sink = append(sink, kafka)
 		}
+
 	default:
 		return nil
 	}
@@ -265,6 +273,8 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 	defer func() {
 		if r := recover(); nil != r {
 			// s.droppedPanic.Add(1.0)
+			//TODO: should we be using the RegistrationV2 id for this (canonical_name)
+			//or should we have an id for the specific kafka instance that failed?
 			k.logger.Error("goroutine send() panicked", zap.String("id", k.id), zap.Any("panic", r))
 		}
 		// s.workers.Release()
@@ -287,14 +297,6 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 		encoder.Encode(msg)
 		body = buffer.Bytes()
 	}
-
-	// Create a new Kafka producer
-	producer, err := sarama.NewSyncProducer(k.brokerAddr, k.config)
-	if err != nil {
-		k.logger.Error("Could not create Kafka producer", zap.Error(err))
-		return err
-	}
-	defer producer.Close()
 
 	id, _ := wrp.ParseDeviceID(msg.Source)
 	var sig string
@@ -339,11 +341,11 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 	}
 
 	//add more headers
+	//TODO: need to determine if all of these headers are necessary
 	AddMessageHeaders(kafkaMsg, msg)
 
 	// Send the message to Kafka
-
-	partition, offset, err := producer.SendMessage(kafkaMsg)
+	partition, offset, err := k.producer.SendMessage(kafkaMsg)
 	if err != nil {
 		k.logger.Error("Failed to send message to Kafka", zap.Error(err))
 		return err
