@@ -43,6 +43,10 @@ type MatcherV1 struct {
 	CommonWebhook
 }
 
+type MatcherV2 struct {
+	matcher map[string]*regexp.Regexp
+	CommonWebhook
+}
 type CommonWebhook struct {
 	mutex  sync.RWMutex
 	logger *zap.Logger
@@ -53,6 +57,13 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:
 		m := &MatcherV1{}
+		m.logger = logger
+		if err := m.update(*v); err != nil {
+			return nil, err
+		}
+		return m, nil
+	case *ancla.RegistryV2:
+		m := &MatcherV2{}
 		m.logger = logger
 		if err := m.update(*v); err != nil {
 			return nil, err
@@ -192,5 +203,78 @@ func (m1 *MatcherV1) getUrls() (urls *ring.Ring) {
 	// This is okay because we run a single dispatcher and it's the
 	// only one updating this field.
 	m1.urls = m1.urls.Next()
+	return
+}
+
+// Update applies user configurable values for the outbound sender when a
+// webhook is registered
+func (m2 *MatcherV2) update(l ancla.RegistryV2) error {
+
+	//TODO: don't believe the logger for webhook is being set anywhere just yet
+	m2.logger = m2.logger.With(zap.String("webhook.address", l.Registration.Address))
+
+	if l.Registration.FailureURL != "" {
+		_, err := url.ParseRequestURI(l.Registration.FailureURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	//TODO: should we be checking that the l.Registration.Matcher.Field is a field in the wrp.Message?
+	matcher := make(map[string]*regexp.Regexp)
+	for _, item := range l.Registration.Matcher {
+		if item.Regex == ".*" {
+			// Match everything - skip the filtering
+			matcher[item.Field] = &regexp.Regexp{}
+			break
+		}
+
+		var re *regexp.Regexp
+		re, err := regexp.Compile(item.Regex)
+		if err != nil {
+			return fmt.Errorf("invalid matcher item: '%s'", item.Regex)
+		}
+		matcher[item.Field] = re
+	}
+
+	// write/update sink sender
+	m2.mutex.Lock()
+	defer m2.mutex.Unlock()
+
+	// if matcher list is empty set it nil for Queue() logic
+	if len(matcher) == 0 {
+		m2.matcher = nil
+	} else {
+		m2.matcher = matcher
+	}
+
+	return nil
+
+}
+
+func (m2 *MatcherV2) IsMatch(msg *wrp.Message) bool {
+	m2.mutex.RLock()
+	matcher := m2.matcher
+	m2.mutex.RUnlock()
+
+	var (
+		matchDevice = false
+	)
+	for field, deviceRegex := range matcher {
+		if deviceRegex.MatchString(field) || deviceRegex.MatchString(strings.TrimPrefix(field, "event:")) {
+			matchDevice = true
+			break
+		}
+	}
+
+	if !matchDevice {
+		m2.logger.Debug("device regex doesn't match", zap.String("event.source", msg.Source))
+		return false
+	}
+	return true
+}
+
+// TODO: this is a big reason why I want to refactor the Matcher logic
+func (m2 *MatcherV2) getUrls() (urls *ring.Ring) {
 	return
 }
