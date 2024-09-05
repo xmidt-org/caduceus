@@ -68,11 +68,13 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 				id:         l.Registration.CanonicalName,
 				brokerAddr: k.BootstrapServers,
 				topic:      "quickstart-events",
+				logger:     logger,
 			}
 
 			config := sarama.NewConfig()
 			//TODO: this is basic set up for now - will need to add more options to config
 			//once we know what we are allowing users to send
+
 			config.Producer.Return.Successes = true
 			config.Producer.RequiredAcks = sarama.WaitForAll
 			config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
@@ -344,9 +346,9 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 
 	// Send the message to Kafka
 	partition, offset, err := k.producer.SendMessage(kafkaMsg)
+	defer k.producer.Close()
 	if err != nil {
 		k.logger.Error("Failed to send message to Kafka", zap.Error(err))
-		k.producer.Close()
 		return err
 	}
 
@@ -356,7 +358,6 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 		zap.Int32("Partition", partition),
 		zap.Int64("Offset", offset),
 	)
-	k.producer.Close()
 
 	return nil
 
