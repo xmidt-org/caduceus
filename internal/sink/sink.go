@@ -52,10 +52,9 @@ type Kafka struct {
 }
 
 func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
-	var sink Sink
 	switch l := listener.(type) {
 	case *ancla.RegistryV1:
-		sink = &WebhookV1{
+		sink := &WebhookV1{
 			id:               l.GetId(),
 			deliveryInterval: c.DeliveryInterval,
 			deliveryRetries:  c.DeliveryRetries,
@@ -68,31 +67,32 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			kafka := &Kafka{
 				id:         l.Registration.CanonicalName,
 				brokerAddr: k.BootstrapServers,
-				topic:      "test",
+				topic:      "quickstart-events",
+				logger:     logger,
 			}
 
+			config := sarama.NewConfig()
 			//TODO: this is basic set up for now - will need to add more options to config
 			//once we know what we are allowing users to send
-			kafka.config.Producer.Return.Successes = true			
-			kafka.config.Producer.RequiredAcks = sarama.WaitForAll
-			kafka.config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
 
+			config.Producer.Return.Successes = true
+			config.Producer.RequiredAcks = sarama.WaitForAll
+			config.Producer.Retry.Max = c.DeliveryRetries //should we be using retryhint for this?
+			kafka.config = config
 			// Create a new Kafka producer
 			producer, err := sarama.NewSyncProducer(kafka.brokerAddr, config)
 			if err != nil {
 				kafka.logger.Error("Could not create Kafka producer", zap.Error(err))
 				return nil
 			}
-			defer producer.Close()
 
 			kafka.producer = producer
 			sink = append(sink, kafka)
 		}
-
+		return sink
 	default:
 		return nil
 	}
-	return sink
 }
 
 func (v1 *WebhookV1) Update(l ancla.Register) (err error) {
@@ -346,6 +346,7 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 
 	// Send the message to Kafka
 	partition, offset, err := k.producer.SendMessage(kafkaMsg)
+	defer k.producer.Close()
 	if err != nil {
 		k.logger.Error("Failed to send message to Kafka", zap.Error(err))
 		return err
