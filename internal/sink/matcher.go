@@ -52,7 +52,6 @@ type CommonWebhook struct {
 	logger *zap.Logger
 }
 
-// TODO: need to add matching logic for RegistryV2 & MatcherV2
 func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:
@@ -78,7 +77,6 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 // webhook is registered
 func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
-	//TODO: don't believe the logger for webhook is being set anywhere just yet
 	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
 
 	if l.Registration.FailureURL != "" {

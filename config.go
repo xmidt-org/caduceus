@@ -179,7 +179,6 @@ func provideConfig(cli *CLI) (*goschtalt.Config, error) {
 // see what the default configuration is.
 // -----------------------------------------------------------------------------
 
-// TODO: update default values to match what's expected of caduceus
 var defaultConfig = Config{
 	Servers: Servers{
 		Health: HealthServer{

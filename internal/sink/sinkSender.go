@@ -185,7 +185,6 @@ func (s *sender) Update(l ancla.Register) (err error) {
 // Queue is given a request to evaluate and optionally enqueue in the list
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
-// TODO: can pass in message along with webhook information
 func (s *sender) Queue(msg *wrp.Message) {
 	s.mutex.RLock()
 	deliverUntil := s.deliverUntil

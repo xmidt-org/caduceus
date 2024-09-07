@@ -36,7 +36,7 @@ type WebhookV1 struct {
 	deliveryInterval time.Duration
 	deliveryRetries  int
 	logger           *zap.Logger
-	//TODO: need to determine best way to add client and client middleware to WebhooV1
+	//TODO: need to determine best way to add client and client middleware to WebhookV1
 	// client           http.Client
 	// clientMiddleware func(http.Client) http.Client
 }
@@ -114,7 +114,7 @@ func (v1 *WebhookV1) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.M
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
 
-	//TODO: is there a reason we are setting it up like this?
+	//TODO: is there a reason we are setting it up like this? this was from old caduceus
 	payload := msg.Payload
 	body := payload
 	var payloadReader *bytes.Reader
@@ -259,8 +259,8 @@ func (k Kafkas) Update(l ancla.Register) error {
 
 // TODO: probably get rid of urls
 func (k Kafkas) Send(urls *ring.Ring, secret string, acceptType string, msg *wrp.Message) error {
-	//TODO: is this how we want to set this up?
-	//or do we want to only send to specific kafkas in the list based on an id
+//TODO: this is the default for now if not hash is given to us
+//Need to discuss with wes and john what default behavior should be moving forwards
 	for _, kafka := range k {
 		err := kafka.send(secret, acceptType, msg)
 		return err
