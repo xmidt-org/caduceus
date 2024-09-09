@@ -44,7 +44,6 @@ type CommonMatcher struct {
 	mutex  sync.RWMutex
 }
 
-// TODO: need to add matching logic for RegistryV2 & MatcherV2
 func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:

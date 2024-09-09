@@ -83,6 +83,7 @@ func provideCoreOption(server string, in RoutesIn) arrangehttp.Option[http.Serve
 			}
 
 			// TODO: should probably customize things a bit
+			//this todo was from old-caduceus
 			mux.Use(otelmux.Middleware("server_primary", options...),
 				candlelight.EchoFirstTraceNodeInfo(in.Tracing.Propagator(), false))
 

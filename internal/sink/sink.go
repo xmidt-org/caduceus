@@ -91,8 +91,6 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 }
 
 func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) (err error) {
-	//TODO: is there anything else that needs to be done for this?
-	//do we need to return an error
 	v1.id = id
 	v1.failureUrl = failureUrl
 	v1.deliveryInterval = c.DeliveryInterval
@@ -175,6 +173,7 @@ func (v1 *WebhookV1) Send(secret, acceptType string, msg *wrp.Message) error {
 	}()
 
 	//TODO: is there a reason we are setting it up like this?
+	//this was how it was done in old caduceus
 	payload := msg.Payload
 	body := payload
 	var payloadReader *bytes.Reader
@@ -423,7 +422,6 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 		},
 	}
 
-	//add more headers
 	//TODO: need to determine if all of these headers are necessary
 	AddMessageHeaders(kafkaMsg, msg)
 
@@ -488,6 +486,7 @@ func AddMessageHeaders(kafkaMsg *sarama.ProducerMessage, m *wrp.Message) {
 	}
 
 	// TODO Remove along with `IncludeSpans`
+	//this todo was copied over when i copied the wrphttp.AddMessageHeaders  
 	// nolint:staticcheck
 	if m.IncludeSpans != nil {
 		kafkaMsg.Headers = append(kafkaMsg.Headers, sarama.RecordHeader{

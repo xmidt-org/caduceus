@@ -6,6 +6,7 @@ import "time"
 
 // Below is the struct we're using to contain the data from a provided config file
 // TODO: Try to figure out how to make bucket ranges configurable
+//this todo was copied over from old caduceus
 type Config struct {
 	// The number of workers to assign to each SinkSender created.
 	NumWorkersPerSender int

@@ -121,7 +121,7 @@ func NewSender(w *wrapper, l ancla.Register) (s *sender, err error) {
 		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
 		logger:       w.logger,
-		config:       w.config, //TODO: need to figure out which config options are used for just sender, just sink, and both
+		config:       w.config,
 		// dropUntil:        where is this being set in old caduceus?,
 		cutOffPeriod:     w.config.CutOffPeriod,
 		deliveryRetries:  w.config.DeliveryRetries,
@@ -185,6 +185,7 @@ func (s *sender) Update(l ancla.Register) (err error) {
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
 // TODO: can pass in message along with webhook information
+// this todo needs discussion - don't remember what this was about
 func (s *sender) Queue(msg *wrp.Message) {
 	s.mutex.RLock()
 	deliverUntil := s.deliverUntil
@@ -217,6 +218,7 @@ func (s *sender) Queue(msg *wrp.Message) {
 	}
 
 	//TODO: this code will be changing will take away queue and send to the sink interface (not webhook interface)
+	//this todo needs discussion - don't remember what this was about
 	select {
 	case s.queue.Load().(chan *wrp.Message) <- msg:
 		s.queueDepthGauge.Add(1.0)
@@ -310,11 +312,11 @@ func (s *sender) queueOverflow() {
 	}
 	s.dropUntil = time.Now().Add(s.cutOffPeriod)
 	s.dropUntilGauge.Set(float64(s.dropUntil.Unix()))
-	//TODO: need to figure this out
+	//TODO: need to figure out best way to get secret from sender.Sink (interface)
 	// secret := s.listener.Webhook.Config.Secret
 	secret := "placeholderSecret"
 	failureMsg := s.failureMessage
-	//TODO: need to figure this out
+	//TODO: need to figure out best way to get failureurl from sender.Sink (interface)
 	// failureURL := s.listener.Webhook.FailureURL
 	failureURL := "placeholderURL"
 	s.mutex.Unlock()
