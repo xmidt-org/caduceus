@@ -21,9 +21,6 @@ var (
 	matcher = &MatcherV1{
 		events:  []*regexp.Regexp{regexp.MustCompile("iot")},
 		matcher: []*regexp.Regexp{regexp.MustCompile("mac:112233445566")},
-		CommonWebhook: CommonWebhook{
-			logger: logger,
-		},
 	}
 )
 
