@@ -31,17 +31,16 @@ type Matcher interface {
 type MatcherV1 struct {
 	events  []*regexp.Regexp
 	matcher []*regexp.Regexp
-	CommonMatcher
+	logger  *zap.Logger
+
+	mutex sync.RWMutex
 }
 
 type MatcherV2 struct {
 	matcher map[string]*regexp.Regexp
-	CommonMatcher
-}
+	logger  *zap.Logger
 
-type CommonMatcher struct {
-	logger *zap.Logger
-	mutex  sync.RWMutex
+	mutex sync.RWMutex
 }
 
 // TODO: need to add matching logic for RegistryV2 & MatcherV2
@@ -69,8 +68,13 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 // Update applies user configurable values for the outbound sender when a
 // webhook is registered
 func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
-
 	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
+	if l.Registration.FailureURL != "" {
+		_, err := url.ParseRequestURI(l.Registration.FailureURL)
+		if err != nil {
+			return err
+		}
+	}
 
 	var events []*regexp.Regexp
 	for _, event := range l.Registration.Events {

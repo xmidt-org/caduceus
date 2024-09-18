@@ -13,6 +13,7 @@ import (
 	"github.com/xmidt-org/arrange/arrangepprof"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/caduceus/internal/client"
+	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/clortho"
@@ -24,6 +25,7 @@ import (
 // Config is the top level configuration for the caduceus service.  Everything
 // is contained in this structure or it will intentially cause a failure.
 type Config struct {
+	Capability             handler.CapabilityConfig
 	Logging                sallust.Config
 	Tracing                candlelight.Config
 	Prometheus             touchstone.Config

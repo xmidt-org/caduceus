@@ -88,6 +88,7 @@ func Caduceus(arguments []string, run bool) error {
 			goschtalt.UnmarshalFunc[sallust.Config]("logging"),
 			goschtalt.UnmarshalFunc[candlelight.Config]("tracing"),
 			goschtalt.UnmarshalFunc[touchstone.Config]("prometheus"),
+			goschtalt.UnmarshalFunc[handler.CapabilityConfig]("capabilityCheck"),
 			goschtalt.UnmarshalFunc[sink.Config]("sender"),
 			goschtalt.UnmarshalFunc[Service]("service"),
 			goschtalt.UnmarshalFunc[client.HttpClientTimeout]("argusClientTimeout"),
@@ -210,12 +211,7 @@ func provideCLIWithOpts(args cliArgs, testOpts bool) (*CLI, error) {
 
 	parser, err := kong.New(&cli,
 		kong.Name(applicationName),
-		kong.Description("The cpe agent for Xmidt service.\n"+
-			fmt.Sprintf("\tVersion:  %s\n", version)+
-			fmt.Sprintf("\tDate:     %s\n", date)+
-			fmt.Sprintf("\tCommit:   %s\n", commit)+
-			fmt.Sprintf("\tBuilt By: %s\n", builtBy),
-		),
+		kong.Description("Xmidt Caudceus service.\n"),
 		kong.UsageOnError(),
 		opt,
 	)
