@@ -3,19 +3,15 @@
 package sink
 
 import (
-	"container/ring"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -30,22 +26,22 @@ func (c *ClientMock) Do(req *http.Request) (*http.Response, error) {
 // move to subpackage and change to Interface
 type Matcher interface {
 	IsMatch(*wrp.Message) bool
-
-	//TODO: not sure if this will be functionality of all webhooks or just v1
-	//leaving for now - will make changes if running into roadblock with this
-	getUrls() *ring.Ring
 }
 
 type MatcherV1 struct {
 	events  []*regexp.Regexp
 	matcher []*regexp.Regexp
-	urls    *ring.Ring
-	CommonWebhook
+	CommonMatcher
 }
 
-type CommonWebhook struct {
-	mutex  sync.RWMutex
+type MatcherV2 struct {
+	matcher map[string]*regexp.Regexp
+	CommonMatcher
+}
+
+type CommonMatcher struct {
 	logger *zap.Logger
+	mutex  sync.RWMutex
 }
 
 // TODO: need to add matching logic for RegistryV2 & MatcherV2
@@ -53,6 +49,13 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 	switch v := l.(type) {
 	case *ancla.RegistryV1:
 		m := &MatcherV1{}
+		m.logger = logger
+		if err := m.update(*v); err != nil {
+			return nil, err
+		}
+		return m, nil
+	case *ancla.RegistryV2:
+		m := &MatcherV2{}
 		m.logger = logger
 		if err := m.update(*v); err != nil {
 			return nil, err
@@ -67,13 +70,7 @@ func NewMatcher(l ancla.Register, logger *zap.Logger) (Matcher, error) {
 // webhook is registered
 func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
-	//TODO: don't believe the logger for webhook is being set anywhere just yet
 	m1.logger = m1.logger.With(zap.String("webhook.address", l.Registration.Address))
-
-	if l.Registration.FailureURL != "" {
-		_, err := url.ParseRequestURI(l.Registration.FailureURL)
-		return err
-	}
 
 	var events []*regexp.Regexp
 	for _, event := range l.Registration.Events {
@@ -106,14 +103,6 @@ func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 	}
 
 	// Validate the various urls
-	urlCount := len(l.Registration.Config.AlternativeURLs)
-	for i := 0; i < urlCount; i++ {
-		_, err := url.Parse(l.Registration.Config.AlternativeURLs[i])
-		if err != nil {
-			m1.logger.Error("failed to update url", zap.Any(metrics.UrlLabel, l.Registration.Config.AlternativeURLs[i]), zap.Error(err))
-			return err
-		}
-	}
 
 	// write/update sink sender
 	m1.mutex.Lock()
@@ -123,28 +112,8 @@ func (m1 *MatcherV1) update(l ancla.RegistryV1) error {
 
 	// if matcher list is empty set it nil for Queue() logic
 	m1.matcher = nil
-	if 0 < len(matcher) {
+	if len(matcher) > 0 {
 		m1.matcher = matcher
-	}
-
-	if urlCount == 0 {
-		m1.urls = ring.New(1)
-		m1.urls.Value = l.Registration.Config.ReceiverURL
-	} else {
-		ring := ring.New(urlCount)
-		for i := 0; i < urlCount; i++ {
-			ring.Value = l.Registration.Config.AlternativeURLs[i]
-			ring = ring.Next()
-		}
-		m1.urls = ring
-	}
-
-	// Randomize where we start so all the instances don't synchronize
-	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	offset := rand.Intn(m1.urls.Len())
-	for 0 < offset {
-		m1.urls = m1.urls.Next()
-		offset--
 	}
 
 	return nil
@@ -186,11 +155,68 @@ func (m1 *MatcherV1) IsMatch(msg *wrp.Message) bool {
 	return true
 }
 
-func (m1 *MatcherV1) getUrls() (urls *ring.Ring) {
-	urls = m1.urls
-	// Move to the next URL to try 1st the next time.
-	// This is okay because we run a single dispatcher and it's the
-	// only one updating this field.
-	m1.urls = m1.urls.Next()
-	return
+// Update applies user configurable values for the outbound sender when a
+// webhook is registered
+func (m2 *MatcherV2) update(l ancla.RegistryV2) error {
+
+	m2.logger = m2.logger.With(zap.String("webhook.address", l.Registration.Address))
+
+	if l.Registration.FailureURL != "" {
+		_, err := url.ParseRequestURI(l.Registration.FailureURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	//TODO: should we be checking that the l.Registration.Matcher.Field is a field in the wrp.Message?
+	matcher := make(map[string]*regexp.Regexp)
+	for _, item := range l.Registration.Matcher {
+		if item.Regex == ".*" {
+			// Match everything - skip the filtering
+			matcher[item.Field] = &regexp.Regexp{}
+			break
+		}
+
+		var re *regexp.Regexp
+		re, err := regexp.Compile(item.Regex)
+		if err != nil {
+			return fmt.Errorf("invalid matcher item: '%s'", item.Regex)
+		}
+		matcher[item.Field] = re
+	}
+
+	// write/update sink sender
+	m2.mutex.Lock()
+	defer m2.mutex.Unlock()
+
+	// if matcher list is empty set it nil for Queue() logic
+	m2.matcher = nil
+	if len(matcher) > 0 {
+		m2.matcher = matcher
+	}
+
+	return nil
+
+}
+
+func (m2 *MatcherV2) IsMatch(msg *wrp.Message) bool {
+	m2.mutex.RLock()
+	matcher := m2.matcher
+	m2.mutex.RUnlock()
+
+	var (
+		matchDevice = false
+	)
+	for field, deviceRegex := range matcher {
+		if deviceRegex.MatchString(field) || deviceRegex.MatchString(strings.TrimPrefix(field, "event:")) {
+			matchDevice = true
+			break
+		}
+	}
+
+	if !matchDevice {
+		m2.logger.Debug("device regex doesn't match", zap.String("event.source", msg.Source))
+		return false
+	}
+	return true
 }
