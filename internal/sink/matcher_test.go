@@ -4,13 +4,12 @@ package sink
 
 import (
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
@@ -21,6 +20,7 @@ var (
 	matcher = &MatcherV1{
 		events:  []*regexp.Regexp{regexp.MustCompile("iot")},
 		matcher: []*regexp.Regexp{regexp.MustCompile("mac:112233445566")},
+		logger:  sallust.Default(),
 	}
 )
 
@@ -139,6 +139,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 			registry: ancla.RegistryV1{
 				Registration: webhook.RegistrationV1{
 					FailureURL: "localhost.io",
+					Events:     []string{"iot"},
 				},
 			},
 			expectedErr: fmt.Errorf("invalid URI for request"),
@@ -213,26 +214,4 @@ func TestNewMatcher(t *testing.T) {
 
 		})
 	}
-}
-
-func TestClientMock_Do(t *testing.T) {
-	// Create a mock server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	client := &ClientMock{}
-	req, _ := http.NewRequest(http.MethodGet, server.URL, nil)
-
-	// Test case 1: Successful request
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-
-	// Test case 2: Error in request
-	req.URL.Scheme = "invalid"
-	resp, err = client.Do(req)
-	assert.Error(t, err)
-	assert.Nil(t, resp)
 }

@@ -272,68 +272,68 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 # GET.  The accept all method is a catchall string that indicates the capability 
 # is approved for all methods.
 # (Optional)
-# capabilityCheck:
-#   # type provides the mode for capability checking.
-#   type: "enforce"
-#   # prefix provides the regex to match the capability before the endpoint.
-#   prefix: "prefix Here"
-#   # acceptAllMethod provides a way to have a capability that allows all 
-#   # methods for a specific endpoint.
-#   acceptAllMethod: "all"
-#   # endpointBuckets provides regular expressions to use against the request 
-#   # endpoint in order to group requests for a metric label.
-#   endpointBuckets:
-#     - "hook\\b"
-#     - "hooks\\b"
-#     - "notify\\b"
+capability:
+  # type provides the mode for capability checking.
+  type: "enforce"
+  # prefix provides the regex to match the capability before the endpoint.
+  prefix: "prefix Here"
+  # acceptAllMethod provides a way to have a capability that allows all 
+  # methods for a specific endpoint.
+  acceptAllMethod: "all"
+  # endpointBuckets provides regular expressions to use against the request 
+  # endpoint in order to group requests for a metric label.
+  endpointBuckets:
+    - "hook\\b"
+    - "hooks\\b"
+    - "notify\\b"
 
 ##############################################################################
 # Webhooks Related Configuration 
 ##############################################################################
 # webhook provides configuration for storing and obtaining webhook
 # information using Argus.
-# webhook:
-#   # JWTParserType establishes which parser type will be used by the JWT token
-#   # acquirer used by Argus. Options include 'simple' and 'raw'.
-#   # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
-#   # Raw: parser assumes all of the token payload == JWT token
-#   # (Optional). Defaults to 'simple'.
-#   jwtParserType: "raw"
-#   basicClientConfig:
-#     # listen is the subsection that configures the listening feature of the argus client
-#     # (Optional)
-#     # listen:
-#     #   # pullInterval provides how often the current webhooks list gets refreshed.
-#     #   pullInterval: 5s
+webhook:
+  # JWTParserType establishes which parser type will be used by the JWT token
+  # acquirer used by Argus. Options include 'simple' and 'raw'.
+  # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
+  # Raw: parser assumes all of the token payload == JWT token
+  # (Optional). Defaults to 'simple'.
+  jwtParserType: "raw"
+  basicClientConfig:
+    # listen is the subsection that configures the listening feature of the argus client
+    # (Optional)
+    # listen:
+    #   # pullInterval provides how often the current webhooks list gets refreshed.
+    #   pullInterval: 5s
 
-#     # bucket is the partition name where webhooks will be stored.
-#     bucket: "webhooks"
+    # bucket is the partition name where webhooks will be stored.
+    bucket: "webhooks"
 
-#     # address is Argus' network location.
-#     address: "http://localhost:6600"
+    # address is Argus' network location.
+    address: "http://localhost:6600"
 
-#     # auth the authentication method for argus.
-#     auth:
-#       # basic configures basic authentication for argus.
-#       # Must be of form: 'Basic xyz=='
-#       basic: "Basic dXNlcjpwYXNz"
-  #
-  #    # jwt configures jwt style authentication for argus.
-  #    JWT:
-  #      # requestHeaders are added to the request for the token.
-  #      # (Optional)
-  #      # requestHeaders:
-  #      #   "": ""
-  #
-  #      # authURL is the URL to access the token.
-  #      authURL: ""
-  #
-  #      # timeout is how long the request to get the token will take before
-  #      # timing out.
-  #      timeout: "1m"
-  #
-  #      # buffer is the length of time before a token expires to get a new token.
-  #      buffer: "2m"
+    # auth the authentication method for argus.
+    auth:
+      # basic configures basic authentication for argus.
+      # Must be of form: 'Basic xyz=='
+      basic: "Basic dXNlcjpwYXNz"
+  
+      # jwt configures jwt style authentication for argus.
+      jwt:
+        # requestHeaders are added to the request for the token.
+        # (Optional)
+        # requestHeaders:
+        #   "": ""
+    
+        # authURL is the URL to access the token.
+        authUrl: ""
+    
+        # timeout is how long the request to get the token will take before
+        # timing out.
+        timeout: "1m"
+    
+        # buffer is the length of time before a token expires to get a new token.
+        buffer: "2m"
 
 ########################################
 #   Delivery Pipeline Related Configuration

@@ -2,48 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 package handler
 
-// import (
-// 	"bytes"
-// 	"context"
-// 	"encoding/base64"
-// 	"fmt"
-// 	"net/http"
-// 	"os"
-// 	"os/signal"
-// 	"regexp"
-// 	"syscall"
+const (
+	apiVersion         = "v4"
+	prevAPIVersion     = "v3"
+	apiBase            = "api/" + apiVersion
+	apiBaseDualVersion = "api/{version:" + apiVersion + "|" + prevAPIVersion + "}"
+)
 
-// 	"emperror.dev/emperror"
-
-// 	"github.com/gorilla/mux"
-// 	"github.com/justinas/alice"
-// 	"github.com/spf13/viper"
-// 	"github.com/xmidt-org/bascule"
-// 	"github.com/xmidt-org/bascule/basculechecks"
-// 	"github.com/xmidt-org/bascule/basculehelper"
-// 	"github.com/xmidt-org/bascule/basculehttp"
-// 	"github.com/xmidt-org/caduceus/internal/logging"
-// 	"github.com/xmidt-org/clortho"
-// 	"github.com/xmidt-org/clortho/clorthozap"
-// 	"github.com/xmidt-org/sallust"
-// 	"github.com/xmidt-org/touchstone"
-
-// 	"go.uber.org/zap"
-// )
-
-// const (
-// 	apiVersion         = "v4"
-// 	prevAPIVersion     = "v3"
-// 	apiBase            = "api/" + apiVersion
-// 	apiBaseDualVersion = "api/{version:" + apiVersion + "|" + prevAPIVersion + "}"
-// )
-
-// type CapabilityConfig struct {
-// 	Type            string
-// 	Prefix          string
-// 	AcceptAllMethod string
-// 	EndpointBuckets []string
-// }
+type CapabilityConfig struct {
+	Type            string
+	Prefix          string
+	AcceptAllMethod string
+	EndpointBuckets []string
+}
 
 // func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, sw *ServerHandler, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
 // 	auth, err := authenticationMiddleware(v, l)
