@@ -44,13 +44,18 @@ type WebhookV1 struct {
 type Webhooks []*WebhookV1
 type CommonWebhook struct {
 	id               string
+	hashField        string
 	failureUrl       string
 	deliveryInterval time.Duration
 	deliveryRetries  int
 	mutex            sync.RWMutex
 	logger           *zap.Logger
 }
-type Kafkas []*Kafka
+type KafkaSink struct {
+	Kafkas    []*Kafka
+	Hash      *HashRing
+	HashField string
+}
 type Kafka struct {
 	brokerAddr []string
 	topic      string
@@ -76,11 +81,15 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			return whs
 		}
 		if len(l.Registration.Kafkas) > 0 {
-			var sink Kafkas
-			for _, k := range l.Registration.Kafkas {
+			var sink KafkaSink
+			r := NewRing()
+			sink.HashField = l.Registration.Hash.Field
+			for i, k := range l.Registration.Kafkas {
 				kafka := &Kafka{}
 				kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
-				sink = append(sink, kafka)
+				sink.Kafkas = append(sink.Kafkas, kafka)
+				key := l.Registration.Hash.Field + strconv.Itoa(i)
+				r.AddServer(key)
 			}
 			return sink
 		}
@@ -91,8 +100,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 }
 
 func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) (err error) {
-	//TODO: is there anything else that needs to be done for this?
-	//do we need to return an error
+	//TODO: do we need to return an error if not - we should get rid of the error return
 	v1.id = id
 	v1.failureUrl = failureUrl
 	v1.deliveryInterval = c.DeliveryInterval
@@ -338,11 +346,20 @@ func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *
 	return nil
 }
 
-func (k Kafkas) Send(secret string, acceptType string, msg *wrp.Message) error {
+func (k KafkaSink) Send(secret string, acceptType string, msg *wrp.Message) error {
+	key := GetKey(k.HashField, msg)
+	for i, kafka := range k.Kafkas {
+		hash := k.HashField + strconv.Itoa(i)
+		server := k.Hash.GetServer(key)
+		if server == hash {
+			_ = kafka.send(secret, acceptType, msg)
+		}
+
+	}
 	//TODO: discuss with wes and john the default hashing logic
 	//for now: when no hash is given we will just loop through all the kafkas
 	var errs error
-	for _, kafka := range k {
+	for _, kafka := range k.Kafkas {
 		err := kafka.send(secret, acceptType, msg)
 		if err != nil {
 			errs = errors.Join(errs, err)
