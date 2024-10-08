@@ -15,12 +15,13 @@ import (
 	_ "github.com/goschtalt/yaml-decoder"
 	_ "github.com/goschtalt/yaml-encoder"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/ancla/anclafx"
 	"github.com/xmidt-org/arrange/arrangehttp"
-	anclahelper "github.com/xmidt-org/caduceus/internal/anclaHelper"
 	"github.com/xmidt-org/caduceus/internal/client"
 	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/caduceus/internal/sink"
+	"github.com/xmidt-org/clortho/clorthofx"
 
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/sallust"
@@ -141,6 +142,7 @@ func Caduceus(arguments []string, run bool) error {
 			candlelight.New,
 		),
 
+		anclafx.Provide(),
 		providePprofEndpoint(),
 		provideMetricEndpoint(),
 		provideHealthCheck(),
@@ -158,13 +160,10 @@ func Caduceus(arguments []string, run bool) error {
 		touchhttp.Provide(),
 		metrics.Provide(),
 		client.Provide(),
-		ancla.ProvideMetrics(),
-		ancla.ProvideListener(),
-		ancla.ProvideService(),
+		clorthofx.Provide(),
 
 		fx.Invoke(
 			lifeCycle,
-			anclahelper.InitializeAncla,
 		),
 	)
 

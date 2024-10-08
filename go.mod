@@ -12,7 +12,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/stretchr/testify v1.9.0
-	github.com/xmidt-org/ancla v0.3.13-0.20240829173225-b3ef5ded0677
+	github.com/xmidt-org/ancla v0.3.13-0.20241009144151-4779e9548d9e
 	github.com/xmidt-org/arrange v0.5.1-0.20230914215531-f02b8651b631
 	github.com/xmidt-org/bascule v0.11.7
 	github.com/xmidt-org/candlelight v0.0.21
