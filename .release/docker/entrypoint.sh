@@ -1,6 +1,6 @@
+#!/usr/bin/env sh
 # SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
-#!/usr/bin/env sh
 set -e
 
 # check arguments for an option that would cause /caduceus to stop
