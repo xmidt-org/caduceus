@@ -28,5 +28,9 @@ jobs:
       release-docker-latest: true
       release-docker-major:  true
       release-docker-minor:  true
+      release-docker-extras: |
+        .release/docker
+        LICENSE
+        NOTICE
       yaml-lint-skip:        false
     secrets: inherit
