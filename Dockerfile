@@ -10,7 +10,6 @@ ARG BUILDTIME
 
 RUN apk add --no-cache --no-progress \
     ca-certificates \
-    make \
     curl \
     git \
     openssh \
@@ -25,8 +24,6 @@ RUN mkdir -p /go/bin && \
     sha1sum /go/bin/spruce
 
 COPY . .
-
-RUN make test release
 
 ##########################
 # Build the final image.
