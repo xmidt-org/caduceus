@@ -142,7 +142,6 @@ func Caduceus(arguments []string, run bool) error {
 			candlelight.New,
 		),
 
-		anclafx.Provide(),
 		providePprofEndpoint(),
 		provideMetricEndpoint(),
 		provideHealthCheck(),
@@ -161,6 +160,7 @@ func Caduceus(arguments []string, run bool) error {
 		metrics.Provide(),
 		client.Provide(),
 		clorthofx.Provide(),
+		anclafx.Provide(),
 
 		fx.Invoke(
 			lifeCycle,
