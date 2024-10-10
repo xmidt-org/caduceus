@@ -51,9 +51,10 @@ _testmain.go
 .vscode/*
 .dev/*
 
-caduceus
+caduceus.yaml
 .ignore
 
 
 !deploy/helm/caduceus
 deploy/helm/caduceus/rendered.*
+
