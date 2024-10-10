@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/handler"
 	"github.com/xmidt-org/caduceus/internal/sink"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -36,16 +37,16 @@ type Wrapper struct {
 	mock.Mock
 }
 
-// func (m *MockSinkWrapper) Update(list []ancla.InternalWebhook) {
-// 	m.Called(list)
-// }
-
 func (m *Wrapper) Queue(msg *wrp.Message) {
 	m.Called(msg)
 }
 
 func (m *Wrapper) Shutdown(gentle bool) {
 	m.Called(gentle)
+}
+
+func (m *Wrapper) Update(r []ancla.Register) {
+	m.Called(r)
 }
 
 // mockTime provides two mock time values

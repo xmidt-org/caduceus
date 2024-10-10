@@ -17,10 +17,13 @@ import (
 
 var (
 	logger  = zap.NewNop()
-	matcher = &MatcherV1{
+	matcherv1 = &MatcherV1{
 		events:  []*regexp.Regexp{regexp.MustCompile("iot")},
 		matcher: []*regexp.Regexp{regexp.MustCompile("mac:112233445566")},
 		logger:  sallust.Default(),
+	}
+	matchverv2 = &MatcherV2{
+		matcher: map[string]*regexp.Regexp{}
 	}
 )
 
@@ -33,7 +36,7 @@ func TestIsMatch(t *testing.T) {
 	}{
 		{
 			description: "MatcherV1 - matching event & matcher",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			msg: &wrp.Message{
 				Destination: "event: iot",
 				Source:      "mac:112233445566",
@@ -42,7 +45,7 @@ func TestIsMatch(t *testing.T) {
 		},
 		{
 			description: "MatcherV1 - mismatch event",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			msg: &wrp.Message{
 				Destination: "event: test",
 				Source:      "mac:112233445566",
@@ -51,7 +54,7 @@ func TestIsMatch(t *testing.T) {
 		},
 		{
 			description: "MatcherV1 - mismatch matcher",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			msg: &wrp.Message{
 				Destination: "event: iot",
 				Source:      "mac:00deadbeef00",
@@ -70,30 +73,6 @@ func TestIsMatch(t *testing.T) {
 	}
 }
 
-// func TestMatcherV1_GetUrls(t *testing.T) {
-
-// 	tests := []struct {
-// 		description  string
-// 		matcher      Matcher
-// 		urlsExpected bool
-// 		expectedUrls *ring.Ring
-// 	}{
-// 		{
-// 			description: "no urls",
-// 			matcher: &MatcherV1{
-// 				urls: &ring.Ring{},
-// 			},
-// 			urlsExpected: false,
-// 			expectedUrls: &ring.Ring{},
-// 		},
-// 	}
-
-//		for _, tc := range tests {
-//			t.Run(tc.description, func(t *testing.T) {
-//				assert.Equal(t, tc.expectedUrls, tc.matcher.getUrls())
-//			})
-//		}
-//	}
 func TestUpdate_MatcherV1(t *testing.T) {
 	tests := []struct {
 		description string
