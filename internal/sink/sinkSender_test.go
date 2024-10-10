@@ -22,6 +22,108 @@ package sink
 // 	"time"
 // )
 
+// func NewSenderTest(t *testing.T) {
+// 	mockClient := new(client.MockClient)
+// 	tests := []struct {
+// 		description    string
+// 		wrapper        *wrapper
+// 		register       ancla.Register
+// 		expectedSender *sender
+// 		expectedError  error
+// 	}{
+// 		{
+// 			description: "success - V1",
+// 			wrapper: &wrapper{
+// 				linger: 5 * time.Minute,
+// 				logger: logger,
+// 				config: getTestConfig(),
+// 				client: mockClient,
+// 			},
+// 			register:       getTestRegistryV1(),
+// 			expectedSender: getTestSender(),
+// 		},
+// 	}
+// 	for _, tc := range tests {
+// 		t.Run(tc.description, func(t *testing.T) {
+// 			sender, err := NewSender(tc.wrapper, tc.register)
+// 			if tc.expectedError != nil {
+// 				assert.Error(t, err)
+// 				assert.ErrorAs(t, err, tc.expectedError)
+// 			} else {
+// 				assert.NoError(t, err)
+// 				hideSecret(tc.expectedSender.failureMessage.Original)
+// 				assert.Equal(t, tc.expectedSender, sender)
+// 			}
+// 		})
+// 	}
+// }
+
+// func getTestConfig() Config {
+// 	return Config{
+// 		NumWorkersPerSender: 5,
+// 		QueueSizePerSender:  5,
+// 		CutOffPeriod:        15 * time.Second,
+// 		Linger:              2 * time.Minute,
+// 		DeliveryRetries:     3,
+// 		DeliveryInterval:    30 * time.Second,
+// 		CustomPIDs:          []string{"comcast"},
+// 		DisablePartnerIDs:   false,
+// 		ClientTimeout:       2 * time.Minute,
+// 	}
+// }
+// func getTestRegistryV1() *ancla.RegistryV1 {
+// 	refTime := getRefTime()
+// 	return &ancla.RegistryV1{
+// 		Registration: webhook.RegistrationV1{
+// 			Address: "http://original-requester.example.net",
+// 			Config: webhook.DeliveryConfig{
+// 				ReceiverURL: "http://deliver-here-0.example.net",
+// 				ContentType: "application/json",
+// 				Secret:      "superSecretXYZ",
+// 			},
+// 			Events: []string{"online"},
+// 			Matcher: webhook.MetadataMatcherConfig{
+// 				DeviceID: []string{"mac:aabbccddee.*"},
+// 			},
+// 			FailureURL: "http://contact-here-when-fails.example.net",
+// 			Duration:   webhook.CustomDuration(10 * time.Second),
+// 			Until:      refTime.Add(10 * time.Second),
+// 		},
+// 		PartnerIDs: []string{"comcast"},
+// 	}
+// }
+
+// func getRefTime() time.Time {
+// 	refTime, err := time.Parse(time.RFC3339, "2021-01-02T15:04:00Z")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	return refTime
+// }
+
+// func getTestSender() *sender {
+// 	return &sender{
+// 		id:               getTestRegistryV1().GetId(),
+// 		listener:         getTestRegistryV1(),
+// 		queueSize:        getTestConfig().QueueSizePerSender,
+// 		logger:           logger,
+// 		config:           getTestConfig(),
+// 		cutOffPeriod:     getTestSender().cutOffPeriod,
+// 		deliveryRetries:  getTestConfig().DeliveryRetries,
+// 		deliveryInterval: getTestConfig().DeliveryInterval,
+// 		maxWorkers:       getTestConfig().NumWorkersPerSender,
+// 		failureMessage: FailureMessage{
+// 			Original:     getTestRegistryV1(),
+// 			Text:         failureText,
+// 			CutOffPeriod: getTestConfig().CutOffPeriod.String(),
+// 			QueueSize:    getTestConfig().QueueSizePerSender,
+// 			Workers:      getTestConfig().NumWorkersPerSender,
+// 		},
+// 		customPIDs:        getTestConfig().CustomPIDs,
+// 		disablePartnerIDs: getTestConfig().DisablePartnerIDs,
+// 	}
+// }
+
 // // Make a simple RoundTrip implementation that let's me short-circuit the network
 // type transport struct {
 // 	i  int32

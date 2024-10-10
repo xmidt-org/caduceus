@@ -20,6 +20,8 @@ package metrics
 //      fakeSlow.On("Add", 1.0).Return()
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,4 +33,46 @@ func TestMetrics(t *testing.T) {
 	m := Provide()
 
 	assert.NotNil(m)
+}
+
+func TestGetDoErrReason(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "No error",
+			err:  nil,
+			want: NoErrReason,
+		},
+		{
+			name: "Generic do error",
+			err:  errors.New("do_error"),
+			want: GenericDoReason,
+		},
+		{
+			name: "Deadline exceeded",
+			err:  context.DeadlineExceeded,
+			want: deadlineExceededReason,
+		},
+		{
+			name: "Context canceled",
+			err:  context.Canceled,
+			want: contextCanceledReason,
+		},
+		// {
+		// 	name: "Address error",
+		// 	err:  &net.AddrError{},
+		// 	want: addressErrReason,
+		// },
+		// Add more test cases here
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetDoErrReason(tt.err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

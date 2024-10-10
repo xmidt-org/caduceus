@@ -44,6 +44,48 @@ package sink
 // 	}
 // }
 
+// func TestNewSink(t *testing.T) {
+// 	tests := []struct {
+// 		description string
+// 		config      Config
+// 		listener    ancla.Register
+// 		expected    Sink
+// 	}{
+// 		{
+// 			description: "RegistryV1 - success",
+// 			listener: &ancla.RegistryV1{
+// 				Registration: webhook.RegistrationV1{
+// 					Config: webhook.DeliveryConfig{
+// 						ReceiverURL: "www.example.com",
+// 					},
+// 				},
+// 			},
+// 			config: Config{
+// 				DeliveryInterval: 5 * time.Minute,
+// 				DeliveryRetries:  3,
+// 			},
+// 			expected: &WebhookV1{
+// 				id:               "www.example.com",
+// 				deliveryInterval: 5 * time.Minute,
+// 				deliveryRetries:  3,
+// 				logger:           logger,
+// 			},
+// 		},
+// 		{
+// 			description: "default case",
+// 			listener:    &ancla.RegistryV1{},
+// 			expected:    &WebhookV1{logger: logger},
+// 		},
+// 	}
+
+// 	for _, tc := range tests {
+// 		t.Run(tc.description, func(t *testing.T) {
+// 			sink := NewSink(tc.config, logger, tc.listener)
+// 			assert.Equal(t, tc.expected, sink)
+// 		})
+// 	}
+// }
+
 // func TestUpdateSink(t *testing.T) {
 // 	listener := &ancla.RegistryV1{
 // 		Registration: webhook.RegistrationV1{
