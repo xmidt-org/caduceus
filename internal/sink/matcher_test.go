@@ -22,9 +22,6 @@ var (
 		matcher: []*regexp.Regexp{regexp.MustCompile("mac:112233445566")},
 		logger:  sallust.Default(),
 	}
-	matchverv2 = &MatcherV2{
-		matcher: map[string]*regexp.Regexp{}
-	}
 )
 
 func TestIsMatch(t *testing.T) {
@@ -82,7 +79,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 	}{
 		{
 			description: "success - with device id",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			registry: ancla.RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Events: []string{"iot"},
@@ -98,7 +95,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 		},
 		{
 			description: "success - with .* device id",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			registry: ancla.RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Events: []string{"iot"},
@@ -114,7 +111,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 		},
 		{
 			description: "failing failureURL",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			registry: ancla.RegistryV1{
 				Registration: webhook.RegistrationV1{
 					FailureURL: "localhost.io",
@@ -125,7 +122,7 @@ func TestUpdate_MatcherV1(t *testing.T) {
 		},
 		{
 			description: "missing events",
-			matcher:     matcher,
+			matcher:     matcherv1,
 			registry: ancla.RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Events: []string{},
