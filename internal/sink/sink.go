@@ -51,7 +51,7 @@ type CommonWebhook struct {
 	logger           *zap.Logger
 }
 type KafkaSink struct {
-	Kafkas    []*Kafka
+	Kafkas    map[string]*Kafka
 	Hash      *HashRing
 	HashField string
 }
@@ -81,15 +81,15 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 		}
 		if len(l.Registration.Kafkas) > 0 {
 			var sink KafkaSink
-			r := NewRing()
+			r := &HashRing{}
 			sink.HashField = l.Registration.Hash.Field
 			for i, k := range l.Registration.Kafkas {
 				kafka := &Kafka{}
 				kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
-				sink.Kafkas = append(sink.Kafkas, kafka)
+				sink.Kafkas[strconv.Itoa(i)] = kafka
 				if l.Registration.Hash.Field != "" {
-					key := l.Registration.Hash.Field + strconv.Itoa(i)
-					r.AddServer(key)
+					r.Add(strconv.Itoa(i))
+
 				}
 			}
 			sink.Hash = r
@@ -351,18 +351,17 @@ func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *
 func (k KafkaSink) Send(secret string, acceptType string, msg *wrp.Message) error {
 	var errs error
 	if k.HashField != "" {
-		key := GetKey(k.HashField, msg)
-		for i, kafka := range k.Kafkas {
-			hash := k.HashField + strconv.Itoa(i)
-			server := k.Hash.GetServer(key)
-			if server == hash {
-				err := kafka.send(secret, acceptType, msg)
-				if err != nil {
-					errs = errors.Join(errs, err)
-				}
+
+		if kafka, ok := k.Kafkas[k.Hash.Get(GetKey(k.HashField, msg))]; ok {
+			err := kafka.send(secret, acceptType, msg)
+			if err != nil {
+				errs = errors.Join(errs, err)
 			}
 
+		} else {
+			errs = fmt.Errorf("could not find kakfa for the related hash %v", k.HashField)
 		}
+
 	} else {
 		//TODO: discuss with wes and john the default hashing logic
 		//for now: when no hash is given we will just loop through all the kafkas

@@ -28,7 +28,7 @@ func (h HashRing) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-func (h HashRing) GetServer(key string) string {
+func (h HashRing) Get(key string) string {
 	if len(h) == 0 {
 		return ""
 	}
@@ -42,14 +42,14 @@ func (h HashRing) GetServer(key string) string {
 	return h[idx].sink
 }
 
-func (h *HashRing) AddServer(server string) {
+func (h *HashRing) Add(server string) {
 	hash := int(crc32.ChecksumIEEE([]byte(server)))
 	node := Node{hash: hash, sink: server}
 	*h = append(*h, node)
 	sort.Sort(h)
 }
 
-func (h *HashRing) RemoveServer(server string) {
+func (h *HashRing) Remove(server string) {
 	hash := int(crc32.ChecksumIEEE([]byte(server)))
 	for i, node := range *h {
 		if node.hash == hash {
@@ -58,10 +58,6 @@ func (h *HashRing) RemoveServer(server string) {
 		}
 	}
 	sort.Sort(h)
-}
-
-func NewRing() *HashRing {
-	return &HashRing{}
 }
 
 func GetKey(field string, msg *wrp.Message) string {
