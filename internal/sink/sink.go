@@ -85,7 +85,10 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			sink.HashField = l.Registration.Hash.Field
 			for i, k := range l.Registration.Kafkas {
 				kafka := &Kafka{}
-				kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
+				err := kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
+				if err != nil {
+					return nil
+				}
 				sink.Kafkas[strconv.Itoa(i)] = kafka
 				if l.Registration.Hash.Field != "" {
 					r.Add(strconv.Itoa(i))
@@ -101,7 +104,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	return nil
 }
 
-func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) (err error) {
+func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) {
 	//TODO: do we need to return an error if not - we should get rid of the error return
 	v1.id = id
 	v1.failureUrl = failureUrl
@@ -115,7 +118,6 @@ func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failu
 	}
 	v1.updateUrls(urlCount, receiverUrl, altUrls)
 
-	return nil
 }
 
 func (v1 *WebhookV1) updateUrls(urlCount int, url string, urls []string) {
