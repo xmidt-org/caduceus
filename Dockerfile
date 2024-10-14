@@ -4,19 +4,9 @@ FROM docker.io/library/golang:1.19-alpine as builder
 
 WORKDIR /src
 
-ARG VERSION
-ARG GITCOMMIT
-ARG BUILDTIME
-
 RUN apk add --no-cache --no-progress \
     ca-certificates \
-    make \
-    curl \
-    git \
-    openssh \
-    gcc \
-    libc-dev \
-    upx
+    curl
 
 # Download spruce here to eliminate the need for curl in the final image
 RUN mkdir -p /go/bin && \
@@ -24,8 +14,6 @@ RUN mkdir -p /go/bin && \
     chmod +x /go/bin/spruce
 
 COPY . .
-
-RUN make test release
 
 ##########################
 # Build the final image.
@@ -35,18 +23,17 @@ FROM alpine:latest
 
 # Copy over the standard things you'd expect.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt  /etc/ssl/certs/
-COPY --from=builder /src/caduceus                       /
-COPY --from=builder /src/.release/docker/entrypoint.sh  /
+COPY caduceus /
+COPY .release/docker/entrypoint.sh  /
 
 # Copy over spruce and the spruce template file used to make the actual configuration file.
-COPY --from=builder /src/.release/docker/caduceus_spruce.yaml  /tmp/caduceus_spruce.yaml
-COPY --from=builder /go/bin/spruce                             /bin/
+COPY .release/docker/caduceus_spruce.yaml  /tmp/caduceus_spruce.yaml
+COPY --from=builder /go/bin/spruce        /bin/
 
 # Include compliance details about the container and what it contains.
-COPY --from=builder /src/Dockerfile \
-                    /src/NOTICE \
-                    /src/LICENSE \
-                    /src/CHANGELOG.md   /
+COPY Dockerfile /
+COPY NOTICE     /
+COPY LICENSE    /
 
 # Make the location for the configuration file that will be used.
 RUN     mkdir /etc/caduceus/ \
