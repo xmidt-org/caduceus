@@ -350,18 +350,14 @@ func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *
 
 func (k KafkaSink) Send(secret string, acceptType string, msg *wrp.Message) error {
 	var errs error
-	if k.HashField != "" {
-
+	if len(*k.Hash) == len(k.Kafkas) {
+		//TODO: flush out the error handling for kafka
 		if kafka, ok := k.Kafkas[k.Hash.Get(GetKey(k.HashField, msg))]; ok {
 			err := kafka.send(secret, acceptType, msg)
 			if err != nil {
 				errs = errors.Join(errs, err)
 			}
-
-		} else {
-			errs = fmt.Errorf("could not find kakfa for the related hash %v", k.HashField)
 		}
-
 	} else {
 		//TODO: discuss with wes and john the default hashing logic
 		//for now: when no hash is given we will just loop through all the kafkas
