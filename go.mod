@@ -21,7 +21,7 @@ require (
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.7
 	github.com/xmidt-org/webpa-common/v2 v2.3.2
-	github.com/xmidt-org/wrp-go/v3 v3.5.2
+	github.com/xmidt-org/wrp-go/v3 v3.6.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.54.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0
 	go.uber.org/zap v1.27.0
