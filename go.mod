@@ -1,6 +1,8 @@
 module github.com/xmidt-org/caduceus
 
-go 1.21
+go 1.21.3
+
+toolchain go1.22.8
 
 require (
 	github.com/IBM/sarama v1.43.3
@@ -11,6 +13,7 @@ require (
 	github.com/goschtalt/yaml-encoder v0.0.3
 	github.com/prometheus/client_golang v1.19.1
 	github.com/satori/go.uuid v1.2.0
+	github.com/segmentio/ksuid v1.0.4
 	github.com/stretchr/testify v1.9.0
 	github.com/xmidt-org/ancla v0.3.13-0.20241009144151-4779e9548d9e
 	github.com/xmidt-org/arrange v0.5.1-0.20230914215531-f02b8651b631
@@ -18,6 +21,7 @@ require (
 	github.com/xmidt-org/candlelight v0.0.21
 	github.com/xmidt-org/clortho v0.0.4
 	github.com/xmidt-org/httpaux v0.4.0
+	github.com/xmidt-org/idock v0.6.16
 	github.com/xmidt-org/retry v0.0.3
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.5
