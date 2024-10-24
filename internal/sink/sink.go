@@ -50,7 +50,11 @@ type CommonWebhook struct {
 	mutex            sync.RWMutex
 	logger           *zap.Logger
 }
-type Kafkas []*Kafka
+type KafkaSink struct {
+	Kafkas    map[string]*Kafka
+	Hash      *HashRing
+	HashField string
+}
 type Kafka struct {
 	brokerAddr []string
 	topic      string
@@ -76,12 +80,22 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			return whs
 		}
 		if len(l.Registration.Kafkas) > 0 {
-			var sink Kafkas
-			for _, k := range l.Registration.Kafkas {
+			var sink KafkaSink
+			r := &HashRing{}
+			sink.HashField = l.Registration.Hash.Field
+			for i, k := range l.Registration.Kafkas {
 				kafka := &Kafka{}
-				kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
-				sink = append(sink, kafka)
+				err := kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
+				if err != nil {
+					return nil
+				}
+				sink.Kafkas[strconv.Itoa(i)] = kafka
+				if l.Registration.Hash.Field != "" {
+					r.Add(strconv.Itoa(i))
+
+				}
 			}
+			sink.Hash = r
 			return sink
 		}
 	default:
@@ -90,9 +104,8 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	return nil
 }
 
-func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) (err error) {
-	//TODO: is there anything else that needs to be done for this?
-	//do we need to return an error
+func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) {
+	//TODO: do we need to return an error if not - we should get rid of the error return
 	v1.id = id
 	v1.failureUrl = failureUrl
 	v1.deliveryInterval = c.DeliveryInterval
@@ -105,7 +118,6 @@ func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failu
 	}
 	v1.updateUrls(urlCount, receiverUrl, altUrls)
 
-	return nil
 }
 
 func (v1 *WebhookV1) updateUrls(urlCount int, url string, urls []string) {
@@ -338,14 +350,24 @@ func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *
 	return nil
 }
 
-func (k Kafkas) Send(secret string, acceptType string, msg *wrp.Message) error {
-	//TODO: discuss with wes and john the default hashing logic
-	//for now: when no hash is given we will just loop through all the kafkas
+func (k KafkaSink) Send(secret string, acceptType string, msg *wrp.Message) error {
 	var errs error
-	for _, kafka := range k {
-		err := kafka.send(secret, acceptType, msg)
-		if err != nil {
-			errs = errors.Join(errs, err)
+	if len(*k.Hash) == len(k.Kafkas) {
+		//TODO: flush out the error handling for kafka
+		if kafka, ok := k.Kafkas[k.Hash.Get(GetKey(k.HashField, msg))]; ok {
+			err := kafka.send(secret, acceptType, msg)
+			if err != nil {
+				errs = errors.Join(errs, err)
+			}
+		}
+	} else {
+		//TODO: discuss with wes and john the default hashing logic
+		//for now: when no hash is given we will just loop through all the kafkas
+		for _, kafka := range k.Kafkas {
+			err := kafka.send(secret, acceptType, msg)
+			if err != nil {
+				errs = errors.Join(errs, err)
+			}
 		}
 	}
 	return errs
