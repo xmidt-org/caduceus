@@ -80,3 +80,4 @@ func (m *Counter) With(labelValues ...string) prometheus.Counter {
 	args := m.Called(labelValues)
 	return args.Get(0).(prometheus.Counter)
 }
+

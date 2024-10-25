@@ -47,4 +47,7 @@ type Config struct {
 	// (keep-alive) connection will remain idle before closing
 	// itself.
 	IdleConnTimeout time.Duration
+
+	//IsTest is for testing purposes only
+	IsTest bool
 }

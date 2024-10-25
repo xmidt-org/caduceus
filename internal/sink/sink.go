@@ -17,9 +17,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/IBM/sarama"
+	m "github.com/IBM/sarama/mocks"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
@@ -54,11 +56,11 @@ type Kafkas []*Kafka
 type Kafka struct {
 	brokerAddr []string
 	topic      string
-	config     *sarama.Config
 	producer   sarama.SyncProducer
+	isTest     bool
 	CommonWebhook
 }
-
+//TODO: create custom type called KafkaMock struct
 func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	switch l := listener.(type) {
 	case *ancla.RegistryV1:
@@ -78,6 +80,15 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 		if len(l.Registration.Kafkas) > 0 {
 			var sink Kafkas
 			for _, k := range l.Registration.Kafkas {
+				//TODO: does it make more sense to add id, topic, retries, and broker addrs now?
+				//and then use update as a way to add the producer?
+				/*i.e. kafka: &Kafka{
+					id: l.GetId()
+					topic: "quickstart-events"
+					deliveryRetries: k.RetryHint.MaxRetry
+					brokerAdd: k.bootstrapServers
+					isTest: c.IsTest
+				}*/
 				kafka := &Kafka{}
 				kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger)
 				sink = append(sink, kafka)
@@ -313,11 +324,27 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 	}
 }
 
-func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *zap.Logger) error {
+func (k *Kafka) Update(id, topic string, retries int, isTest bool, servers []string, logger *zap.Logger) error {
 	k.id = id
 	k.topic = topic
 	k.brokerAddr = append(k.brokerAddr, servers...)
 	k.logger = logger
+
+	// Create a new Kafka producer
+	producer, err := NewProducer(isTest, retries, k.brokerAddr)
+	if err != nil {
+		k.logger.Error("Could not create Kafka producer", zap.Error(err))
+		return err
+	}
+	k.producer = producer
+	return nil
+}
+
+func NewProducer(isTest bool, retries int, brokerAddr []string) (sarama.SyncProducer, error) {
+	if isTest {
+		var t *testing.T
+		return m.NewSyncProducer(t, sarama.NewConfig()), nil
+	}
 
 	config := sarama.NewConfig()
 	//TODO: this is basic set up for now - will need to add more options to config
@@ -326,16 +353,9 @@ func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *
 	config.Producer.Return.Successes = true
 	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Retry.Max = retries //should we be using retryhint for this?
-	k.config = config
-	// Create a new Kafka producer
-	producer, err := sarama.NewSyncProducer(k.brokerAddr, config)
-	if err != nil {
-		k.logger.Error("Could not create Kafka producer", zap.Error(err))
-		return err
-	}
 
-	k.producer = producer
-	return nil
+	return sarama.NewSyncProducer(brokerAddr, config)
+
 }
 
 func (k Kafkas) Send(secret string, acceptType string, msg *wrp.Message) error {
