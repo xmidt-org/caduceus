@@ -53,7 +53,7 @@ type wrapper struct {
 	config Config
 
 	mutex            sync.RWMutex
-	senders          map[string]Sender
+	senders          map[string]*Sender
 	eventType        *prometheus.CounterVec
 	wg               sync.WaitGroup
 	shutdown         chan struct{}
@@ -111,7 +111,7 @@ func NewWrapper(in WrapperIn) (wr Wrapper, err error) {
 		w = nil
 		return
 	}
-	w.senders = make(map[string]Sender)
+	w.senders = make(map[string]*Sender)
 	w.shutdown = make(chan struct{})
 
 	w.wg.Add(1)
@@ -158,7 +158,7 @@ func (w *wrapper) Update(list []ancla.Register) {
 	for _, inValue := range ids {
 		sender, ok := w.senders[inValue.ID]
 		if !ok {
-			var ss Sender
+			var ss *Sender
 			var err error
 
 			listener := inValue.Listener
@@ -238,12 +238,12 @@ func undertaker(w *wrapper) {
 	}
 }
 
-func createDeadlist(w *wrapper, threshold time.Time) (map[string]Sender, error) {
+func createDeadlist(w *wrapper, threshold time.Time) (map[string]*Sender, error) {
 	if w == nil || threshold.IsZero() {
 		return nil, nil
 	}
 
-	deadList := make(map[string]Sender)
+	deadList := make(map[string]*Sender)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	for k, v := range w.senders {

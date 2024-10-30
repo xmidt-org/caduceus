@@ -43,13 +43,7 @@ type FailureMessage struct {
 	Workers      int            `json:"worker_count"`
 }
 
-type Sender interface {
-	Update(ancla.Register) error
-	Shutdown(bool)
-	RetiredSince() (time.Time, error)
-	Queue(*wrp.Message)
-}
-type sender struct {
+type Sender struct {
 	id                string
 	queueSize         int
 	deliveryRetries   int
@@ -94,11 +88,12 @@ type SinkMetrics struct {
 	currentWorkersGauge              prometheus.Gauge
 }
 
-func NewSender(w *wrapper, l ancla.Register) (s *sender, err error) {
+func NewSender(w *wrapper, l ancla.Register) (s *Sender, err error) {
 
 	if w.clientMiddleware == nil {
 		w.clientMiddleware = client.NopClient
 	}
+
 	if w.client == nil {
 		err = errors.New("nil Client")
 		return
@@ -115,13 +110,13 @@ func NewSender(w *wrapper, l ancla.Register) (s *sender, err error) {
 	}
 	id := l.GetId()
 
-	s = &sender{
+	s = &Sender{
 		id:           id,
 		listener:     l,
 		queueSize:    w.config.QueueSizePerSender,
 		deliverUntil: l.GetUntil(),
 		logger:       w.logger,
-		config:       w.config, //TODO: need to figure out which config options are used for just sender, just sink, and both
+		config:       w.config, //TODO: need to figure out which config options are used for just Sender, just sink, and both
 		// dropUntil:        where is this being set in old caduceus?,
 		cutOffPeriod:     w.config.CutOffPeriod,
 		deliveryRetries:  w.config.DeliveryRetries,
@@ -158,7 +153,7 @@ func NewSender(w *wrapper, l ancla.Register) (s *sender, err error) {
 	return
 }
 
-func (s *sender) Update(l ancla.Register) (err error) {
+func (s *Sender) Update(l ancla.Register) (err error) {
 	s.matcher, err = NewMatcher(l, s.logger)
 	s.sink = NewSink(s.config, s.logger, l)
 
@@ -185,7 +180,7 @@ func (s *sender) Update(l ancla.Register) (err error) {
 // of messages to deliver.  The request is checked to see if it matches the
 // criteria before being accepted or silently dropped.
 // TODO: can pass in message along with webhook information
-func (s *sender) Queue(msg *wrp.Message) {
+func (s *Sender) Queue(msg *wrp.Message) {
 	s.mutex.RLock()
 	deliverUntil := s.deliverUntil
 	dropUntil := s.dropUntil
@@ -231,7 +226,7 @@ func (s *sender) Queue(msg *wrp.Message) {
 // Shutdown causes the CaduceusOutboundSender to stop its activities either gently or
 // abruptly based on the gentle parameter.  If gentle is false, all queued
 // messages will be dropped without an attempt to send made.
-func (s *sender) Shutdown(gentle bool) {
+func (s *Sender) Shutdown(gentle bool) {
 	if !gentle {
 		// need to close the channel we're going to replace, in case it doesn't
 		// have any events in it.
@@ -250,7 +245,7 @@ func (s *sender) Shutdown(gentle bool) {
 
 // RetiredSince returns the time the CaduceusOutboundSender retired (which could be in
 // the future).
-func (s *sender) RetiredSince() (time.Time, error) {
+func (s *Sender) RetiredSince() (time.Time, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	deliverUntil := s.deliverUntil
@@ -272,7 +267,7 @@ func overlaps(sl1 []string, sl2 []string) bool {
 	return false
 }
 
-func (s *sender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
+func (s *Sender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	if !now.After(dropUntil) {
 		// client was cut off
 		s.droppedCutoffCounter.Add(1.0)
@@ -292,7 +287,7 @@ func (s *sender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool 
 // a fresh one, counting any current messages in the queue as dropped.
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
-func (s *sender) Empty(droppedCounter prometheus.Counter) {
+func (s *Sender) Empty(droppedCounter prometheus.Counter) {
 	droppedMsgs := s.queue.Load().(chan *wrp.Message)
 	s.queue.Store(make(chan *wrp.Message, s.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
@@ -302,7 +297,7 @@ func (s *sender) Empty(droppedCounter prometheus.Counter) {
 // queueOverflow handles the logic of what to do when a queue overflows:
 // cutting off the webhook for a time and sending a cut off notification
 // to the failure URL.
-func (s *sender) queueOverflow() {
+func (s *Sender) queueOverflow() {
 	s.mutex.Lock()
 	if time.Now().Before(s.dropUntil) {
 		s.mutex.Unlock()
@@ -377,7 +372,7 @@ func (s *sender) queueOverflow() {
 	}
 }
 
-func (s *sender) dispatcher() {
+func (s *Sender) dispatcher() {
 	defer s.wg.Done()
 	var (
 		msg            *wrp.Message
@@ -390,8 +385,6 @@ Loop:
 		// Always pull a new queue in case we have been cutoff or are shutting
 		// down.
 		msgQueue := s.queue.Load().(chan *wrp.Message)
-		// nolint:gosimple
-		select {
 		// The dispatcher cannot get stuck blocking here forever (caused by an
 		// empty queue that is replaced and then Queue() starts adding to the
 		// new queue) because:
@@ -410,42 +403,41 @@ Loop:
 		//      - If the first queue has messages, we drop a message as expired
 		//        pull in the new queue which is empty and closed, break the
 		//        loop, gather workers, and exit.
-		case msg, ok = <-msgQueue:
-			// This is only true when a queue is empty and closed, which for us
-			// only happens on Shutdown().
-			if !ok {
-				break Loop
-			}
-			s.queueDepthGauge.Add(-1.0)
-			s.mutex.RLock()
-			deliverUntil := s.deliverUntil
-			dropUntil := s.dropUntil
-			// secret = s.listener.Webhook.Config.Secret
-			// accept = s.listener.Webhook.Config.ContentType
-			s.mutex.RUnlock()
-
-			now := time.Now()
-
-			if now.Before(dropUntil) {
-				s.droppedCutoffCounter.Add(1.0)
-				continue
-			}
-			if now.After(deliverUntil) {
-				s.Empty(s.droppedExpiredCounter)
-				continue
-			}
-			s.workers.Acquire()
-			s.currentWorkersGauge.Add(1.0)
-
-			go s.sink.Send(secret, accept, msg)
+		msg, ok = <-msgQueue
+		// This is only true when a queue is empty and closed, which for us
+		// only happens on Shutdown().
+		if !ok {
+			break Loop
 		}
+		s.queueDepthGauge.Add(-1.0)
+		s.mutex.RLock()
+		deliverUntil := s.deliverUntil
+		dropUntil := s.dropUntil
+		// secret = s.listener.Webhook.Config.Secret
+		// accept = s.listener.Webhook.Config.ContentType
+		s.mutex.RUnlock()
+
+		now := time.Now()
+
+		if now.Before(dropUntil) {
+			s.droppedCutoffCounter.Add(1.0)
+			continue
+		}
+		if now.After(deliverUntil) {
+			s.Empty(s.droppedExpiredCounter)
+			continue
+		}
+		s.workers.Acquire()
+		s.currentWorkersGauge.Add(1.0)
+
+		go s.sink.Send(secret, accept, msg)
 	}
 	for i := 0; i < s.maxWorkers; i++ {
 		s.workers.Acquire()
 	}
 }
 
-func (s *sender) CreateMetrics(m metrics.Metrics) {
+func (s *Sender) CreateMetrics(m metrics.Metrics) {
 	s.deliveryRetryCounter = m.DeliveryRetryCounter
 	s.deliveryRetryMaxGauge = m.DeliveryRetryMaxGauge.With(prometheus.Labels{metrics.UrlLabel: s.id})
 	s.cutOffCounter = m.CutOffCounter.With(prometheus.Labels{metrics.UrlLabel: s.id})
