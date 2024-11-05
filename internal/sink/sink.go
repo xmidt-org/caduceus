@@ -179,7 +179,7 @@ func (whs Webhooks) Send(secret, acceptType string, msg *wrp.Message) error {
 func (v1 *WebhookV1) Send(secret, acceptType string, msg *wrp.Message) error {
 	defer func() {
 		if r := recover(); nil != r {
-			// s.droppedPanic.Add(1.0)
+			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v1.logger.Error("goroutine send() panicked", zap.String("id", v1.id), zap.Any("panic", r))
 		}
 		// s.workers.Release()
@@ -208,7 +208,7 @@ func (v1 *WebhookV1) Send(secret, acceptType string, msg *wrp.Message) error {
 	req, err := http.NewRequest("POST", v1.urls.Value.(string), payloadReader)
 	if err != nil {
 		// Report drop
-		// s.droppedInvalidConfig.Add(1.0)
+		// s.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: "invalid_config"}).Add(1.0)
 		v1.logger.Error("Invalid URL", zap.String(metrics.UrlLabel, v1.urls.Value.(string)), zap.String("id", v1.id), zap.Error(err))
 		return err
 	}
@@ -254,8 +254,8 @@ func (v1 *WebhookV1) Send(secret, acceptType string, msg *wrp.Message) error {
 	logger := v1.logger
 	if err != nil {
 		// Report failure
-		//TODO: add droppedMessage to webhook metrics and remove from sink sender?
-		// v1.droppedMessage.Add(1.0)
+		//TODO: add SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError}) to webhook metrics and remove from sink sender?
+		// v1.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError}).Add(1.0)
 		reason = metrics.GetDoErrReason(err)
 		if resp != nil {
 			code = strconv.Itoa(resp.StatusCode)
@@ -264,7 +264,7 @@ func (v1 *WebhookV1) Send(secret, acceptType string, msg *wrp.Message) error {
 		logger = v1.logger.With(zap.String(metrics.ReasonLabel, reason), zap.Error(err))
 		deliveryCounterLabels = []string{metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason, metrics.CodeLabel, code, metrics.EventLabel, event}
 		fmt.Print(deliveryCounterLabels)
-		// v1.droppedMessage.With(metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason).Add(1)
+		// v1.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError}).With(metrics.UrlLabel, req.URL.String(), metrics.ReasonLabel, reason).Add(1)
 		logger.Error("Dropped Network Error", zap.Error(err))
 		return err
 	} else {
@@ -305,8 +305,8 @@ func (v1 *WebhookV1) updateRequest(urls *ring.Ring) func(*http.Request) *http.Re
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
 			v1.logger.Error("failed to update url", zap.String(metrics.UrlLabel, urls.Value.(string)), zap.Error(err))
-			//TODO: do we add droppedMessage metric to webhook and remove from sink sender?
-			// v1.droppedMessage.With(metrics.UrlLabel, request.URL.String(), metrics.ReasonLabel, metrics.UpdateRequestURLFailedReason).Add(1)
+			//TODO: do we add SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError}) metric to webhook and remove from sink sender?
+			// v1.SlowConsumerDroppedMsgCounter.With(prometheus.Labels{metrics.UrlLabel: s.id, metrics.ReasonLabel: metrics.NetworkError}).With(metrics.UrlLabel, request.URL.String(), metrics.ReasonLabel, metrics.UpdateRequestURLFailedReason).Add(1)
 		}
 		request.URL = tmp
 		return request
@@ -318,7 +318,7 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 	return func(attempt retry.Attempt[*http.Response]) {
 		if attempt.Retries > 0 {
 			fmt.Print(event)
-			// s.deliveryRetryCounter.With(prometheus.Labels{UrlLabel: v1.id, EventLabel: event}).Add(1.0)
+			// s.DeliveryRetryCounter.With(prometheus.Labels{UrlLabel: v1.id, EventLabel: event}).Add(1.0)
 			v1.logger.Debug("retrying HTTP transaction", zap.String(metrics.UrlLabel, request.URL.String()), zap.Error(attempt.Err), zap.Int("retry", attempt.Retries+1), zap.Int("statusCode", attempt.Result.StatusCode))
 		}
 
@@ -377,7 +377,7 @@ func (k *Kafka) send(secret string, acceptType string, msg *wrp.Message) error {
 
 	defer func() {
 		if r := recover(); nil != r {
-			// s.droppedPanic.Add(1.0)
+			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			//TODO: should we be using the RegistrationV2 id for this (canonical_name)
 			//or should we have an id for the specific kafka instance that failed?
 			k.logger.Error("goroutine send() panicked", zap.String("id", k.id), zap.Any("panic", r))
