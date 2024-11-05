@@ -26,11 +26,12 @@ import (
 type WrapperIn struct {
 	fx.In
 
-	Tracing   candlelight.Tracing
-	Config    Config
-	Metrics   metrics.Metrics
+	Tracing candlelight.Tracing
+	Config  Config
+	// Metrics   metrics.MetricsIn
 	EventType *prometheus.CounterVec `name:"incoming_event_type_count"`
 	Logger    *zap.Logger
+	metrics.Metrics
 }
 
 // SinkWrapper interface is needed for unit testing.
@@ -65,24 +66,6 @@ type wrapper struct {
 
 func Provide() fx.Option {
 	return fx.Provide(
-		func(in metrics.MetricsIn) metrics.Metrics {
-			senderMetrics := metrics.Metrics{
-				DeliveryCounter:                 in.DeliveryCounter,
-				DeliveryRetryCounter:            in.DeliveryRetryCounter,
-				DeliveryRetryMaxGauge:           in.DeliveryRetryMaxGauge,
-				CutOffCounter:                   in.CutOffCounter,
-				SlowConsumerDroppedMsgCounter:   in.SlowConsumerDroppedMsgCounter,
-				DropsDueToPanic:                 in.DropsDueToPanic,
-				ConsumerDeliverUntilGauge:       in.ConsumerDeliverUntilGauge,
-				ConsumerDropUntilGauge:          in.ConsumerDropUntilGauge,
-				ConsumerDeliveryWorkersGauge:    in.ConsumerDeliveryWorkersGauge,
-				ConsumerMaxDeliveryWorkersGauge: in.ConsumerMaxDeliveryWorkersGauge,
-				OutgoingQueueDepth:              in.OutgoingQueueDepth,
-				ConsumerRenewalTimeGauge:        in.ConsumerRenewalTimeGauge,
-				QueryLatency:                    in.QueryLatency,
-			}
-			return senderMetrics
-		},
 		func(in WrapperIn) (Wrapper, error) {
 			w, err := NewWrapper(in)
 			return w, err
