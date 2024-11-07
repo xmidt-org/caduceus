@@ -74,7 +74,7 @@ const (
 	MessageDroppedCode = "message_dropped"
 )
 
-// Metrics will be used to set up the metrics for each sink.
+// Metrics provides be used to set up the metrics for each sink.
 type Metrics struct {
 	fx.In
 
