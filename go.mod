@@ -12,10 +12,10 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/xmidt-org/ancla v0.3.12
 	github.com/xmidt-org/bascule v0.11.6
-	github.com/xmidt-org/candlelight v0.1.21
+	github.com/xmidt-org/candlelight v0.1.22
 	github.com/xmidt-org/clortho v0.0.4
 	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
