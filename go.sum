@@ -771,8 +771,9 @@ github.com/decred/dcrd/crypto/blake256 v1.0.1/go.mod h1:2OfgNZ5wDpcsFmHmCK5gZTPc
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.0-20210816181553-5444fa50b93d/go.mod h1:tmAIfUFEirG/Y8jhZ9M+h36obRZAk/1fcSpXwAVlfqE=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1/go.mod h1:hyedUtir6IdtD/7lIxGeCxkaw7y45JueMRL4DIyJDKs=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0/go.mod h1:DZGJHZMqrU4JJqFAWUS2UO1+lbSKsdiOoYi9Zzey7Fc=
-github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 h1:8UrgZ3GkP4i/CLijOJx79Yu+etlyjdBU4sfcs2WYQMs=
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0/go.mod h1:v57UDF4pDQJcEfFUCRop3lJL149eHGSe9Jvczhzjo/0=
+github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 h1:rpfIENRNNilwHwZeG5+P150SMrnNEcHYvcCuK6dPZSg=
+github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0/go.mod h1:v57UDF4pDQJcEfFUCRop3lJL149eHGSe9Jvczhzjo/0=
 github.com/denverdino/aliyungo v0.0.0-20170926055100-d3308649c661/go.mod h1:dV8lFg6daOBZbT6/BDGIz6Y3WFGn8juu6G+CQ6LHtl0=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
@@ -899,8 +900,9 @@ github.com/goccy/go-json v0.9.7/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGF
 github.com/goccy/go-json v0.9.10/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
 github.com/goccy/go-json v0.9.11/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
 github.com/goccy/go-json v0.10.0/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
-github.com/goccy/go-json v0.10.2 h1:CrxCmQqYDkv1z7lO7Wbh2HN93uovUHgrECaO5ZrCXAU=
 github.com/goccy/go-json v0.10.2/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
+github.com/goccy/go-json v0.10.3 h1:KZ5WoDbxAIgm2HNbYckL0se1fHD6rz5j4ywS6ebzDqA=
+github.com/goccy/go-json v0.10.3/go.mod h1:oq7eo15ShAhp70Anwd5lgX2pLfOS3QCiwU/PULtXL6M=
 github.com/gocql/gocql v0.0.0-20200505093417-effcbd8bcf0e/go.mod h1:DL0ekTmBSTdlNF25Orwt/JMzqIq3EJ4MVa/J/uK64OY=
 github.com/gocql/gocql v1.3.1/go.mod h1:3gM2c4D3AnkISwBxGnMMsS8Oy4y2lhbPRsH4xnJrHG8=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
@@ -1678,8 +1680,9 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/subosito/gotenv v1.3.0/go.mod h1:YzJjq/33h7nrwdY+iHMhEOEEbW0ovIz0tB6t6PwAXzs=
 github.com/subosito/gotenv v1.4.2/go.mod h1:ayKnFf/c6rvx/2iiLrJUk1e6plDbT3edrFNGqEflhK0=
@@ -1716,8 +1719,8 @@ github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498/go.mod h1:lnMCV
 github.com/xmidt-org/argus v0.3.12/go.mod h1:T0oHbqQ1SAjE616Q9f1p+7nsmuvmHNoC0zAIUpUiFuE=
 github.com/xmidt-org/argus v0.5.0/go.mod h1:8nMg4ywpWCNPgUzwtWhiPAxklrmVsoxwciGJ/OD4FHE=
 github.com/xmidt-org/argus v0.9.10/go.mod h1:FBFhBQ07fquAiDT7mMG+X6h0ycerZQJCpqIlQJ+Kjf8=
-github.com/xmidt-org/argus v0.10.17 h1:kUE//Xsd8bpzHIdllqg/mZnHSwDQBRKDXdRrsXWJ0Ok=
-github.com/xmidt-org/argus v0.10.17/go.mod h1:CA0/JAXc0kms70UnPnIiDSrPOujwTEClW13HJLNd8zg=
+github.com/xmidt-org/argus v0.10.18 h1:RtGqPTGkBrs2k+NpWJ671sfpXVIvsW1HW7NvYZPfHAY=
+github.com/xmidt-org/argus v0.10.18/go.mod h1:s2sdHp5LkTPqplwSdf4+9C1eybWGDoLHkgUMMRbrXGQ=
 github.com/xmidt-org/arrange v0.1.9/go.mod h1:PRA8iEZ11L93NsEkDP56x1mZyfDcWxzDULgHj56TaEk=
 github.com/xmidt-org/arrange v0.3.0/go.mod h1:pCHeb93OFA0QnEJ//Mmly7QqUt7y/w3xllK0VQ3Bigo=
 github.com/xmidt-org/arrange v0.4.0 h1:DmJJTK58C44B4efyBV78SmMH0mn0G54n3caVn5BopUU=
@@ -1734,8 +1737,8 @@ github.com/xmidt-org/candlelight v0.0.13/go.mod h1:FelQ+nb3rRuQx50zvp3hjEm2DBUU1
 github.com/xmidt-org/candlelight v0.0.15/go.mod h1:yYzrElo3KP1BZ5GAPus7PXehhe7SJYwt7JwCb/+BWQ0=
 github.com/xmidt-org/candlelight v0.0.16/go.mod h1:uKs19MQmcrKxFGJhnkVVpEmFJbav5y3jJs30O7204Vo=
 github.com/xmidt-org/candlelight v0.0.18/go.mod h1:9gFzBUMOdUrQzwPAHvQVzxKUyNlmEXix15Skfqeqtw8=
-github.com/xmidt-org/candlelight v0.1.21 h1:QaFgwpk3VtBx35PCkCkF/tQ0Io7x97JPL4v188dEX4o=
-github.com/xmidt-org/candlelight v0.1.21/go.mod h1:Q05f6nRDCWTV9bwci/0vNFP10B+BLB3uNH3CIZC4+o0=
+github.com/xmidt-org/candlelight v0.1.22 h1:4cTvBq71s2HJrIIDqOgRjNbY2owVt5Dt3OO62o8bKx0=
+github.com/xmidt-org/candlelight v0.1.22/go.mod h1:JP//DhMaHNQYFzCEGmENEyOpmTw8wqkm1NOeE0oYw4w=
 github.com/xmidt-org/chronon v0.1.1 h1:SzOYkT/nmps3jH4sWu6A52ToKvv5Bu0Gb45/ec5Ty9U=
 github.com/xmidt-org/chronon v0.1.1/go.mod h1:8VF1skJAouQihpKfXE8oZZkbQpV1TSR/7QltNxq8T4k=
 github.com/xmidt-org/clortho v0.0.4 h1:4G1uKle0rfm+LwQ3EV7W+jn7kgWnozAoK9DAbz0/etw=
@@ -1768,8 +1771,8 @@ github.com/xmidt-org/webpa-common v1.11.5-0.20210120003553-3d03d7329aee/go.mod h
 github.com/xmidt-org/webpa-common v1.11.5/go.mod h1:jMyROPQmgvNS+P0csPodDMikqesqPFzlb3v/JVw2SmY=
 github.com/xmidt-org/webpa-common v1.11.9/go.mod h1:lSfUaPF/LA6PCHviTQk1XuTtqvdFcHzyACwdtH94ZfU=
 github.com/xmidt-org/webpa-common/v2 v2.2.2/go.mod h1:3knEBdtBi09mRvCc77vHCiAK4EUmbnZog4oAAajNb+4=
-github.com/xmidt-org/webpa-common/v2 v2.4.1 h1:BX8A9MsnSTJ+soEfo9toF2h96i0bPCgJ1bd6Ijtx3n8=
-github.com/xmidt-org/webpa-common/v2 v2.4.1/go.mod h1:a8wmIPN1batEpFUK2oXPNxBy/klZt5p1brlLlDO0N8I=
+github.com/xmidt-org/webpa-common/v2 v2.4.3 h1:oXIujeSuJgHyqf93C+snMxtgwlzm/v4S/wvcWms7rYs=
+github.com/xmidt-org/webpa-common/v2 v2.4.3/go.mod h1:r6MiKTYL0urC+SuLD78pxSjK4rZPwKNE1zRX3WRGvsI=
 github.com/xmidt-org/wrp-go v1.3.4/go.mod h1:EWC9BgcYYO1hKgLzz6VFPpg3LU6ZWSDV/uNiWC7zP+o=
 github.com/xmidt-org/wrp-go/v2 v2.0.1/go.mod h1:v0HK0go/7OSVDvKbnXsUn6c+M987p0yyxWEs8/Fmf60=
 github.com/xmidt-org/wrp-go/v3 v3.0.1/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
