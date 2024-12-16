@@ -5,7 +5,6 @@ package sink
 import (
 	"bytes"
 	"container/ring"
-	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -13,10 +12,8 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,8 +42,8 @@ type WebhookV1 struct {
 }
 
 type WebhookV2 struct {
-	urls    *ring.Ring
-	dialers []*Dialer
+	urls   *ring.Ring
+	client *http.Client
 	CommonWebhook
 	//TODO: need to determine best way to add client and client middleware to WebhooV1
 	// clientMiddleware func(http.Client) http.Client
@@ -77,13 +74,19 @@ type Kafka struct {
 	CommonWebhook
 }
 
-func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
+func NewSink(c Config, logger *zap.Logger, listener ancla.Register) (Sink, error) {
 	switch l := listener.(type) {
 	case *ancla.RegistryV1:
 		v1 := &WebhookV1{}
 		v1.Update(c, logger, l.Registration.Config.AlternativeURLs, l.GetId(), l.Registration.FailureURL, l.Registration.Config.ReceiverURL)
-		return v1
+		return v1, nil
 	case *ancla.RegistryV2:
+		if len(l.Registration.Kafkas) == 0 && len(l.Registration.Webhooks) == 0 {
+			return nil, fmt.Errorf("either `Kafkas` or `Webhooks` must be used")
+		} else if len(l.Registration.Kafkas) > 0 && len(l.Registration.Webhooks) > 0 {
+			return nil, fmt.Errorf("either `Kafkas` or `Webhooks` must be used but not both")
+		}
+
 		if len(l.Registration.Webhooks) > 0 {
 			var whs WebhookSink
 			r := &HashRing{}
@@ -97,33 +100,37 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 						deliveryInterval: c.DeliveryInterval,
 						deliveryRetries:  c.DeliveryRetries,
 					},
+					client: &http.Client{},
 				}
+				if len(wh.ReceiverURLs) == 0 && len(wh.DNSSrvRecord.FQDNs) == 0 {
+					return nil, fmt.Errorf("either `ReceiverURLs` or `DNSSrvRecord` must be used")
+				} else if len(wh.ReceiverURLs) > 0 && len(wh.DNSSrvRecord.FQDNs) > 0 {
+					return nil, fmt.Errorf("either `ReceiverURLs` or `DNSSrvRecord` must be used but not both")
+				}
+
 				if len(wh.ReceiverURLs) > 0 {
 					urlCount, err := getUrls(wh.ReceiverURLs[1:])
 					if err != nil {
-						v2.logger.Error("error recevied parsing urls", zap.Error(err))
+						return nil, errors.Join(err, fmt.Errorf("error recevied parsing urls"))
 					}
 					v2.updateUrls(urlCount, wh.ReceiverURLs[0], wh.ReceiverURLs[1:])
-				} else {
-					sortBy := wh.DNSSrvRecord.LoadBalancingScheme
-					for _, domain := range wh.DNSSrvRecord.FQDNs {
-						dialer := new(Dialer)
-						err := dialer.lookup(domain, sortBy)
-						if err != nil {
-							v2.logger.Error("error received looking up service records", zap.Error(err))
-						}
-						dialer.NewClient()
-						v2.dialers = append(v2.dialers, dialer)
-					}
 				}
+
+				transport, err := NewSRVRecordDailer(wh.DNSSrvRecord)
+				if err != nil {
+					return nil, errors.Join(err, fmt.Errorf("error recevied parsing urls"))
+				}
+
+				v2.client.Transport = transport
 				whs.webooks[strconv.Itoa(i)] = v2
 				if l.Registration.Hash.Field != "" {
 					r.Add(strconv.Itoa(i))
 				}
 			}
 
-			return whs
+			return whs, nil
 		}
+
 		if len(l.Registration.Kafkas) > 0 {
 			var sink KafkaSink
 			r := &HashRing{}
@@ -132,7 +139,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 				kafka := &Kafka{}
 				err := kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger) //TODO: quickstart-events need to become variable/configurable
 				if err != nil {
-					return nil
+					return nil, err
 				}
 				sink.Kafkas[strconv.Itoa(i)] = kafka
 				if l.Registration.Hash.Field != "" {
@@ -140,13 +147,14 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 
 				}
 			}
+
 			sink.Hash = r
-			return sink
+
+			return sink, nil
 		}
-	default:
-		return nil
 	}
-	return nil
+
+	return nil, fmt.Errorf("unknow webhook registry type")
 }
 
 func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) {
@@ -752,11 +760,8 @@ func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
 	v2.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 
 	var resp *http.Response
-	if len(v2.dialers) != 0 {
-		for _, d := range v2.dialers {
-			resp, err = d.client.Do(req)
-		}
-
+	if v2.client != nil {
+		resp, err = v2.client.Do(req)
 	} else {
 		client, _ := retryhttp.NewClient(
 			// retryhttp.WithHTTPClient(s.clientMiddleware(s.client)),
@@ -841,45 +846,4 @@ func (v2 *WebhookV2) onAttempt(request *http.Request, event string) retry.OnAtte
 		}
 
 	}
-}
-
-type Dialer struct {
-	srvs   []*net.SRV
-	client *http.Client
-}
-
-type DialContext func(ctx context.Context, network, address string) (net.Conn, error)
-
-func (d *Dialer) CustomDial() DialContext {
-	return func(ctx context.Context, network, address string) (net.Conn, error) {
-		return net.Dial(network, address)
-	}
-}
-
-func (d *Dialer) NewClient() {
-	d.client = &http.Client{
-		Transport: &http.Transport{
-			DialContext: d.CustomDial(),
-		},
-	}
-}
-
-func (d *Dialer) lookup(domain, sortBy string) error {
-	_, addrs, err := net.LookupSRV("", "", domain)
-	if err != nil {
-		return err
-	}
-
-	if sortBy == "weight" {
-		sort.Slice(addrs, func(i, j int) bool {
-			return addrs[i].Weight > addrs[j].Weight
-		})
-	} else {
-		sort.Slice(addrs, func(i, j int) bool {
-			return addrs[i].Priority < addrs[j].Priority
-		})
-	}
-
-	d.srvs = addrs
-	return nil
 }
