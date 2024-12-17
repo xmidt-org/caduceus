@@ -47,7 +47,7 @@ func NewSRVRecordDailer(dnsSrvRecord webhook.DNSSrvRecord) (http.RoundTripper, e
 			return d.srvs[i].Priority < d.srvs[j].Priority
 		})
 	default:
-		return nil, fmt.Errorf("unknwon loadBalancingScheme type: %s", d.dnsSrvRecord.LoadBalancingScheme)
+		return nil, fmt.Errorf("unknown loadBalancingScheme type: %s", d.dnsSrvRecord.LoadBalancingScheme)
 	}
 
 	return &http.Transport{

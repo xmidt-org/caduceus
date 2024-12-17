@@ -154,7 +154,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) (Sink, error
 		}
 	}
 
-	return nil, fmt.Errorf("unknow webhook registry type")
+	return nil, fmt.Errorf("unknown webhook registry type")
 }
 
 func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) {
