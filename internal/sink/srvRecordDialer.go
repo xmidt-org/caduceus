@@ -11,7 +11,7 @@ import (
 	"github.com/xmidt-org/webhook-schema"
 )
 
-func NewSRVRecordDailer(dnsSrvRecord webhook.DNSSrvRecord) (http.RoundTripper, error) {
+func NewSRVRecordDialer(dnsSrvRecord webhook.DNSSrvRecord) (http.RoundTripper, error) {
 	if len(dnsSrvRecord.FQDNs) == 0 {
 		return http.DefaultTransport, nil
 	}
@@ -68,7 +68,7 @@ func (d *SRVRecordDialer) DialContext(ctx context.Context, _, _ string) (net.Con
 		conn, err := net.Dial("", host)
 		if err != nil {
 			errs = errors.Join(errs,
-				fmt.Errorf("%v: host `%s` [weight: %s, priortiy: %s] from srv record `%v`",
+				fmt.Errorf("%v: host `%s` [weight: %d, priortiy: %d] from srv record `%v`",
 					err, host, addr.Weight, addr.Priority, d.dnsSrvRecord.FQDNs))
 			continue
 		}
