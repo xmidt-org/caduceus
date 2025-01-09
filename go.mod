@@ -21,7 +21,7 @@ require (
 	github.com/xmidt-org/retry v0.0.3
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.5
-	github.com/xmidt-org/webhook-schema v0.1.1-0.20240718124820-b8c1ba1f19a9
+	github.com/xmidt-org/webhook-schema v0.1.1-0.20241216191431-5b48a48d53cd
 	github.com/xmidt-org/webpa-common/v2 v2.2.2
 	github.com/xmidt-org/wrp-go/v3 v3.2.3
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.46.1
