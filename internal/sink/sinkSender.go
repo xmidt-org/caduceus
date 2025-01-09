@@ -135,8 +135,12 @@ func NewSender(w *wrapper, l ancla.Register) (s *Sender, err error) {
 
 func (s *Sender) Update(l ancla.Register) (err error) {
 	s.matcher, err = NewMatcher(l, s.logger)
-	s.sink = NewSink(s.config, s.logger, l)
+	sink, err := NewSink(s.config, s.logger, l)
+	if err != nil {
+		return err
+	}
 
+	s.sink = sink
 	s.ConsumerRenewalTimeGauge.With(prometheus.Labels{metrics.UrlLabel: s.id}).Set(float64(time.Now().Unix()))
 
 	s.mutex.Lock()
