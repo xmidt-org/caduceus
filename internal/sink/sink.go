@@ -21,6 +21,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/caduceus/internal/dns"
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
@@ -116,7 +117,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) (Sink, error
 					v2.updateUrls(urlCount, wh.ReceiverURLs[0], wh.ReceiverURLs[1:])
 				}
 
-				transport, err := NewSRVRecordDialer(wh.DNSSrvRecord)
+				transport, err := dns.NewSRVRecordDialer(wh.DNSSrvRecord.FQDNs, wh.DNSSrvRecord.LoadBalancingScheme, nil)
 				if err != nil {
 					return nil, errors.Join(err, fmt.Errorf("error recevied parsing urls"))
 				}
