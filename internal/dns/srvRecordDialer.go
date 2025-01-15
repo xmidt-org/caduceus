@@ -14,6 +14,33 @@ type Resolver interface {
 	LookupSRV(ctx context.Context, service, proto, name string) (string, []*net.SRV, error)
 }
 
+// TODO: change this once fully implemented changes
+func NewSRVRecordDialerOpts(opts ...func(*SRVRecordDialer)) *SRVRecordDialer {
+	dialer := &SRVRecordDialer{}
+
+	for _, o := range opts {
+		o(dialer)
+	}
+
+	return dialer
+}
+
+func WithSRVs(fqdns []string) func(*SRVRecordDialer) {
+	return func(d *SRVRecordDialer) {
+		d.fqdns = fqdns
+	}
+}
+
+func WithResolver(resolver Resolver) func(*SRVRecordDialer) {
+	return func(d *SRVRecordDialer) {
+		if resolver == nil {
+			d.resolver = net.DefaultResolver
+		} else {
+			d.resolver = resolver
+		}
+	}
+}
+
 func NewSRVRecordDialer(fqdns []string, sortBy string, resolver Resolver) (http.RoundTripper, error) {
 	if len(fqdns) == 0 {
 		return http.DefaultTransport, nil
@@ -55,9 +82,10 @@ func NewSRVRecordDialer(fqdns []string, sortBy string, resolver Resolver) (http.
 }
 
 type SRVRecordDialer struct {
-	srvs   []*net.SRV
-	fqdns  []string
-	sortBy string
+	srvs     []*net.SRV
+	fqdns    []string
+	sortBy   string
+	resolver Resolver
 }
 
 func (d *SRVRecordDialer) DialContext(ctx context.Context, _, _ string) (net.Conn, error) {
