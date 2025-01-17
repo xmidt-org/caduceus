@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package dns
 
 import (
@@ -66,11 +68,6 @@ func (d *SRVRecordDialer) DialContext(ctx context.Context, _, _ string) (net.Con
 	var conn net.Conn
 
 	//TODO: add retry logic if we receive conn error? or just move to next one?
-	switch d.sortBy {
-	case "weight":
-		//create a copy of d.srvs so that we can edit the srvs list if needed
-		srvs := make([]*net.SRV, len(d.srvs))
-		copy(srvs, d.srvs)
 		for conn == nil {
 			addr, i, err := getAddrByWeight(srvs)
 			if err != nil {
