@@ -117,7 +117,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) (Sink, error
 					v2.updateUrls(urlCount, wh.ReceiverURLs[0], wh.ReceiverURLs[1:])
 				}
 
-				transport, err := dns.NewSRVRecordDialer(wh.DNSSrvRecord.FQDNs, wh.DNSSrvRecord.LoadBalancingScheme, nil)
+				transport, err := dns.NewRoundTripper(dns.WithFQDNS(wh.DNSSrvRecord.FQDNs))
 				if err != nil {
 					return nil, errors.Join(err, fmt.Errorf("error recevied parsing urls"))
 				}
