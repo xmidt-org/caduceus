@@ -14,9 +14,6 @@ type Chooser interface {
 	Choose() iter.Seq[*net.SRV]
 }
 //enumerated type, with config, unmarshal config to get type, chooser type has method to pick the chooser
-func NewChooser(srvs []*net.SRV, f func([]*net.SRV) Chooser) Chooser {
-	return f(srvs)
-}
 
 type WeightChooser struct {
 	srvs []*net.SRV

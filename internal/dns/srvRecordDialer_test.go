@@ -3,25 +3,24 @@
 package dns
 
 import (
+	"context"
 	"net"
-	"net/http"
+	"testing"
 
 	"github.com/foxcpp/go-mockdns"
 	"github.com/stretchr/testify/suite"
 )
 
-type DnsTestSuite struct {
+type DnsSuite struct {
 	suite.Suite
 
-	fqdns    []string
-	chooser  Chooser
 	resolver Resolver
-	dialer   SRVRecordDialer
-	rt       http.RoundTripper
+	fqdns    []string
+	// rt       http.RoundTripper
 }
 
-func (suite *DnsTestSuite) newMockResolver() {
-	suite.resolver = &mockdns.Resolver{
+func newMockResolver() *mockdns.Resolver {
+	return &mockdns.Resolver{
 		Zones: map[string]mockdns.Zone{
 			"_._.example.org.": {
 				SRV: []net.SRV{
@@ -43,10 +42,44 @@ func (suite *DnsTestSuite) newMockResolver() {
 	}
 }
 
-func (suite *DnsTestSuite) NewFQDNS(fqdns []string) {
-	suite.fqdns = fqdns
+func (suite *DnsSuite) SetupSuite() {
+	suite.resolver = newMockResolver()
+	suite.fqdns = append(suite.fqdns, "example.org.", "invalid.example.org")
 }
 
+func TestDnsSuite(t *testing.T) {
+	suite.Run(t, new(DnsSuite))
+}
+
+func (suite *DnsSuite) TestDialContext() {
+
+	dialer := NewSRVRecordDialer(WithFQDNS(suite.fqdns), WithResolver(suite.resolver))
+	suite.NotNil(dialer.resolver)
+	suite.NotEmpty(dialer.fqdns)
+
+	transport, err := NewCustomTransport(WithCustomDialer(dialer))
+	suite.NotEmpty(dialer.srvs)
+	suite.Error(err)
+	suite.NotNil(transport)
+
+	weightedDialer := dialer
+	wChooser := NewWeightChooser(dialer.srvs)
+	weightedDialer = NewSRVRecordDialer(WithChooser(wChooser))
+	conn, err := weightedDialer.DialContext(context.Background(), "", "")
+
+	suite.NotNil(conn)
+	suite.NoError(err)
+
+	conn = nil
+	err = nil
+	priorityDialer := dialer 
+	pChooser := NewPriorityChooser(dialer.srvs)
+	priorityDialer = NewSRVRecordDialer(WithChooser(pChooser))
+	conn, err = priorityDialer.DialContext(context.Background(), "","")
+
+	suite.NotNil(conn)
+	suite.NoError(err)
+}
 
 // func TestNewSRVRecordDialer(t *testing.T) {
 // 	tests := []struct {

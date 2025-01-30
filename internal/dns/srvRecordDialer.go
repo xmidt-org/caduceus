@@ -10,6 +10,12 @@ import (
 	"net/http"
 )
 
+var (
+	errNoSrvRecordFmt = "expected atleast 1 srv record from fqdn list `%v`"
+	errSrvLookUpFmt   = "srv lookup failure `%s`:`%v`"
+	errDialConnFmt    = "%v: host `%s` [weight: %d, priortiy: %d] from srv record `%v`"
+)
+
 type Resolver interface {
 	LookupSRV(ctx context.Context, service, proto, name string) (string, []*net.SRV, error)
 }
@@ -46,35 +52,44 @@ func WithChooser(chooser Chooser) func(*SRVRecordDialer) {
 	}
 }
 
-func NewRoundTripper(opts ...func(*SRVRecordDialer)) (http.RoundTripper, error) {
-	d := NewSRVRecordDialer(opts...)
-	if len(d.fqdns) == 0 {
-		return http.DefaultTransport, nil
+func NewCustomTransport(opts ...func(*http.Transport) error) (http.RoundTripper, error) {
+	t := &http.Transport{}
+	var err error
+
+	for _, o := range opts {
+		e := o(t)
+		if e != nil {
+			err = errors.Join(err, e)
+		}
 	}
 
+	return t, err
+}
+
+func WithCustomDialer(dialer *SRVRecordDialer) func(*http.Transport) error {
 	var errs error
 
-	for _, fqdn := range d.fqdns {
-		_, addrs, err := d.resolver.LookupSRV(context.Background(), "", "", fqdn)
+	for _, fqdn := range dialer.fqdns {
+		_, addrs, err := dialer.resolver.LookupSRV(context.Background(), "", "", fqdn)
 		if err != nil {
 			errs = errors.Join(errs,
-				fmt.Errorf("srv lookup failure: `%s`", fqdn),
-				err,
+				fmt.Errorf(errSrvLookUpFmt, fqdn, err),
 			)
 			continue
 		}
 
-		d.srvs = append(d.srvs, addrs...)
+		dialer.srvs = append(dialer.srvs, addrs...)
+	}
+	if len(dialer.srvs) == 0 {
+		return func(t *http.Transport) error {
+			return errors.Join(fmt.Errorf(errNoSrvRecordFmt, dialer.fqdns), errs)
+		}
 	}
 
-	// TODO: ask wes/john whether 1 or more net.LookupSRV error should trigger an error from NewSRVRecordDailer
-	if len(d.srvs) == 0 {
-		return nil, errors.Join(fmt.Errorf("expected atleast 1 srv record from fqdn list `%v`", d.fqdns), errs)
+	return func(t *http.Transport) error {
+		t.DialContext = (dialer).DialContext
+		return errs
 	}
-
-	return &http.Transport{
-		DialContext: (d).DialContext,
-	}, nil
 }
 
 type SRVRecordDialer struct {
@@ -95,7 +110,7 @@ func (d *SRVRecordDialer) DialContext(ctx context.Context, _, _ string) (net.Con
 		conn, err = net.Dial("tcp", host) //TODO: make network variable configurable
 		if err != nil {
 			errs = errors.Join(errs,
-				fmt.Errorf("%v: host `%s` [weight: %d, priortiy: %d] from srv record `%v`",
+				fmt.Errorf(errDialConnFmt,
 					err, host, srv.Weight, srv.Priority, d.fqdns))
 		} else if conn != nil {
 			break
