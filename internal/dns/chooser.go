@@ -13,7 +13,6 @@ import (
 type Chooser interface {
 	Choose() iter.Seq[*net.SRV]
 }
-//enumerated type, with config, unmarshal config to get type, chooser type has method to pick the chooser
 
 type WeightChooser struct {
 	srvs []*net.SRV
