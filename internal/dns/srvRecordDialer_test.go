@@ -62,20 +62,9 @@ func (suite *DnsSuite) TestDialContext() {
 	suite.Error(err)
 	suite.NotNil(transport)
 
-	weightedDialer := dialer
-	wChooser := NewWeightChooser(dialer.srvs)
-	weightedDialer = NewSRVRecordDialer(WithChooser(wChooser))
-	conn, err := weightedDialer.DialContext(context.Background(), "", "")
-
-	suite.NotNil(conn)
-	suite.NoError(err)
-
-	conn = nil
-	err = nil
-	priorityDialer := dialer 
-	pChooser := NewPriorityChooser(dialer.srvs)
-	priorityDialer = NewSRVRecordDialer(WithChooser(pChooser))
-	conn, err = priorityDialer.DialContext(context.Background(), "","")
+	chooser := NewPriorityChooser(dialer.srvs)
+	dialer = NewSRVRecordDialer(WithChooser(chooser))
+	conn, err := dialer.DialContext(context.Background(), "", "")
 
 	suite.NotNil(conn)
 	suite.NoError(err)

@@ -86,6 +86,8 @@ func WithCustomDialer(dialer *SRVRecordDialer) func(*http.Transport) error {
 		}
 	}
 
+	dialer = NewSRVRecordDialer(WithChooser(NewPriorityChooser(dialer.srvs)))
+
 	return func(t *http.Transport) error {
 		t.DialContext = (dialer).DialContext
 		return errs
