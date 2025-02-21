@@ -408,7 +408,7 @@ func (s *Sender) dispatcher() {
 		s.workers.Acquire()
 		s.ConsumerDeliveryWorkersGauge.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 
-		go s.sink.Send(secret, accept, msg)
+		s.sink.Send(secret, accept, msg)
 	}
 	for i := 0; i < s.maxWorkers; i++ {
 		s.workers.Acquire()
