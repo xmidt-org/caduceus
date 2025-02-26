@@ -135,7 +135,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 			sink.HashField = l.Registration.Hash.Field
 			for i, k := range l.Registration.Kafkas {
 				kafka := &Kafka{}
-				err := kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, maxMessages, maxLinger, logger) //TODO: quickstart-events need to become variable/configurable
+				err := kafka.Update(l.GetId(), "quickstart-events", k.RetryHint.MaxRetry, k.BootstrapServers, logger) //TODO: quickstart-events need to become variable/configurable
 				if err != nil {
 					return nil
 				}
@@ -418,7 +418,7 @@ func (v1 *WebhookV1) onAttempt(request *http.Request, event string) retry.OnAtte
 	}
 }
 
-func (k *Kafka) Update(id, topic string, retries int, servers []string, maxMessages int, linger time.Duration, logger *zap.Logger) error {
+func (k *Kafka) Update(id, topic string, retries int, servers []string, logger *zap.Logger) error {
 	k.id = id
 	k.topic = topic
 	k.brokerAddr = append(k.brokerAddr, servers...)
@@ -430,8 +430,6 @@ func (k *Kafka) Update(id, topic string, retries int, servers []string, maxMessa
 
 	config.Producer.Return.Successes = true
 	config.Producer.RequiredAcks = sarama.WaitForAll
-	config.Producer.MaxMessageBytes = maxMessages
-	config.Producer.Timeout = linger    //TODO: determine if this is the correct field
 	config.Producer.Retry.Max = retries //should we be using retryhint for this?
 	k.config = config
 	// Create a new Kafka producer
