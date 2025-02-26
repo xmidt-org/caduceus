@@ -24,7 +24,6 @@ import (
 	"github.com/xmidt-org/caduceus/internal/metrics"
 	"github.com/xmidt-org/retry"
 	"github.com/xmidt-org/retry/retryhttp"
-	"github.com/xmidt-org/webhook-schema"
 	"github.com/xmidt-org/wrp-go/v3"
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 	"go.uber.org/zap"
@@ -55,7 +54,6 @@ type WebhookSink struct {
 	BatchMessages int
 	BatchLinger   time.Duration
 	ch            chan *wrp.Message
-	msgs          []*wrp.Message
 }
 
 // TODO: rename this
@@ -86,7 +84,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	switch l := listener.(type) {
 	case *ancla.RegistryV1:
 		v1 := &WebhookV1{}
-		v1.Update(c, logger, l.Registration)
+		v1.Update(c, logger, l.Registration.Config.AlternativeURLs, l.GetId(), l.Registration.FailureURL, l.Registration.Config.ReceiverURL)
 		return v1
 	case *ancla.RegistryV2:
 		maxMessages := l.Registration.BatchHint.MaxMesasges
@@ -125,7 +123,7 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 				}
 			}
 
-			go whs.listen()
+			go whs.batchMsgs()
 
 			return whs
 		}
@@ -154,21 +152,19 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 	return nil
 }
 
-func (v1 *WebhookV1) Update(c Config, l *zap.Logger, r webhook.RegistrationV1) {
+func (v1 *WebhookV1) Update(c Config, l *zap.Logger, altUrls []string, id, failureUrl, receiverUrl string) {
 	//TODO: do we need to return an error if not - we should get rid of the error return
-	v1.id = r.Config.ReceiverURL
-	v1.failureUrl = r.FailureURL
+	v1.id = id
+	v1.failureUrl = failureUrl
 	v1.deliveryInterval = c.DeliveryInterval
 	v1.deliveryRetries = c.DeliveryRetries
 	v1.logger = l
-	v1.acceptType = r.Config.ContentType
-	v1.secret = r.Config.Secret
 
-	urlCount, err := getUrls(r.Config.AlternativeURLs)
+	urlCount, err := getUrls(altUrls)
 	if err != nil {
 		l.Error("error recevied parsing urls", zap.Error(err))
 	}
-	v1.updateUrls(urlCount, r.Config.ReceiverURL, r.Config.AlternativeURLs)
+	v1.updateUrls(urlCount, receiverUrl, altUrls)
 
 }
 
@@ -226,25 +222,26 @@ func (whs WebhookSink) Send(secret, acceptType string, msg *wrp.Message) error {
 	return errs
 }
 
-func (whs WebhookSink) listen() {
+func (whs WebhookSink) batchMsgs() {
+	msgs := []*wrp.Message{}
 	ticker := time.NewTicker(whs.BatchLinger) //TODO: setting to this for now - open to suggestions
 	select {
 	case msg := <-whs.ch:
-		whs.msgs = append(whs.msgs, msg)
-		if len(whs.msgs) == whs.BatchMessages {
-			go whs.batch()
+		msgs = append(msgs, msg)
+		if len(msgs) == whs.BatchMessages {
+			whs.sendBatch(msgs)
 		}
 	case <-ticker.C:
-		go whs.batch()
+		whs.sendBatch(msgs)
 		//TODO: do we need to set a new ticker?
 	}
 }
 
-func (whs WebhookSink) batch() {
+func (whs WebhookSink) sendBatch(msgs []*wrp.Message) {
 	var errs error
 	if len(*whs.Hash) == len(whs.webooks) {
 		//TODO: flush out the error handling for kafka
-		for _, msg := range whs.msgs {
+		for _, msg := range msgs {
 			if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
 				err := v2.send(v2.secret, v2.acceptType, msg)
 				if err != nil {
@@ -257,7 +254,7 @@ func (whs WebhookSink) batch() {
 		//TODO: discuss with wes and john the default hashing logic
 		//for now: when no hash is given we will just loop through all the kafkas
 		for _, v2 := range whs.webooks {
-			for _, msg := range whs.msgs {
+			for _, msg := range msgs {
 				err := v2.send(v2.secret, v2.acceptType, msg)
 				if err != nil {
 					errs = errors.Join(errs, err)
