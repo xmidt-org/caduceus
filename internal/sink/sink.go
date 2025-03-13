@@ -44,7 +44,6 @@ type WebhookV1 struct {
 
 type WebhookV2 struct {
 	urls *ring.Ring
-	ch   chan struct{}
 	CommonWebhook
 	//TODO: need to determine best way to add client and client middleware to WebhooV1
 	// clientMiddleware func(http.Client) http.Client
@@ -56,7 +55,6 @@ type WebhookSink struct {
 	BatchMessages int
 	BatchLinger   time.Duration
 	ch            chan *wrp.Message
-	workers       int
 }
 
 // TODO: rename this
@@ -228,26 +226,21 @@ func (whs WebhookSink) Send(secret, acceptType string, msg *wrp.Message) error {
 func (whs WebhookSink) batchMsgs() {
 	msgs := []*wrp.Message{}
 	ticker := time.NewTicker(whs.BatchLinger) //TODO: setting to this for now - open to suggestions
-	msgCh := make(chan *wrp.Message, 10)      //TODO: need to figure out how to configure the buffer
-
-	for w := 1; w <= whs.workers; w++ {
-		go whs.worker(msgCh)
-	}
+	readyCh := make(chan struct{}, 1)
 
 	for {
+
 		select {
 		case msg := <-whs.ch:
 			msgs = append(msgs, msg)
 			if len(msgs) == whs.BatchMessages {
-				for _, m := range msgs {
-					msgCh <- m
-				}
+				readyCh <- struct{}{}
+				whs.sendBatch(msgs, readyCh)
 				msgs = []*wrp.Message{}
 			}
 		case <-ticker.C:
-			for _, m := range msgs {
-				msgCh <- m
-			}
+			readyCh <- struct{}{}
+			whs.sendBatch(msgs, readyCh)
 			msgs = []*wrp.Message{}
 		}
 	}
@@ -263,34 +256,35 @@ need to consider:
 
 3. how do we define sendBatch to be ready. what conditions signal channel to be closed/is ready?
 */
-func (whs WebhookSink) worker(msgCh chan *wrp.Message) {
-	for msg := range msgCh {
-		whs.sendBatch(msg)
-	}
-}
-func (whs WebhookSink) sendBatch(msg *wrp.Message) {
+
+func (whs WebhookSink) sendBatch(msgs []*wrp.Message, ch chan struct{}) {
 
 	if len(*whs.Hash) == len(whs.webooks) {
 		//TODO: flush out the error handling for kafka
-		if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
-			go v2.send(v2.secret, v2.acceptType, msg)
-			//TODO: will need a different way of handling errors
-			// if err != nil {
-			// 	errs = errors.Join(errs, err)
-			// }
+		for _, msg := range msgs {
+			if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
+				go v2.send(v2.secret, v2.acceptType, msg)
+				//TODO: will need a different way of handling errors
+				// if err != nil {
+				// 	errs = errors.Join(errs, err)
+				// }
+			}
 		}
-
+		<-ch
 	} else {
 		//TODO: discuss with wes and john the default hashing logic
 		//for now: when no hash is given we will just loop through all the kafkas
-		for _, v2 := range whs.webooks {
-			go v2.send(v2.secret, v2.acceptType, msg)
-			//TODO: will need a different way to handle errors
-			// if err != nil {
-			// 	errs = errors.Join(errs, err)
-			// }
+		for _, msg := range msgs {
+			for _, v2 := range whs.webooks {
+				go v2.send(v2.secret, v2.acceptType, msg)
+				//TODO: will need a different way to handle errors
+				// if err != nil {
+				// 	errs = errors.Join(errs, err)
+				// }
 
+			}
 		}
+		<-ch
 	}
 }
 
@@ -755,7 +749,6 @@ func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
 			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v2.logger.Error("goroutine send() panicked", zap.String("id", v2.id), zap.Any("panic", r))
 		}
-		<-v2.ch
 		// s.workers.Release()
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
