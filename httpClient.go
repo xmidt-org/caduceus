@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -37,10 +37,10 @@ func (d doerFunc) Do(req *http.Request) (*http.Response, error) {
 
 type metricWrapper struct {
 	now          func() time.Time
-	queryLatency metrics.Histogram
+	queryLatency prometheus.ObserverVec
 }
 
-func newMetricWrapper(now func() time.Time, queryLatency metrics.Histogram) (*metricWrapper, error) {
+func newMetricWrapper(now func() time.Time, queryLatency prometheus.ObserverVec) (*metricWrapper, error) {
 	if now == nil {
 		now = time.Now
 	}
@@ -59,7 +59,7 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		resp, err := next.Do(req)
 		endTime := m.now()
 
-		code := genericDoReason
+		code := unknown
 		reason := noErrReason
 		if err != nil {
 			reason = getDoErrReason(err)
@@ -71,7 +71,7 @@ func (m *metricWrapper) roundTripper(next httpClient) httpClient {
 		}
 
 		// find time difference, add to metric
-		m.queryLatency.With(urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code).Observe(endTime.Sub(startTime).Seconds())
+		m.queryLatency.With(prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code}).Observe(endTime.Sub(startTime).Seconds())
 
 		return resp, err
 	})
@@ -111,5 +111,5 @@ func getDoErrReason(err error) string {
 		}
 	}
 
-	return genericDoReason
+	return unknown
 }

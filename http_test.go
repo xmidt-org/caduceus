@@ -11,6 +11,7 @@ import (
 	"testing/iotest"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -106,21 +107,23 @@ func TestServerHandler(t *testing.T) {
 
 		fakeTime := mockTime(tc.startTime, tc.endTime)
 		fakeHist := new(mockHistogram)
-		histogramFunctionCall := []string{eventLabel, tc.expectedEventType}
+		histogramFunctionCall := prometheus.Labels{eventLabel: tc.expectedEventType}
 		fakeLatency := date2.Sub(date1)
 		fakeHist.On("With", histogramFunctionCall).Return().Once()
 		fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 		serverWrapper := &ServerHandler{
-			Logger:                   logger,
-			caduceusHandler:          fakeHandler,
-			errorRequests:            fakeErrorRequests,
-			emptyRequests:            fakeEmptyRequests,
-			invalidCount:             fakeInvalidCount,
-			incomingQueueDepthMetric: fakeQueueDepth,
-			maxOutstanding:           1,
-			incomingQueueLatency:     fakeHist,
-			now:                      fakeTime,
+			Logger:          logger,
+			caduceusHandler: fakeHandler,
+			metrics: ServerHandlerMetrics{
+				errorRequests:        fakeErrorRequests,
+				emptyRequests:        fakeEmptyRequests,
+				invalidCount:         fakeInvalidCount,
+				incomingQueueDepth:   fakeQueueDepth,
+				incomingQueueLatency: fakeHist,
+			},
+			maxOutstanding: 1,
+			now:            fakeTime,
 		}
 		t.Run(tc.desc, func(t *testing.T) {
 			w := httptest.NewRecorder()
@@ -157,31 +160,33 @@ func TestServerHandlerFixWrp(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(2)
 
 	fakeIncomingContentTypeCount := new(mockCounter)
-	fakeIncomingContentTypeCount.On("With", []string{"content_type", wrp.MimeTypeMsgpack}).Return(fakeIncomingContentTypeCount)
-	fakeIncomingContentTypeCount.On("With", []string{"content_type", ""}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("With", prometheus.Labels{"content_type": wrp.MimeTypeMsgpack}).Return(fakeIncomingContentTypeCount)
+	fakeIncomingContentTypeCount.On("With", prometheus.Labels{"content_type": ""}).Return(fakeIncomingContentTypeCount)
 	fakeIncomingContentTypeCount.On("Add", 1.0).Return()
 
 	fakeModifiedWRPCount := new(mockCounter)
-	fakeModifiedWRPCount.On("With", []string{reasonLabel, bothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
+	fakeModifiedWRPCount.On("With", prometheus.Labels{reasonLabel: bothEmptyReason}).Return(fakeIncomingContentTypeCount).Once()
 	fakeModifiedWRPCount.On("Add", 1.0).Return().Once()
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{eventLabel, "bob"}
+	histogramFunctionCall := prometheus.Labels{eventLabel: "bob"}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		errorRequests:            fakeErrorRequests,
-		emptyRequests:            fakeEmptyRequests,
-		invalidCount:             fakeInvalidCount,
-		modifiedWRPCount:         fakeModifiedWRPCount,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
-		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+		Logger:          logger,
+		caduceusHandler: fakeHandler,
+		metrics: ServerHandlerMetrics{
+			errorRequests:        fakeErrorRequests,
+			emptyRequests:        fakeEmptyRequests,
+			invalidCount:         fakeInvalidCount,
+			modifiedWRPCount:     fakeModifiedWRPCount,
+			incomingQueueDepth:   fakeQueueDepth,
+			incomingQueueLatency: fakeHist,
+		},
+		maxOutstanding: 1,
+		now:            mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPHappyPath", func(t *testing.T) {
@@ -215,18 +220,20 @@ func TestServerHandlerFull(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{eventLabel, unknownEventType}
+	histogramFunctionCall := prometheus.Labels{eventLabel: unknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
-		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+		Logger:          logger,
+		caduceusHandler: fakeHandler,
+		metrics: ServerHandlerMetrics{
+			incomingQueueDepth:   fakeQueueDepth,
+			incomingQueueLatency: fakeHist,
+		},
+		maxOutstanding: 1,
+		now:            mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -270,19 +277,21 @@ func TestServerEmptyPayload(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{eventLabel, unknownEventType}
+	histogramFunctionCall := prometheus.Labels{eventLabel: unknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		emptyRequests:            fakeEmptyRequests,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
-		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+		Logger:          logger,
+		caduceusHandler: fakeHandler,
+		metrics: ServerHandlerMetrics{
+			emptyRequests:        fakeEmptyRequests,
+			incomingQueueDepth:   fakeQueueDepth,
+			incomingQueueLatency: fakeHist,
+		},
+		maxOutstanding: 1,
+		now:            mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -325,19 +334,21 @@ func TestServerUnableToReadBody(t *testing.T) {
 	fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{eventLabel, unknownEventType}
+	histogramFunctionCall := prometheus.Labels{eventLabel: unknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		errorRequests:            fakeErrorRequests,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
-		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+		Logger:          logger,
+		caduceusHandler: fakeHandler,
+		metrics: ServerHandlerMetrics{
+			errorRequests:        fakeErrorRequests,
+			incomingQueueDepth:   fakeQueueDepth,
+			incomingQueueLatency: fakeHist,
+		},
+		maxOutstanding: 1,
+		now:            mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -380,19 +391,20 @@ func TestServerInvalidBody(t *testing.T) {
 	fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
 
 	fakeHist := new(mockHistogram)
-	histogramFunctionCall := []string{eventLabel, unknownEventType}
+	histogramFunctionCall := prometheus.Labels{eventLabel: unknownEventType}
 	fakeLatency := date2.Sub(date1)
 	fakeHist.On("With", histogramFunctionCall).Return().Once()
 	fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
 
 	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		invalidCount:             fakeInvalidCount,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
-		incomingQueueLatency:     fakeHist,
-		now:                      mockTime(date1, date2),
+		Logger:          logger,
+		caduceusHandler: fakeHandler,
+		metrics: ServerHandlerMetrics{
+			invalidCount:         fakeInvalidCount,
+			incomingQueueDepth:   fakeQueueDepth,
+			incomingQueueLatency: fakeHist},
+		maxOutstanding: 1,
+		now:            mockTime(date1, date2),
 	}
 
 	t.Run("TestServeHTTPTooMany", func(t *testing.T) {
@@ -415,7 +427,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	date1 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 0, time.UTC)
 	date2 := time.Date(2021, time.Month(2), 21, 1, 10, 30, 45, time.UTC)
 
-	histogramFunctionCall := []string{eventLabel, unknownEventType}
+	histogramFunctionCall := prometheus.Labels{eventLabel: unknownEventType}
 	fakeLatency := date2.Sub(date1)
 
 	assert := assert.New(t)
@@ -426,10 +438,12 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	fakeQueueDepth := new(mockGauge)
 
 	serverWrapper := &ServerHandler{
-		Logger:                   logger,
-		caduceusHandler:          fakeHandler,
-		incomingQueueDepthMetric: fakeQueueDepth,
-		maxOutstanding:           1,
+		Logger:          logger,
+		caduceusHandler: fakeHandler,
+		metrics: ServerHandlerMetrics{
+			incomingQueueDepth: fakeQueueDepth,
+		},
+		maxOutstanding: 1,
 	}
 	testCases := []struct {
 		name    string
@@ -449,7 +463,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			fakeHist := new(mockHistogram)
-			serverWrapper.incomingQueueLatency = fakeHist
+			serverWrapper.metrics.incomingQueueLatency = fakeHist
 			serverWrapper.now = mockTime(date1, date2)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
 			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()

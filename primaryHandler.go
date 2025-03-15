@@ -18,7 +18,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule"
@@ -28,7 +27,6 @@ import (
 	"github.com/xmidt-org/clortho"
 	"github.com/xmidt-org/clortho/clorthometrics"
 	"github.com/xmidt-org/clortho/clorthozap"
-	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/touchstone"
 
 	// nolint:staticcheck
@@ -60,8 +58,8 @@ type JWTValidator struct {
 	Leeway bascule.Leeway
 }
 
-func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
-	auth, err := authenticationMiddleware(v, l, registry)
+func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry, tf *touchstone.Factory, sw *ServerHandler, webhookSvc ancla.Service, router *mux.Router, prevVersionSupport bool) (*mux.Router, error) {
+	auth, err := authenticationMiddleware(v, l, registry, tf)
 	if err != nil {
 		// nolint:errorlint
 		return nil, fmt.Errorf("unable to build authentication middleware: %v", err)
@@ -80,7 +78,7 @@ func NewPrimaryHandler(l *zap.Logger, v *viper.Viper, registry xmetrics.Registry
 }
 
 // authenticationMiddleware configures the authorization requirements for requests to reach the main handler
-func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetrics.Registry) (*alice.Chain, error) {
+func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetrics.Registry, tf *touchstone.Factory) (*alice.Chain, error) {
 	if registry == nil {
 		return nil, errors.New("nil registry")
 	}
@@ -142,20 +140,6 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 		return &alice.Chain{}, emperror.With(err, "failed to create clortho resolver")
 	}
 
-	promReg, ok := registry.(prometheus.Registerer)
-	if !ok {
-		return &alice.Chain{}, errors.New("failed to get prometheus registerer")
-	}
-
-	var (
-		tsConfig touchstone.Config
-		zConfig  sallust.Config
-	)
-	// Get touchstone & zap configurations
-	v.UnmarshalKey("touchstone", &tsConfig)
-	v.UnmarshalKey("zap", &zConfig)
-	zlogger := zap.Must(zConfig.Build())
-	tf := touchstone.NewFactory(tsConfig, zlogger, promReg)
 	// Instantiate a metric listener for refresher and resolver to share
 	cml, err := clorthometrics.NewListener(clorthometrics.WithFactory(tf))
 	if err != nil {
@@ -164,7 +148,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 
 	// Instantiate a logging listener for refresher and resolver to share
 	czl, err := clorthozap.NewListener(
-		clorthozap.WithLogger(zlogger),
+		clorthozap.WithLogger(logger),
 	)
 	if err != nil {
 		return &alice.Chain{}, emperror.With(err, "failed to create clortho zap logger listener")

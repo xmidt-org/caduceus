@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/xmidt-org/sallust"
@@ -21,16 +21,11 @@ import (
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
 	*zap.Logger
-	caduceusHandler          RequestHandler
-	errorRequests            metrics.Counter
-	emptyRequests            metrics.Counter
-	invalidCount             metrics.Counter
-	incomingQueueDepthMetric metrics.Gauge
-	modifiedWRPCount         metrics.Counter
-	incomingQueueDepth       int64
-	maxOutstanding           int64
-	incomingQueueLatency     metrics.Histogram
-	now                      func() time.Time
+	caduceusHandler    RequestHandler
+	metrics            ServerHandlerMetrics
+	incomingQueueDepth int64
+	maxOutstanding     int64
+	now                func() time.Time
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -66,19 +61,19 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
-	sh.incomingQueueDepthMetric.Add(1.0)
-	defer sh.incomingQueueDepthMetric.Add(-1.0)
+	sh.metrics.incomingQueueDepth.Add(1.0)
+	defer sh.metrics.incomingQueueDepth.Add(-1.0)
 
 	payload, err := io.ReadAll(request.Body)
 	if err != nil {
-		sh.errorRequests.Add(1.0)
+		sh.metrics.errorRequests.Add(1.0)
 		logger.Error("Unable to retrieve the request body.", zap.Error(err))
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(payload) == 0 {
-		sh.emptyRequests.Add(1.0)
+		sh.metrics.emptyRequests.Add(1.0)
 		logger.Error("Empty payload.")
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Empty payload.\n"))
@@ -91,7 +86,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = decoder.Decode(msg)
 	if err != nil || msg.MessageType() != 4 {
 		// return a 400
-		sh.invalidCount.Add(1.0)
+		sh.metrics.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			response.Write([]byte("Invalid payload format.\n"))
@@ -106,7 +101,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = wrp.UTF8(msg)
 	if err != nil {
 		// return a 400
-		sh.invalidCount.Add(1.0)
+		sh.metrics.invalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
 		logger.Debug("Strings must be UTF-8.")
@@ -125,7 +120,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.incomingQueueLatency.With(eventLabel, eventType).Observe(endTime.Sub(startTime).Seconds())
+	sh.metrics.incomingQueueLatency.With(prometheus.Labels{eventLabel: eventType}).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -150,7 +145,7 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	}
 
 	if reason != "" {
-		sh.modifiedWRPCount.With(reasonLabel, reason).Add(1.0)
+		sh.metrics.modifiedWRPCount.With(prometheus.Labels{reasonLabel: reason}).Add(1.0)
 	}
 
 	return msg
