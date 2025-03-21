@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,7 +56,7 @@ func TestRoundTripper(t *testing.T) {
 			endTime:      date2,
 			expectedCode: strconv.Itoa(http.StatusServiceUnavailable),
 			request:      exampleRequest(1),
-			expectedErr:  errors.New(genericDoReason),
+			expectedErr:  errors.New(unknown),
 			expectedResponse: &http.Response{
 				StatusCode: http.StatusServiceUnavailable,
 			},
@@ -70,7 +70,7 @@ func TestRoundTripper(t *testing.T) {
 			fakeTime := mockTime(tc.startTime, tc.endTime)
 			fakeHandler := new(mockHandler)
 			fakeHist := new(mockHistogram)
-			histogramFunctionCall := []string{urlLabel, tc.request.URL.String(), reasonLabel, getDoErrReason(tc.expectedErr), codeLabel, tc.expectedCode}
+			histogramFunctionCall := prometheus.Labels{codeLabel: tc.expectedCode, reasonLabel: getDoErrReason(tc.expectedErr), urlLabel: tc.request.URL.String()}
 			fakeLatency := date2.Sub(date1)
 			fakeHist.On("With", histogramFunctionCall).Return().Once()
 			fakeHist.On("Observe", fakeLatency.Seconds()).Return().Once()
@@ -114,7 +114,7 @@ func TestNewMetricWrapper(t *testing.T) {
 		description   string
 		expectedErr   error
 		fakeTime      func() time.Time
-		fakeHistogram metrics.Histogram
+		fakeHistogram prometheus.ObserverVec
 	}{
 		{
 			description:   "Success",

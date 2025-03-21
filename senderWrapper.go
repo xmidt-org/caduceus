@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
@@ -34,13 +34,9 @@ type SenderWrapperFactory struct {
 	// shutting them down and cleaning up the resources associated with them.
 	Linger time.Duration
 
-	// Metrics registry.
-	MetricsRegistry CaduceusMetricsRegistry
-
-	// The metrics counter for dropped messages due to invalid payloads
-	DroppedMsgCounter metrics.Counter
-
-	EventType metrics.Counter
+	// Sender wrapper metrics.
+	Metrics               SenderWrapperMetrics
+	outboundSenderMetrics OutboundSenderMetrics
 
 	// The logger implementation to share with OutboundSenders.
 	Logger *zap.Logger
@@ -64,59 +60,52 @@ type SenderWrapper interface {
 
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
-	sender              httpClient
-	numWorkersPerSender int
-	queueSizePerSender  int
-	deliveryRetries     int
-	deliveryInterval    time.Duration
-	cutOffPeriod        time.Duration
-	linger              time.Duration
-	logger              *zap.Logger
-	mutex               sync.RWMutex
-	senders             map[string]OutboundSender
-	metricsRegistry     CaduceusMetricsRegistry
-	eventType           metrics.Counter
-	queryLatency        metrics.Histogram
-	wg                  sync.WaitGroup
-	shutdown            chan struct{}
-	customPIDs          []string
-	disablePartnerIDs   bool
+	sender                httpClient
+	numWorkersPerSender   int
+	queueSizePerSender    int
+	deliveryRetries       int
+	deliveryInterval      time.Duration
+	cutOffPeriod          time.Duration
+	linger                time.Duration
+	logger                *zap.Logger
+	mutex                 sync.RWMutex
+	senders               map[string]OutboundSender
+	metrics               SenderWrapperMetrics
+	outboundSenderMetrics OutboundSenderMetrics
+	wg                    sync.WaitGroup
+	shutdown              chan struct{}
+	customPIDs            []string
+	disablePartnerIDs     bool
 }
 
 // New produces a new SenderWrapper implemented by CaduceusSenderWrapper
 // based on the factory configuration.
-func (swf SenderWrapperFactory) New() (sw SenderWrapper, err error) {
-	caduceusSenderWrapper := &CaduceusSenderWrapper{
-		sender:              swf.Sender,
-		numWorkersPerSender: swf.NumWorkersPerSender,
-		queueSizePerSender:  swf.QueueSizePerSender,
-		deliveryRetries:     swf.DeliveryRetries,
-		deliveryInterval:    swf.DeliveryInterval,
-		cutOffPeriod:        swf.CutOffPeriod,
-		linger:              swf.Linger,
-		logger:              swf.Logger,
-		metricsRegistry:     swf.MetricsRegistry,
-		customPIDs:          swf.CustomPIDs,
-		disablePartnerIDs:   swf.DisablePartnerIDs,
-	}
-
+func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 	if swf.Linger <= 0 {
-		err = errors.New("Linger must be positive.")
-		sw = nil
-		return
+		return nil, errors.New("Linger must be positive.")
 	}
 
-	caduceusSenderWrapper.queryLatency = NewMetricWrapperMeasures(swf.MetricsRegistry)
-	caduceusSenderWrapper.eventType = swf.MetricsRegistry.NewCounter(IncomingEventTypeCounter)
+	sw := &CaduceusSenderWrapper{
+		sender:                swf.Sender,
+		numWorkersPerSender:   swf.NumWorkersPerSender,
+		queueSizePerSender:    swf.QueueSizePerSender,
+		deliveryRetries:       swf.DeliveryRetries,
+		deliveryInterval:      swf.DeliveryInterval,
+		cutOffPeriod:          swf.CutOffPeriod,
+		linger:                swf.Linger,
+		logger:                swf.Logger,
+		customPIDs:            swf.CustomPIDs,
+		disablePartnerIDs:     swf.DisablePartnerIDs,
+		metrics:               swf.Metrics,
+		outboundSenderMetrics: swf.outboundSenderMetrics,
+		senders:               make(map[string]OutboundSender),
+		shutdown:              make(chan struct{}),
+	}
 
-	caduceusSenderWrapper.senders = make(map[string]OutboundSender)
-	caduceusSenderWrapper.shutdown = make(chan struct{})
+	sw.wg.Add(1)
+	go undertaker(sw)
 
-	caduceusSenderWrapper.wg.Add(1)
-	go undertaker(caduceusSenderWrapper)
-
-	sw = caduceusSenderWrapper
-	return
+	return sw, nil
 }
 
 // Update is called when we get changes to our webhook listeners with either
@@ -129,13 +118,12 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		CutOffPeriod:      sw.cutOffPeriod,
 		NumWorkers:        sw.numWorkersPerSender,
 		QueueSize:         sw.queueSizePerSender,
-		MetricsRegistry:   sw.metricsRegistry,
 		DeliveryRetries:   sw.deliveryRetries,
 		DeliveryInterval:  sw.deliveryInterval,
+		Metrics:           sw.outboundSenderMetrics,
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
-		QueryLatency:      sw.queryLatency,
 	}
 
 	ids := make([]struct {
@@ -155,12 +143,6 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		sender, ok := sw.senders[inValue.ID]
 		if !ok {
 			osf.Listener = inValue.Listener
-			metricWrapper, err := newMetricWrapper(time.Now, osf.QueryLatency)
-
-			if err != nil {
-				continue
-			}
-			osf.ClientMiddleware = metricWrapper.roundTripper
 			obs, err := osf.New()
 			if nil == err {
 				sw.senders[inValue.ID] = obs
@@ -177,7 +159,7 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 	sw.mutex.RLock()
 	defer sw.mutex.RUnlock()
 
-	sw.eventType.With(eventLabel, msg.FindEventStringSubMatch()).Add(1)
+	sw.metrics.eventType.With(prometheus.Labels{eventLabel: msg.FindEventStringSubMatch()}).Add(1)
 
 	for _, v := range sw.senders {
 		v.Queue(msg)

@@ -24,7 +24,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/go-kit/kit/metrics"
+	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/device"
 
@@ -60,9 +61,6 @@ type OutboundSenderFactory struct {
 	// Sender func(*http.Request) (*http.Response, error)
 	Sender httpClient
 
-	//
-	ClientMiddleware func(httpClient) httpClient
-
 	// The number of delivery workers to create and use.
 	NumWorkers int
 
@@ -80,8 +78,8 @@ type OutboundSenderFactory struct {
 	// Time in between delivery retries
 	DeliveryInterval time.Duration
 
-	// Metrics registry.
-	MetricsRegistry CaduceusMetricsRegistry
+	// Outbound sender metrics.
+	Metrics OutboundSenderMetrics
 
 	// The logger to use.
 	Logger *zap.Logger
@@ -92,8 +90,6 @@ type OutboundSenderFactory struct {
 
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
-
-	QueryLatency metrics.Histogram
 }
 
 type OutboundSender interface {
@@ -105,70 +101,52 @@ type OutboundSender interface {
 
 // CaduceusOutboundSender is the outbound sender object.
 type CaduceusOutboundSender struct {
-	id                               string
-	urls                             *ring.Ring
-	listener                         ancla.InternalWebhook
-	deliverUntil                     time.Time
-	dropUntil                        time.Time
-	sender                           httpClient
-	events                           []*regexp.Regexp
-	matcher                          []*regexp.Regexp
-	queueSize                        int
-	deliveryRetries                  int
-	deliveryInterval                 time.Duration
-	deliveryCounter                  metrics.Counter
-	deliveryRetryCounter             metrics.Counter
-	droppedQueueFullCounter          metrics.Counter
-	droppedCutoffCounter             metrics.Counter
-	droppedExpiredCounter            metrics.Counter
-	droppedExpiredBeforeQueueCounter metrics.Counter
-	droppedMessage                   metrics.Counter
-	droppedInvalidConfig             metrics.Counter
-	droppedPanic                     metrics.Counter
-	cutOffCounter                    metrics.Counter
-	queueDepthGauge                  metrics.Gauge
-	renewalTimeGauge                 metrics.Gauge
-	deliverUntilGauge                metrics.Gauge
-	dropUntilGauge                   metrics.Gauge
-	maxWorkersGauge                  metrics.Gauge
-	currentWorkersGauge              metrics.Gauge
-	deliveryRetryMaxGauge            metrics.Gauge
-	wg                               sync.WaitGroup
-	cutOffPeriod                     time.Duration
-	workers                          semaphore.Interface
-	maxWorkers                       int
-	failureMsg                       FailureMessage
-	logger                           *zap.Logger
-	mutex                            sync.RWMutex
-	queue                            atomic.Value
-	customPIDs                       []string
-	disablePartnerIDs                bool
-	clientMiddleware                 func(httpClient) httpClient
+	id                string
+	urls              *ring.Ring
+	listener          ancla.InternalWebhook
+	deliverUntil      time.Time
+	dropUntil         time.Time
+	sender            httpClient
+	events            []*regexp.Regexp
+	matcher           []*regexp.Regexp
+	queueSize         int
+	deliveryRetries   int
+	deliveryInterval  time.Duration
+	metrics           OutboundSenderMetrics
+	wg                sync.WaitGroup
+	cutOffPeriod      time.Duration
+	workers           semaphore.Interface
+	maxWorkers        int
+	failureMsg        FailureMessage
+	logger            *zap.Logger
+	mutex             sync.RWMutex
+	queue             atomic.Value
+	customPIDs        []string
+	disablePartnerIDs bool
+	clientMiddleware  func(httpClient) httpClient
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
 func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
-	if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
-		return
+	metricWrapper, err := newMetricWrapper(time.Now, osf.Metrics.queryLatency)
+	if err != nil {
+		return nil, err
 	}
 
-	if nil == osf.ClientMiddleware {
-		osf.ClientMiddleware = nopHTTPClient
+	if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
+		return nil, err
 	}
 
 	if nil == osf.Sender {
-		err = errors.New("nil Sender()")
-		return
+		return nil, errors.New("nil Sender()")
 	}
 
 	if 0 == osf.CutOffPeriod.Nanoseconds() {
-		err = errors.New("Invalid CutOffPeriod")
-		return
+		return nil, errors.New("Invalid CutOffPeriod")
 	}
 
 	if nil == osf.Logger {
-		err = errors.New("Logger required")
-		return
+		return nil, errors.New("Logger required")
 	}
 
 	decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
@@ -183,6 +161,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		logger:           decoratedLogger,
 		deliveryRetries:  osf.DeliveryRetries,
 		deliveryInterval: osf.DeliveryInterval,
+		metrics:          osf.Metrics,
 		maxWorkers:       osf.NumWorkers,
 		failureMsg: FailureMessage{
 			Original:     osf.Listener,
@@ -193,31 +172,27 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		},
 		customPIDs:        osf.CustomPIDs,
 		disablePartnerIDs: osf.DisablePartnerIDs,
-		clientMiddleware:  osf.ClientMiddleware,
+		clientMiddleware:  metricWrapper.roundTripper,
 	}
 
 	// Don't share the secret with others when there is an error.
 	caduceusOutboundSender.failureMsg.Original.Webhook.Config.Secret = "XxxxxX"
 
-	CreateOutbounderMetrics(osf.MetricsRegistry, caduceusOutboundSender)
-
 	// update queue depth and current workers gauge to make sure they start at 0
-	caduceusOutboundSender.queueDepthGauge.Set(0)
-	caduceusOutboundSender.currentWorkersGauge.Set(0)
+	caduceusOutboundSender.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: caduceusOutboundSender.id}).Set(0)
+	caduceusOutboundSender.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: caduceusOutboundSender.id}).Set(0)
 
 	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
 
 	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
-		return
+		return nil, err
 	}
 
 	caduceusOutboundSender.workers = semaphore.New(caduceusOutboundSender.maxWorkers)
 	caduceusOutboundSender.wg.Add(1)
 	go caduceusOutboundSender.dispatcher()
 
-	obs = caduceusOutboundSender
-
-	return
+	return caduceusOutboundSender, nil
 }
 
 // Update applies user configurable values for the outbound sender when a
@@ -274,7 +249,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 		}
 	}
 
-	obs.renewalTimeGauge.Set(float64(time.Now().Unix()))
+	obs.metrics.renewalTimeGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(time.Now().Unix()))
 
 	// write/update obs
 	obs.mutex.Lock()
@@ -287,11 +262,11 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 
 	obs.listener.Webhook.FailureURL = wh.Webhook.FailureURL
 	obs.deliverUntil = wh.Webhook.Until
-	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
+	obs.metrics.deliverUntilGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(obs.deliverUntil.Unix()))
 
 	obs.events = events
 
-	obs.deliveryRetryMaxGauge.Set(float64(obs.deliveryRetries))
+	obs.metrics.deliveryRetryMaxGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(obs.deliveryRetries))
 
 	// if matcher list is empty set it nil for Queue() logic
 	obs.matcher = nil
@@ -320,7 +295,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 	}
 
 	// Update this here in case we make this configurable later
-	obs.maxWorkersGauge.Set(float64(obs.maxWorkers))
+	obs.metrics.maxWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(obs.maxWorkers))
 
 	obs.mutex.Unlock()
 
@@ -335,15 +310,15 @@ func (obs *CaduceusOutboundSender) Shutdown(gentle bool) {
 		// need to close the channel we're going to replace, in case it doesn't
 		// have any events in it.
 		close(obs.queue.Load().(chan *wrp.Message))
-		obs.Empty(obs.droppedExpiredCounter)
+		obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "expired"}))
 	}
 	close(obs.queue.Load().(chan *wrp.Message))
 	obs.wg.Wait()
 
 	obs.mutex.Lock()
 	obs.deliverUntil = time.Time{}
-	obs.deliverUntilGauge.Set(float64(obs.deliverUntil.Unix()))
-	obs.queueDepthGauge.Set(0) //just in case
+	obs.metrics.deliverUntilGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(obs.deliverUntil.Unix()))
+	obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(0) //just in case
 	obs.mutex.Unlock()
 }
 
@@ -428,25 +403,25 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 
 	select {
 	case obs.queue.Load().(chan *wrp.Message) <- msg:
-		obs.queueDepthGauge.Add(1.0)
+		obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
 		obs.logger.Debug("event added to outbound queue", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 	default:
 		obs.logger.Debug("queue full. event dropped", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 		obs.queueOverflow()
-		obs.droppedQueueFullCounter.Add(1.0)
+		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "queue_full"}).Add(1.0)
 	}
 }
 
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	if !now.After(dropUntil) {
 		// client was cut off
-		obs.droppedCutoffCounter.Add(1.0)
+		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}).Add(1.0)
 		return false
 	}
 
 	if !now.Before(deliverUntil) {
 		// outside delivery window
-		obs.droppedExpiredBeforeQueueCounter.Add(1.0)
+		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "expired_before_queueing"}).Add(1.0)
 		return false
 	}
 
@@ -457,11 +432,11 @@ func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUnti
 // a fresh one, counting any current messages in the queue as dropped.
 // It should never close a queue, as a queue not referenced anywhere will be
 // cleaned up by the garbage collector without needing to be closed.
-func (obs *CaduceusOutboundSender) Empty(droppedCounter metrics.Counter) {
+func (obs *CaduceusOutboundSender) Empty(droppedCounter prometheus.Counter) {
 	droppedMsgs := obs.queue.Load().(chan *wrp.Message)
 	obs.queue.Store(make(chan *wrp.Message, obs.queueSize))
 	droppedCounter.Add(float64(len(droppedMsgs)))
-	obs.queueDepthGauge.Set(0.0)
+	obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(0.0)
 }
 
 func (obs *CaduceusOutboundSender) dispatcher() {
@@ -504,7 +479,7 @@ Loop:
 			if !ok {
 				break Loop
 			}
-			obs.queueDepthGauge.Add(-1.0)
+			obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(-1.0)
 			obs.mutex.RLock()
 			urls = obs.urls
 			// Move to the next URL to try 1st the next time.
@@ -520,15 +495,15 @@ Loop:
 			now := time.Now()
 
 			if now.Before(dropUntil) {
-				obs.droppedCutoffCounter.Add(1.0)
+				obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}).Add(1.0)
 				continue
 			}
 			if now.After(deliverUntil) {
-				obs.Empty(obs.droppedExpiredCounter)
+				obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "expired"}))
 				continue
 			}
 			obs.workers.Acquire()
-			obs.currentWorkersGauge.Add(1.0)
+			obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
 
 			go obs.send(urls, secret, accept, msg)
 		}
@@ -543,11 +518,11 @@ Loop:
 func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
 	defer func() {
 		if r := recover(); nil != r {
-			obs.droppedPanic.Add(1.0)
+			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: DropsDueToPanic}).Add(1.0)
 			obs.logger.Error("goroutine send() panicked", zap.String("id", obs.id), zap.Any("panic", r))
 		}
 		obs.workers.Release()
-		obs.currentWorkersGauge.Add(-1.0)
+		obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(-1.0)
 	}()
 
 	payload := msg.Payload
@@ -571,7 +546,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
 	if nil != err {
 		// Report drop
-		obs.droppedInvalidConfig.Add(1.0)
+		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "invalid_config"}).Add(1.0)
 		obs.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", obs.id), zap.Error(err))
 		return
 	}
@@ -612,7 +587,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
-		Counter:  obs.deliveryRetryCounter.With(urlLabel, obs.id, eventLabel, event),
+		Counter:  gokitprometheus.NewCounter(obs.metrics.deliveryRetryCounter.MustCurryWith(prometheus.Labels{urlLabel: obs.id, eventLabel: event})),
 		// Always retry on failures up to the max count.
 		ShouldRetry:       xhttp.ShouldRetry,
 		ShouldRetryStatus: xhttp.RetryCodes,
@@ -623,7 +598,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		urls = urls.Next()
 		tmp, err := url.Parse(urls.Value.(string))
 		if err != nil {
-			obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, updateRequestURLFailedReason).Add(1)
+			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: updateRequestURLFailedReason}).Add(1)
 			obs.logger.Error("failed to update url", zap.String("url", urls.Value.(string)), zap.Error(err))
 			return
 		}
@@ -637,7 +612,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	client := obs.clientMiddleware(doerFunc(retryer))
 	resp, err := client.Do(req)
 
-	var deliveryCounterLabels []string
+	var deliveryCounterLabels prometheus.Labels
 	code := messageDroppedCode
 	reason := noErrReason
 	l := obs.logger
@@ -649,8 +624,8 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		}
 
 		l = obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
-		deliveryCounterLabels = []string{urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event}
-		obs.droppedMessage.With(urlLabel, req.URL.String(), reasonLabel, reason).Add(1)
+		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: event}
+		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason}).Add(1)
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
@@ -661,10 +636,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			resp.Body.Close()
 		}
 
-		deliveryCounterLabels = []string{urlLabel, req.URL.String(), reasonLabel, reason, codeLabel, code, eventLabel, event}
+		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: event}
 	}
 
-	obs.deliveryCounter.With(deliveryCounterLabels...).Add(1.0)
+	obs.metrics.deliveryCounter.With(deliveryCounterLabels).Add(1.0)
 	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
 }
 
@@ -678,17 +653,17 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 		return
 	}
 	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
-	obs.dropUntilGauge.Set(float64(obs.dropUntil.Unix()))
+	obs.metrics.dropUntilGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(obs.dropUntil.Unix()))
 	secret := obs.listener.Webhook.Config.Secret
 	failureMsg := obs.failureMsg
 	failureURL := obs.listener.Webhook.FailureURL
 	obs.mutex.Unlock()
 
-	obs.cutOffCounter.Add(1.0)
+	obs.metrics.cutOffCounter.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
 
 	// We empty the queue but don't close the channel, because we're not
 	// shutting down.
-	obs.Empty(obs.droppedCutoffCounter)
+	obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}))
 
 	msg, err := json.Marshal(failureMsg)
 	if nil != err {
