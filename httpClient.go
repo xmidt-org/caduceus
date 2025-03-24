@@ -24,10 +24,6 @@ type httpClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-func nopHTTPClient(next httpClient) httpClient {
-	return next
-}
-
 // DoerFunc implements HTTPClient
 type doerFunc func(*http.Request) (*http.Response, error)
 

@@ -65,7 +65,6 @@ type mockCounter struct {
 	mockCollector
 	mockMetric
 	mock.Mock
-	labelsNames []string
 }
 
 func (m *mockCounter) Add(delta float64) {
