@@ -43,8 +43,7 @@ type WebhookV1 struct {
 }
 
 type WebhookV2 struct {
-	urls    *ring.Ring
-	readyCh chan struct{}
+	urls *ring.Ring
 	CommonWebhook
 	//TODO: need to determine best way to add client and client middleware to WebhooV1
 	// clientMiddleware func(http.Client) http.Client
@@ -56,6 +55,7 @@ type WebhookSink struct {
 	BatchMessages int
 	BatchLinger   time.Duration
 	ch            chan *wrp.Message
+	lock          *sync.Mutex
 }
 
 // TODO: rename this
@@ -125,6 +125,8 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 				}
 			}
 
+			whs.lock.Lock() //QUESTION: would this go here or inside the goroutine? if here do we need to change signature of this function?
+			defer whs.lock.Unlock()
 			go whs.batchMsgs()
 
 			return whs
@@ -227,31 +229,26 @@ func (whs WebhookSink) Send(secret, acceptType string, msg *wrp.Message) error {
 func (whs WebhookSink) batchMsgs() {
 	msgs := []*wrp.Message{}
 	ticker := time.NewTicker(whs.BatchLinger) //TODO: setting to this for now - open to suggestions
-	readyCh := make(chan struct{})
-	sentMsgs := 0
-Loop:
+	expired := false
+	var ready <-chan struct{}
 	for {
 		select {
-		case readyCh <- struct{}{}:
-			break Loop
-		case msg := <-whs.ch:
-			msgs = append(msgs, msg)
-			if len(msgs) == whs.BatchMessages {
-				readyCh := make(chan struct{}, len(msgs))
-				whs.sendBatch(msgs, readyCh)
-				sentMsgs = len(msgs)
-				msgs = []*wrp.Message{}
+		case <-ready:
+			ready = nil
+		case msg, ok := <-whs.ch:
+			if !ok {
+				return
 			}
+			msgs = append(msgs, msg)
 		case <-ticker.C:
-			readyCh <- struct{}{}
-			whs.sendBatch(msgs, readyCh)
-			sentMsgs = len(msgs)
-			msgs = []*wrp.Message{}
+			expired = true
+			ticker = time.NewTicker(whs.BatchLinger)
+		}
+		if (expired || len(msgs) == whs.BatchMessages) && ready == nil{
+			ready = whs.sendBatch(msgs)
 		}
 	}
-	for i := 0; i < sentMsgs; i++ {
-		<-readyCh
-	}
+
 }
 
 /*
@@ -265,38 +262,32 @@ need to consider:
 3. how do we define sendBatch to be ready. what conditions signal channel to be closed/is ready?
 */
 
-func (whs WebhookSink) sendBatch(msgs []*wrp.Message, ch chan struct{}) {
-
-	if len(*whs.Hash) == len(whs.webooks) {
-		//TODO: flush out the error handling for kafka
-		for _, msg := range msgs {
-			if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
-				ch <- struct{}{}
-				v2.readyCh = ch
-				go v2.send(v2.secret, v2.acceptType, msg)
-				//TODO: will need a different way of handling errors
-				// if err != nil {
-				// 	errs = errors.Join(errs, err)
-				// }
+func (whs WebhookSink) sendBatch(msgs []*wrp.Message) <-chan struct{} {
+	ready := make(chan struct{})
+	defer close(ready)
+	for _, msg := range msgs {
+		m := msg
+		go func() {
+			if len(*whs.Hash) == len(whs.webooks) {
+				if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, m))]; ok {
+					if err := v2.send(m); err != nil {
+						//TODO: handle error
+						fmt.Print(err) //placeholder
+					}
+				}
+			} else {
+				//TODO: discuss with wes and john the default hashing logic
+				//for now: when no hash is given we will just loop through all the kafkas
+				for _, v2 := range whs.webooks {
+					if err := v2.send(m); err != nil {
+						//TODO: handle error
+						fmt.Print(err) //placeholder
+					}
+				}
 			}
-		}
-	} else {
-		//TODO: discuss with wes and john the default hashing logic
-		//for now: when no hash is given we will just loop through all the kafkas
-		for _, msg := range msgs {
-			ch <- struct{}{}
-			for _, v2 := range whs.webooks {
-				v2.readyCh = ch
-				go v2.send(v2.secret, v2.acceptType, msg)
-				//TODO: will need a different way to handle errors
-				// if err != nil {
-				// 	errs = errors.Join(errs, err)
-				// }
-
-			}
-		}
+		}()
 	}
-	close(ch)
+	return ready
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -754,13 +745,12 @@ func (v2 *WebhookV2) updateUrls(urlCount int, url string, urls []string) {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
+func (v2 *WebhookV2) send(msg *wrp.Message) error {
 	defer func() {
 		if r := recover(); nil != r {
 			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v2.logger.Error("goroutine send() panicked", zap.String("id", v2.id), zap.Any("panic", r))
 		}
-		v2.readyCh <- struct{}{}
 		// s.workers.Release()
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
@@ -772,7 +762,7 @@ func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
 
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
-	switch acceptType {
+	switch v2.acceptType {
 	case "wrp", wrp.MimeTypeMsgpack, wrp.MimeTypeWrp:
 		// WTS - We should pass the original, raw WRP event instead of
 		// re-encoding it.
@@ -808,8 +798,8 @@ func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
 
 	// Apply the secret
 
-	if secret != "" {
-		s := hmac.New(sha1.New, []byte(secret))
+	if v2.secret != "" {
+		s := hmac.New(sha1.New, []byte(v2.secret))
 		s.Write(body)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
 		req.Header.Set("X-Webpa-Signature", sig)
