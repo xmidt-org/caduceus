@@ -240,12 +240,18 @@ func (whs WebhookSink) batchMsgs() {
 				return
 			}
 			msgs = append(msgs, msg)
+			/*TODO: determine best way to add messages to a queue
+			if len(msgs) == whs.BatchMessages */
 		case <-ticker.C:
 			expired = true
-			ticker = time.NewTicker(whs.BatchLinger)
 		}
-		if (expired || len(msgs) == whs.BatchMessages) && ready == nil{
+		if (expired || len(msgs) == whs.BatchMessages) && ready == nil {
 			ready = whs.sendBatch(msgs)
+			msgs = []*wrp.Message{}
+			if expired {
+				expired = false
+				ticker = time.NewTicker(whs.BatchLinger)
+			}
 		}
 	}
 
@@ -263,14 +269,16 @@ need to consider:
 */
 
 func (whs WebhookSink) sendBatch(msgs []*wrp.Message) <-chan struct{} {
+	var wg *sync.WaitGroup
 	ready := make(chan struct{})
 	defer close(ready)
 	for _, msg := range msgs {
-		m := msg
-		go func() {
+		wg.Add(1)
+		go func(msg *wrp.Message) {
 			if len(*whs.Hash) == len(whs.webooks) {
-				if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, m))]; ok {
-					if err := v2.send(m); err != nil {
+				if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
+
+					if err := v2.send(msg, wg); err != nil {
 						//TODO: handle error
 						fmt.Print(err) //placeholder
 					}
@@ -279,14 +287,15 @@ func (whs WebhookSink) sendBatch(msgs []*wrp.Message) <-chan struct{} {
 				//TODO: discuss with wes and john the default hashing logic
 				//for now: when no hash is given we will just loop through all the kafkas
 				for _, v2 := range whs.webooks {
-					if err := v2.send(m); err != nil {
+					if err := v2.send(msg, wg); err != nil {
 						//TODO: handle error
 						fmt.Print(err) //placeholder
 					}
 				}
 			}
-		}()
+		}(msg)
 	}
+	wg.Wait()
 	return ready
 }
 
@@ -745,12 +754,13 @@ func (v2 *WebhookV2) updateUrls(urlCount int, url string, urls []string) {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v2 *WebhookV2) send(msg *wrp.Message) error {
+func (v2 *WebhookV2) send(msg *wrp.Message, wg *sync.WaitGroup) error {
 	defer func() {
 		if r := recover(); nil != r {
 			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v2.logger.Error("goroutine send() panicked", zap.String("id", v2.id), zap.Any("panic", r))
 		}
+		wg.Done()
 		// s.workers.Release()
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
