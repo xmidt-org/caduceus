@@ -29,6 +29,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO: update the structure of this function - remove error (and possibly remove the strings)
 type Sink interface {
 	Send(string, string, *wrp.Message) error
 }
@@ -54,6 +55,7 @@ type WebhookSink struct {
 	BatchMessages int
 	BatchLinger   time.Duration
 	ch            chan *wrp.Message
+	lock          *sync.Mutex
 }
 
 // TODO: rename this
@@ -123,6 +125,8 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 				}
 			}
 
+			whs.lock.Lock() //QUESTION: would this go here or inside the goroutine? if here do we need to change signature of this function?
+			defer whs.lock.Unlock()
 			go whs.batchMsgs()
 
 			return whs
@@ -225,43 +229,74 @@ func (whs WebhookSink) Send(secret, acceptType string, msg *wrp.Message) error {
 func (whs WebhookSink) batchMsgs() {
 	msgs := []*wrp.Message{}
 	ticker := time.NewTicker(whs.BatchLinger) //TODO: setting to this for now - open to suggestions
-	select {
-	case msg := <-whs.ch:
-		msgs = append(msgs, msg)
-		if len(msgs) == whs.BatchMessages {
-			whs.sendBatch(msgs)
+	expired := false
+	var ready <-chan struct{}
+	for {
+		select {
+		case <-ready:
+			ready = nil
+		case msg, ok := <-whs.ch:
+			if !ok {
+				return
+			}
+			msgs = append(msgs, msg)
+			/*TODO: determine best way to add messages to a queue
+			if len(msgs) == whs.BatchMessages */
+		case <-ticker.C:
+			expired = true
 		}
-	case <-ticker.C:
-		whs.sendBatch(msgs)
-		//TODO: do we need to set a new ticker?
+		if (expired || len(msgs) == whs.BatchMessages) && ready == nil {
+			ready = whs.sendBatch(msgs)
+			msgs = []*wrp.Message{}
+			if expired {
+				expired = false
+				ticker = time.NewTicker(whs.BatchLinger)
+			}
+		}
 	}
+
 }
 
-func (whs WebhookSink) sendBatch(msgs []*wrp.Message) {
-	var errs error
-	if len(*whs.Hash) == len(whs.webooks) {
-		//TODO: flush out the error handling for kafka
-		for _, msg := range msgs {
-			if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
-				err := v2.send(v2.secret, v2.acceptType, msg)
-				if err != nil {
-					errs = errors.Join(errs, err)
-				}
-			}
-		}
+/*
+need to consider:
+ 1. what part of sendBatch should be done async?
+ 2. where should rate limiting happen? where is flow control happening? (workers.Acquire)
+    2a. identify potential resource starvation (i.e. running too many threads than CPU cores)
+    2b. use worker interface (aquire & release) to enforce rate limiting
+    2b1. where should worker.Acquire be called and where should worker.Release be called
 
-	} else {
-		//TODO: discuss with wes and john the default hashing logic
-		//for now: when no hash is given we will just loop through all the kafkas
-		for _, v2 := range whs.webooks {
-			for _, msg := range msgs {
-				err := v2.send(v2.secret, v2.acceptType, msg)
-				if err != nil {
-					errs = errors.Join(errs, err)
+3. how do we define sendBatch to be ready. what conditions signal channel to be closed/is ready?
+*/
+
+func (whs WebhookSink) sendBatch(msgs []*wrp.Message) <-chan struct{} {
+	var wg *sync.WaitGroup
+	ready := make(chan struct{})
+	defer close(ready)
+	for _, msg := range msgs {
+		wg.Add(1)
+		go func(msg *wrp.Message) {
+			if len(*whs.Hash) == len(whs.webooks) {
+				if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
+
+					if err := v2.send(msg, wg); err != nil {
+						//TODO: handle error
+						fmt.Print(err) //placeholder
+					}
+				}
+			} else {
+				//TODO: discuss with wes and john the default hashing logic
+				//for now: when no hash is given we will just loop through all the kafkas
+				for _, v2 := range whs.webooks {
+					if err := v2.send(msg, wg); err != nil {
+						//TODO: handle error
+						fmt.Print(err) //placeholder
+					}
 				}
 			}
-		}
+		}(msg)
 	}
+	wg.Wait()
+	return ready
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -719,12 +754,13 @@ func (v2 *WebhookV2) updateUrls(urlCount int, url string, urls []string) {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
+func (v2 *WebhookV2) send(msg *wrp.Message, wg *sync.WaitGroup) error {
 	defer func() {
 		if r := recover(); nil != r {
 			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v2.logger.Error("goroutine send() panicked", zap.String("id", v2.id), zap.Any("panic", r))
 		}
+		wg.Done()
 		// s.workers.Release()
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
@@ -736,7 +772,7 @@ func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
 
 	// Use the internal content type unless the accept type is wrp
 	contentType := msg.ContentType
-	switch acceptType {
+	switch v2.acceptType {
 	case "wrp", wrp.MimeTypeMsgpack, wrp.MimeTypeWrp:
 		// WTS - We should pass the original, raw WRP event instead of
 		// re-encoding it.
@@ -772,8 +808,8 @@ func (v2 *WebhookV2) send(secret, acceptType string, msg *wrp.Message) error {
 
 	// Apply the secret
 
-	if secret != "" {
-		s := hmac.New(sha1.New, []byte(secret))
+	if v2.secret != "" {
+		s := hmac.New(sha1.New, []byte(v2.secret))
 		s.Write(body)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
 		req.Header.Set("X-Webpa-Signature", sig)
