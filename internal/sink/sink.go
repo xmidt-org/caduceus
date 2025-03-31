@@ -44,6 +44,7 @@ type WebhookV1 struct {
 
 type WebhookV2 struct {
 	urls *ring.Ring
+	msgs []*wrp.Message
 	CommonWebhook
 	//TODO: need to determine best way to add client and client middleware to WebhooV1
 	// clientMiddleware func(http.Client) http.Client
@@ -54,7 +55,9 @@ type WebhookSink struct {
 	HashField     string
 	BatchMessages int
 	BatchLinger   time.Duration
-	ch            chan *wrp.Message
+	msgCh         chan *wrp.Message
+	readyCh       chan struct{}
+	maxWorkers    int
 	lock          *sync.Mutex
 }
 
@@ -92,11 +95,13 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 		maxMessages := l.Registration.BatchHint.MaxMesasges
 		maxLinger := l.Registration.BatchHint.MaxLingerDuration
 		if len(l.Registration.Webhooks) > 0 {
-			whs := WebhookSink{
-				ch:            make(chan *wrp.Message),
+			whs := &WebhookSink{
+				msgCh:         make(chan *wrp.Message),
+				readyCh:       make(chan struct{}, c.NumWorkersPerSender),
 				HashField:     l.Registration.Hash.Field,
 				BatchMessages: maxMessages,
 				BatchLinger:   maxLinger,
+				maxWorkers:    c.NumWorkersPerSender,
 			}
 			r := &HashRing{}
 			for i, wh := range l.Registration.Webhooks {
@@ -217,7 +222,7 @@ func getUrls(urls []string) (int, error) {
 func (whs WebhookSink) Send(secret, acceptType string, msg *wrp.Message) error {
 	var errs error
 
-	whs.ch <- msg
+	whs.msgCh <- msg
 	//add msg to current batch
 	//check if batch is full or linger has been met
 	//no rush to return - have to implement a sleeper
@@ -226,16 +231,21 @@ func (whs WebhookSink) Send(secret, acceptType string, msg *wrp.Message) error {
 	return errs
 }
 
-func (whs WebhookSink) batchMsgs() {
+func (whs *WebhookSink) batchMsgs() {
 	msgs := []*wrp.Message{}
 	ticker := time.NewTicker(whs.BatchLinger) //TODO: setting to this for now - open to suggestions
 	expired := false
-	var ready <-chan struct{}
 	for {
 		select {
-		case <-ready:
-			ready = nil
-		case msg, ok := <-whs.ch:
+		case <-whs.readyCh:
+			if expired || len(msgs) == whs.BatchMessages {
+				whs.readyCh = whs.sendBatch(msgs, *whs.webooks["zero"]) //placeholder for now
+				msgs = []*wrp.Message{}
+				if expired {
+					expired = false
+				}
+			}
+		case msg, ok := <-whs.msgCh:
 			if !ok {
 				return
 			}
@@ -244,14 +254,6 @@ func (whs WebhookSink) batchMsgs() {
 			if len(msgs) == whs.BatchMessages */
 		case <-ticker.C:
 			expired = true
-		}
-		if (expired || len(msgs) == whs.BatchMessages) && ready == nil {
-			ready = whs.sendBatch(msgs)
-			msgs = []*wrp.Message{}
-			if expired {
-				expired = false
-				ticker = time.NewTicker(whs.BatchLinger)
-			}
 		}
 	}
 
@@ -268,35 +270,20 @@ need to consider:
 3. how do we define sendBatch to be ready. what conditions signal channel to be closed/is ready?
 */
 
-func (whs WebhookSink) sendBatch(msgs []*wrp.Message) <-chan struct{} {
-	var wg *sync.WaitGroup
-	ready := make(chan struct{})
-	defer close(ready)
-	for _, msg := range msgs {
-		wg.Add(1)
-		go func(msg *wrp.Message) {
-			if len(*whs.Hash) == len(whs.webooks) {
-				if v2, ok := whs.webooks[whs.Hash.Get(GetKey(whs.HashField, msg))]; ok {
+func (whs *WebhookSink) sendBatch(msgs []*wrp.Message, eventSink WebhookV2) chan struct{} {
+	//assuming that messages all point to the same webhook hash
+	var done chan struct{}
+	go func(msg *wrp.Message) { //TODO: this will change when we add in content-type logic
+		defer close(done)
+		done <- struct{}{}
 
-					if err := v2.send(msg, wg); err != nil {
-						//TODO: handle error
-						fmt.Print(err) //placeholder
-					}
-				}
-			} else {
-				//TODO: discuss with wes and john the default hashing logic
-				//for now: when no hash is given we will just loop through all the kafkas
-				for _, v2 := range whs.webooks {
-					if err := v2.send(msg, wg); err != nil {
-						//TODO: handle error
-						fmt.Print(err) //placeholder
-					}
-				}
-			}
-		}(msg)
-	}
-	wg.Wait()
-	return ready
+		if err := eventSink.send(msg, done); err != nil {
+			//TODO: handle error
+			fmt.Print(err) //placeholder
+		}
+
+	}(msgs[0])
+	return done
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -754,13 +741,13 @@ func (v2 *WebhookV2) updateUrls(urlCount int, url string, urls []string) {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v2 *WebhookV2) send(msg *wrp.Message, wg *sync.WaitGroup) error {
+func (v2 *WebhookV2) send(msg *wrp.Message, ch chan struct{}) error { //TODO: this will change when we add in content-type logic
 	defer func() {
 		if r := recover(); nil != r {
 			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v2.logger.Error("goroutine send() panicked", zap.String("id", v2.id), zap.Any("panic", r))
 		}
-		wg.Done()
+		<-ch
 		// s.workers.Release()
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
