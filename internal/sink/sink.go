@@ -56,9 +56,7 @@ type WebhookSink struct {
 	BatchMessages int
 	BatchLinger   time.Duration
 	msgCh         chan *wrp.Message
-	readyCh       chan struct{}
 	maxWorkers    int
-	lock          *sync.Mutex
 }
 
 // TODO: rename this
@@ -97,7 +95,6 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 		if len(l.Registration.Webhooks) > 0 {
 			whs := &WebhookSink{
 				msgCh:         make(chan *wrp.Message),
-				readyCh:       make(chan struct{}, c.NumWorkersPerSender),
 				HashField:     l.Registration.Hash.Field,
 				BatchMessages: maxMessages,
 				BatchLinger:   maxLinger,
@@ -130,8 +127,6 @@ func NewSink(c Config, logger *zap.Logger, listener ancla.Register) Sink {
 				}
 			}
 
-			whs.lock.Lock() //QUESTION: would this go here or inside the goroutine? if here do we need to change signature of this function?
-			defer whs.lock.Unlock()
 			go whs.batchMsgs()
 
 			return whs
@@ -235,16 +230,11 @@ func (whs *WebhookSink) batchMsgs() {
 	msgs := []*wrp.Message{}
 	ticker := time.NewTicker(whs.BatchLinger) //TODO: setting to this for now - open to suggestions
 	expired := false
+	var readyCh <-chan struct{}
 	for {
 		select {
-		case <-whs.readyCh:
-			if expired || len(msgs) == whs.BatchMessages {
-				whs.readyCh = whs.sendBatch(msgs, *whs.webooks["zero"]) //placeholder for now
-				msgs = []*wrp.Message{}
-				if expired {
-					expired = false
-				}
-			}
+		case <-readyCh:
+			readyCh = nil
 		case msg, ok := <-whs.msgCh:
 			if !ok {
 				return
@@ -254,6 +244,13 @@ func (whs *WebhookSink) batchMsgs() {
 			if len(msgs) == whs.BatchMessages */
 		case <-ticker.C:
 			expired = true
+		}
+		if expired || len(msgs) == whs.BatchMessages {
+			readyCh = whs.sendBatch(msgs, *whs.webooks["zero"]) //placeholder for now
+			msgs = []*wrp.Message{}
+			if expired {
+				expired = false
+			}
 		}
 	}
 
@@ -272,18 +269,18 @@ need to consider:
 
 func (whs *WebhookSink) sendBatch(msgs []*wrp.Message, eventSink WebhookV2) chan struct{} {
 	//assuming that messages all point to the same webhook hash
-	var done chan struct{}
+	var ready chan struct{}
 	go func(msg *wrp.Message) { //TODO: this will change when we add in content-type logic
-		defer close(done)
-		done <- struct{}{}
+		defer close(ready)
+		ready <- struct{}{}
 
-		if err := eventSink.send(msg, done); err != nil {
+		if err := eventSink.send(msg); err != nil {
 			//TODO: handle error
 			fmt.Print(err) //placeholder
 		}
 
 	}(msgs[0])
-	return done
+	return ready
 }
 
 // worker is the routine that actually takes the queued messages and delivers
@@ -741,13 +738,12 @@ func (v2 *WebhookV2) updateUrls(urlCount int, url string, urls []string) {
 
 // worker is the routine that actually takes the queued messages and delivers
 // them to the listeners outside webpa
-func (v2 *WebhookV2) send(msg *wrp.Message, ch chan struct{}) error { //TODO: this will change when we add in content-type logic
+func (v2 *WebhookV2) send(msg *wrp.Message) error { //TODO: this will change when we add in content-type logic
 	defer func() {
 		if r := recover(); nil != r {
 			// s.DropsDueToPanic.With(prometheus.Labels{metrics.UrlLabel: s.id}).Add(1.0)
 			v2.logger.Error("goroutine send() panicked", zap.String("id", v2.id), zap.Any("panic", r))
 		}
-		<-ch
 		// s.workers.Release()
 		// s.currentWorkersGauge.Add(-1.0)
 	}()
