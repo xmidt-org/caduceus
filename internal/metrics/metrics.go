@@ -39,13 +39,15 @@ const (
 )
 
 const (
-	NoErrReason            = "no_err"
+	NoErrReason = "no_err"
+	// TODO remove the do_error case
 	GenericDoReason        = "do_error"
 	EmptyContentTypeReason = "empty_content_type"
 	EmptyUUIDReason        = "empty_uuid"
 	BothEmptyReason        = "empty_uuid_and_content_type"
-	NetworkError           = "network_err"
-	UnknownEventType       = "unknown"
+	// TODO revisit the network_err case
+	NetworkError     = "network_err"
+	UnknownEventType = "unknown"
 	// metric labels
 
 	CodeLabel   = "code"
@@ -55,7 +57,7 @@ const (
 
 	// metric label values
 	// dropped messages reasons
-	genericDoReason                       = "do_error"
+	unknown                               = "unknown"
 	deadlineExceededReason                = "context_deadline_exceeded"
 	contextCanceledReason                 = "context_canceled"
 	addressErrReason                      = "address_error"
@@ -66,13 +68,64 @@ const (
 	connClosedReason                      = "connection_closed"
 	opErrReason                           = "op_error"
 	networkErrReason                      = "unknown_network_err"
-	UpdateRequestURLFailedReason          = "update_request_url_failed"
+	updateRequestURLFailedReason          = "update_request_url_failed"
 	connectionUnexpectedlyClosedEOFReason = "connection_unexpectedly_closed_eof"
-	noErrReason                           = "no_err"
 
 	// dropped message codes
 	MessageDroppedCode = "message_dropped"
 )
+
+type CounterVec interface {
+	prometheus.Collector
+	CurryWith(labels prometheus.Labels) (*prometheus.CounterVec, error)
+	GetMetricWith(labels prometheus.Labels) (prometheus.Counter, error)
+	GetMetricWithLabelValues(lvs ...string) (prometheus.Counter, error)
+	MustCurryWith(labels prometheus.Labels) *prometheus.CounterVec
+	With(labels prometheus.Labels) prometheus.Counter
+	WithLabelValues(lvs ...string) prometheus.Counter
+}
+
+type GaugeVec interface {
+	prometheus.Collector
+	CurryWith(labels prometheus.Labels) (*prometheus.GaugeVec, error)
+	GetMetricWith(labels prometheus.Labels) (prometheus.Gauge, error)
+	GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error)
+	MustCurryWith(labels prometheus.Labels) *prometheus.GaugeVec
+	With(labels prometheus.Labels) prometheus.Gauge
+	WithLabelValues(lvs ...string) prometheus.Gauge
+}
+
+type ServerHandlerMetrics struct {
+	fx.In
+
+	ErrorRequests        prometheus.Counter     `"error_request_body_count"`
+	EmptyRequests        prometheus.Counter     `"empty_request_body_count"`
+	InvalidCount         prometheus.Counter     `"drops_due_to_invalid_payload"`
+	IncomingQueueDepth   prometheus.Gauge       `"incoming_queue_depth"`
+	ModifiedWRPCount     CounterVec             `"modified_wrp_count"`
+	IncomingQueueLatency prometheus.ObserverVec `"incoming_queue_latency_histogram_seconds"`
+}
+
+type SenderWrapperMetrics struct {
+	EventType CounterVec `name:"incoming_event_type_count"`
+}
+
+type OutboundSenderMetrics_ struct {
+	fx.In
+
+	QueryLatency              prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
+	DeliveryCounter           *prometheus.CounterVec `name:"delivery_count"`
+	DeliveryRetryCounter      *prometheus.CounterVec `name:"delivery_retry_count"`
+	DroppedMessage            *prometheus.CounterVec `name:"dropped_message_count"`
+	CutOffCounter             *prometheus.CounterVec `name:"slow_consumer_cut_off_count"`
+	QueueDepthGauge           *prometheus.GaugeVec   `name:"queue_depth_gauge"`
+	ConsumerRenewalTimeGauge  *prometheus.GaugeVec   `name:"consumer_renewal_time"`
+	ConsumerDeliverUntilGauge *prometheus.GaugeVec   `name:"consumer_deliver_until"`
+	ConsumerDropUntilGauge    *prometheus.GaugeVec   `name:"consumer_drop_until"`
+	MaxWorkersGauge           *prometheus.GaugeVec   `name:"max_workers_gauge"`
+	CurrentWorkersGauge       *prometheus.GaugeVec   `name:"current_workers_gauge"`
+	DeliveryRetryMaxGauge     *prometheus.GaugeVec   `name:"delivery_retry_max"`
+}
 
 // Metrics provides be used to set up the metrics for each sink.
 type Metrics struct {
@@ -93,8 +146,22 @@ type Metrics struct {
 	ConsumerRenewalTimeGauge        *prometheus.GaugeVec   `name:"consumer_renewal_time"`
 }
 
+type OutboundSenderMetrics struct {
+	fx.In
 
-
+	QueryLatency          prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
+	DeliveryCounter       CounterVec             `name:"delivery_count"`
+	DeliveryRetryCounter  CounterVec             `name:"delivery_retry_count"`
+	DroppedMessage        CounterVec             `name:"slow_consumer_dropped_message_count"`
+	CutOffCounter         CounterVec             `name:"slow_consumer_cut_off_count"`
+	QueueDepthGauge       GaugeVec               `name:"outgoing_queue_depths"`
+	RenewalTimeGauge      GaugeVec               `name:"consumer_renewal_time"`
+	DeliverUntilGauge     GaugeVec               `name:"consumer_deliver_until"`
+	DropUntilGauge        GaugeVec               `name:"consumer_drop_until"`
+	MaxWorkersGauge       GaugeVec               `name:"consumer_delivery_workers_max"`
+	CurrentWorkersGauge   GaugeVec               `name:"consumer_delivery_workers"`
+	DeliveryRetryMaxGauge GaugeVec               `name:"delivery_retry_max"`
+}
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
 func Provide() fx.Option {
@@ -182,6 +249,140 @@ func Provide() fx.Option {
 			Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		}, EventLabel),
 	)
+}
+
+func OLDMetrics(tf *touchstone.Factory) (ServerHandlerMetrics, SenderWrapperMetrics, OutboundSenderMetrics, error) {
+	var errs error
+
+	errorRequests, err := tf.NewCounter(prometheus.CounterOpts{
+		Name: ErrorRequestBodyCounter,
+		Help: "Count of the number of errors encountered reading the body.",
+	})
+	errs = errors.Join(errs, err)
+	emptyRequests, err := tf.NewCounter(prometheus.CounterOpts{
+		Name: EmptyRequestBodyCounter,
+		Help: "Count of the number of times the request is an empty body.",
+	})
+	errs = errors.Join(errs, err)
+	invalidCount, err := tf.NewCounter(prometheus.CounterOpts{
+		Name: DropsDueToInvalidPayload,
+		Help: "Count of dropped messages dues to an invalid payload",
+	})
+	errs = errors.Join(errs, err)
+	incomingQueueDepth, err := tf.NewGauge(prometheus.GaugeOpts{
+		Name: IncomingQueueDepth,
+		Help: "The depth of the queue behind the incoming handlers.",
+	})
+	errs = errors.Join(errs, err)
+	modifiedWRPCount, err := tf.NewCounterVec(prometheus.CounterOpts{
+		Name: ModifiedWRPCounter,
+		Help: "Number of times a WRP was modified by Caduceus",
+	}, ReasonLabel)
+	errs = errors.Join(errs, err)
+	incomingQueueLatency, err := tf.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    IncomingQueueLatencyHistogram,
+		Help:    "A histogram of latencies for the incoming queue.",
+		Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
+	}, EventLabel)
+	errs = errors.Join(errs, err)
+
+	sh := ServerHandlerMetrics{
+		ErrorRequests:        errorRequests,
+		EmptyRequests:        emptyRequests,
+		InvalidCount:         invalidCount,
+		IncomingQueueDepth:   incomingQueueDepth,
+		ModifiedWRPCount:     modifiedWRPCount,
+		IncomingQueueLatency: incomingQueueLatency,
+	}
+
+	eventType, err := tf.NewCounterVec(prometheus.CounterOpts{
+		Name: IncomingEventTypeCounter,
+		Help: "Incoming count of events by event type",
+	}, EventLabel)
+	errs = errors.Join(errs, err)
+
+	sw := SenderWrapperMetrics{
+		EventType: eventType,
+	}
+
+	queryLatency, err := tf.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    QueryDurationHistogram,
+		Help:    "A histogram of latencies for queries.",
+		Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
+	}, UrlLabel, CodeLabel)
+	errs = errors.Join(errs, err)
+	deliveryCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
+		Name: DeliveryCounter,
+		Help: "Count of delivered messages to a url with a status code",
+	}, UrlLabel, EventLabel, CodeLabel)
+	errs = errors.Join(errs, err)
+	deliveryRetryCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
+		Name: DeliveryRetryCounter,
+		Help: "Number of delivery retries made",
+	}, UrlLabel, EventLabel)
+	errs = errors.Join(errs, err)
+	deliveryRetryMaxGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: DeliveryRetryMaxGauge,
+		Help: "Maximum number of delivery retries attempted",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	cutOffCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
+		Name: SlowConsumerCounter,
+		Help: "Count of the number of times a consumer has been deemed too slow and is cut off.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	droppedMessage, err := tf.NewCounterVec(prometheus.CounterOpts{
+		Name: SlowConsumerDroppedMsgCounter,
+		Help: "Count of dropped messages due to a slow consumer",
+	}, UrlLabel, ReasonLabel)
+	errs = errors.Join(errs, err)
+	queueDepthGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: OutgoingQueueDepth,
+		Help: "The depth of the queue per outgoing url.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	renewalTimeGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: ConsumerRenewalTimeGauge,
+		Help: "Time when the consumer data was updated.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	deliverUntilGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: ConsumerDeliverUntilGauge,
+		Help: "Time when the consumer's registration expires and events will be dropped.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	dropUntilGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: ConsumerDropUntilGauge,
+		Help: "The time after which events going to a customer will be delivered.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	currentWorkersGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: ConsumerDeliveryWorkersGauge,
+		Help: "The number of active delivery workers for a particular customer.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+	maxWorkersGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
+		Name: ConsumerMaxDeliveryWorkersGauge,
+		Help: "The maximum number of delivery workers available for a particular customer.",
+	}, UrlLabel)
+	errs = errors.Join(errs, err)
+
+	os := OutboundSenderMetrics{
+		QueryLatency:          queryLatency,
+		DeliveryCounter:       deliveryCounter,
+		DeliveryRetryCounter:  deliveryRetryCounter,
+		DroppedMessage:        droppedMessage,
+		CutOffCounter:         cutOffCounter,
+		QueueDepthGauge:       queueDepthGauge,
+		RenewalTimeGauge:      renewalTimeGauge,
+		DeliverUntilGauge:     deliverUntilGauge,
+		DropUntilGauge:        dropUntilGauge,
+		MaxWorkersGauge:       maxWorkersGauge,
+		CurrentWorkersGauge:   currentWorkersGauge,
+		DeliveryRetryMaxGauge: deliveryRetryMaxGauge,
+	}
+
+	return sh, sw, os, errs
 }
 
 func GetDoErrReason(err error) string {

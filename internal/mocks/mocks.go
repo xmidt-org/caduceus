@@ -62,135 +62,211 @@ func Time(one, two time.Time) func() time.Time {
 	}
 }
 
-type Counter struct {
+// metric mocks
+
+type mockCollector struct {
+}
+
+func (m *mockCollector) Describe(chan<- *prometheus.Desc) {
+}
+func (m *mockCollector) Collect(chan<- prometheus.Metric) {
+}
+
+type mockMetric struct {
+}
+
+func (m *mockMetric) Desc() *prometheus.Desc {
+	return &prometheus.Desc{}
+}
+
+func (m *mockMetric) Write(*dto.Metric) error {
+	return nil
+}
+
+// mockCounter provides the mock implementation of the metrics.Counter object
+type mockCounter struct {
+	mockCollector
+	mockMetric
 	mock.Mock
 }
 
-func (m *Counter) Add(delta float64) {
+func (m *mockCounter) Add(delta float64) {
 	m.Called(delta)
 }
 
-func (m *Counter) Inc() {
-	m.Called(1)
-}
+func (m *mockCounter) Inc() { m.Called() }
 
-func (m *Counter) Describe(ch chan<- *prometheus.Desc) {
-	m.Called(ch)
-}
-
-func (m *Counter) Collect(ch chan<- prometheus.Metric) {
-	m.Called(ch)
-}
-
-func (m *Counter) Desc() *prometheus.Desc {
-	args := m.Called()
-	return args.Get(0).(*prometheus.Desc)
-}
-
-func (m *Counter) Write(metric *dto.Metric) error {
-	args := m.Called(metric)
-	return args.Error(0)
-}
-
-func (m *Counter) With(labelValues ...string) prometheus.Counter {
-	for _, v := range labelValues {
+func (m *mockCounter) With(labels prometheus.Labels) prometheus.Counter {
+	for _, v := range labels {
 		if !utf8.ValidString(v) {
 			panic("not UTF-8")
 		}
 	}
-	args := m.Called(labelValues)
-	return args.Get(0).(prometheus.Counter)
+
+	m.Called(labels)
+	return m
 }
 
-type Gauge struct {
+func (m *mockCounter) CurryWith(labels prometheus.Labels) (*prometheus.CounterVec, error) {
+	m.Called(labels)
+	labelnames := []string{}
+	for l, v := range labels {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+		labelnames = append(labelnames, l)
+	}
+
+	return prometheus.NewCounterVec(prometheus.CounterOpts{}, labelnames).CurryWith(labels)
+}
+
+func (m *mockCounter) GetMetricWith(labels prometheus.Labels) (prometheus.Counter, error) {
+	m.Called(labels)
+	return m, nil
+}
+
+func (m *mockCounter) GetMetricWithLabelValues(lvs ...string) (prometheus.Counter, error) {
+	m.Called(lvs)
+	return m, nil
+}
+
+func (m *mockCounter) MustCurryWith(labels prometheus.Labels) *prometheus.CounterVec {
+	m.Called(labels)
+	labelnames := []string{}
+	for l, v := range labels {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+		labelnames = append(labelnames, l)
+	}
+
+	return prometheus.NewCounterVec(prometheus.CounterOpts{}, labelnames).MustCurryWith(labels)
+}
+
+func (m *mockCounter) WithLabelValues(lvs ...string) prometheus.Counter {
+	m.Called(lvs)
+	return m
+}
+
+// mockGauge provides the mock implementation of the metrics.Counter object
+type mockGauge struct {
+	mockCollector
+	mockMetric
 	mock.Mock
 }
 
-func (m *Gauge) Set(num float64) {
-	m.Called(num)
+func (m *mockGauge) CurryWith(labels prometheus.Labels) (*prometheus.GaugeVec, error) {
+	m.Called(labels)
+	labelnames := []string{}
+	for l, v := range labels {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+		labelnames = append(labelnames, l)
+	}
+
+	return prometheus.NewGaugeVec(prometheus.GaugeOpts{}, labelnames).CurryWith(labels)
 }
 
-func (m *Gauge) Inc() {
-	m.Called(1)
+func (m *mockGauge) MustCurryWith(labels prometheus.Labels) *prometheus.GaugeVec {
+	m.Called(labels)
+	labelnames := []string{}
+	for l, v := range labels {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+		labelnames = append(labelnames, l)
+	}
+
+	return prometheus.NewGaugeVec(prometheus.GaugeOpts{}, labelnames).MustCurryWith(labels)
 }
 
-func (m *Gauge) Dec() {
-	m.Called(-1)
+func (m *mockGauge) GetMetricWith(labels prometheus.Labels) (prometheus.Gauge, error) {
+	m.Called(labels)
+	return m, nil
 }
 
-func (m *Gauge) Add(num float64) {
-	m.Called(num)
+func (m *mockGauge) GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error) {
+	m.Called(lvs)
+	return m, nil
 }
 
-func (m *Gauge) Sub(num float64) {
-	m.Called(num)
+func (m *mockGauge) WithLabelValues(lvs ...string) prometheus.Gauge {
+	m.Called(lvs)
+	return m
 }
 
-func (m *Gauge) SetToCurrentTime() {
-	m.Called()
-}
-
-func (m *Gauge) Describe(ch chan<- *prometheus.Desc) {
-	m.Called(ch)
-}
-
-func (m *Gauge) Collect(ch chan<- prometheus.Metric) {
-	m.Called(ch)
-}
-
-func (m *Gauge) Desc() *prometheus.Desc {
-	args := m.Called()
-	return args.Get(0).(*prometheus.Desc)
-}
-
-func (m *Gauge) Write(metric *dto.Metric) error {
-	args := m.Called(metric)
-	return args.Get(0).(error)
-}
-
-type Histogram struct {
-	mock.Mock
-}
-
-func (m *Histogram) GetMetricWith(labels prometheus.Labels) (prometheus.Observer, error) {
-	args := m.Called(labels)
-	return args.Get(0).(prometheus.Observer), args.Error(1)
-}
-
-func (m *Histogram) GetMetricWithLabelValues(lvs ...string) (prometheus.Observer, error) {
-	args := m.Called(lvs)
-	return args.Get(0).(prometheus.Observer), args.Error(1)
-}
-
-func (m *Histogram) With(labels prometheus.Labels) prometheus.Observer {
-	args := m.Called(labels)
-	return args.Get(0).(prometheus.Observer)
-}
-
-func (m *Histogram) WithLabelValues(lvs ...string) prometheus.Observer {
-	for _, v := range lvs {
+func (m *mockGauge) With(labels prometheus.Labels) prometheus.Gauge {
+	for _, v := range labels {
 		if !utf8.ValidString(v) {
 			panic("not UTF-8")
 		}
 	}
-	args := m.Called(lvs)
-	return args.Get(0).(prometheus.Observer)
+
+	m.Called(labels)
+	return m
 }
 
-func (m *Histogram) CurryWith(labels prometheus.Labels) (prometheus.ObserverVec, error) {
-	args := m.Called(labels)
-	return args.Get(0).(prometheus.ObserverVec), args.Error(1)
+func (m *mockGauge) Add(delta float64) {
+	m.Called(delta)
 }
 
-func (m *Histogram) MustCurryWith(labels prometheus.Labels) prometheus.ObserverVec {
-	args := m.Called(labels)
-	return args.Get(0).(prometheus.ObserverVec)
+func (m *mockGauge) Set(value float64) {
+	m.Called(value)
 }
 
-func (m *Histogram) Describe(ch chan<- *prometheus.Desc) {
-	m.Called(ch)
+func (m *mockGauge) Inc() { m.Called() }
+
+func (m *mockGauge) Dec() { m.Called() }
+
+func (m *mockGauge) Sub(val float64) {
+	m.Called(val)
 }
 
-func (m *Histogram) Collect(ch chan<- prometheus.Metric) {
-	m.Called(ch)
+func (m *mockGauge) SetToCurrentTime() { m.Called() }
+
+// mockHistogram provides the mock implementation of the metrics.Histogram object
+type mockHistogram struct {
+	mockCollector
+	mock.Mock
+}
+
+func (m *mockHistogram) Observe(value float64) {
+	m.Called(value)
+}
+
+func (m *mockHistogram) With(labels prometheus.Labels) prometheus.Observer {
+	for _, v := range labels {
+		if !utf8.ValidString(v) {
+			panic("not UTF-8")
+		}
+	}
+
+	m.Called(labels)
+	return m
+}
+
+func (m *mockHistogram) CurryWith(labels prometheus.Labels) (prometheus.ObserverVec, error) {
+	m.Called(labels)
+	return m, nil
+}
+
+func (m *mockHistogram) GetMetricWith(labels prometheus.Labels) (prometheus.Observer, error) {
+	m.Called(labels)
+	return m, nil
+}
+
+func (m *mockHistogram) GetMetricWithLabelValues(lvs ...string) (prometheus.Observer, error) {
+	m.Called(lvs)
+	return m, nil
+}
+
+func (m *mockHistogram) MustCurryWith(labels prometheus.Labels) prometheus.ObserverVec {
+	m.Called(labels)
+	return m
+}
+
+func (m *mockHistogram) WithLabelValues(lvs ...string) prometheus.Observer {
+	m.Called(lvs)
+	return m
 }
