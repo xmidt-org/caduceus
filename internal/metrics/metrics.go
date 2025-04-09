@@ -93,6 +93,9 @@ type Metrics struct {
 	ConsumerRenewalTimeGauge        *prometheus.GaugeVec   `name:"consumer_renewal_time"`
 }
 
+
+
+
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
 func Provide() fx.Option {
 	return fx.Options(

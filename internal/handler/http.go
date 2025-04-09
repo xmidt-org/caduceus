@@ -49,7 +49,7 @@ type TelemetryIn struct {
 	EmptyRequests            prometheus.Counter     `name:"empty_request_body_count"`
 	InvalidCount             prometheus.Counter     `name:"drops_due_to_invalid_payload"`
 	IncomingQueueDepthMetric prometheus.Gauge       `name:"incoming_queue_depth"`
-	ModifiedWRPCount         *prometheus.CounterVec `name:"modified_wrp_count"`
+	ModifiedWRPCount         prometheus.CounterVec  `name:"modified_wrp_count"`
 	IncomingQueueLatency     prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
 }
 type Telemetry struct {
@@ -57,7 +57,7 @@ type Telemetry struct {
 	EmptyRequests            prometheus.Counter
 	InvalidCount             prometheus.Counter
 	IncomingQueueDepthMetric prometheus.Gauge
-	ModifiedWRPCount         *prometheus.CounterVec
+	ModifiedWRPCount         prometheus.Counter
 	IncomingQueueLatency     prometheus.ObserverVec
 }
 
