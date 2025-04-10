@@ -26,7 +26,7 @@ type ServerHandlerIn struct {
 	fx.In
 	SinkWrapper sink.Wrapper
 	Logger      *zap.Logger
-	Telemetry   *Telemetry
+	Metrics     metrics.ServerHandlerMetrics
 }
 
 type ServerHandlerOut struct {
@@ -34,11 +34,24 @@ type ServerHandlerOut struct {
 	Handler *ServerHandler
 }
 
+type RequestHandler interface {
+	handleRequest(*wrp.Message)
+}
+type caduceusHandler struct {
+	sinkWrapper sink.Wrapper
+	logger      *zap.Logger
+}
+
+func (c *caduceusHandler) handleRequest(msg *wrp.Message) {
+	c.logger.Info("Worker received a request, now passing to sender")
+	c.sinkWrapper.Queue(msg)
+}
+
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	sinkWrapper        sink.Wrapper
+	caduceusHandler    RequestHandler
 	logger             *zap.Logger
-	telemetry          *Telemetry
+	metrics            metrics.ServerHandlerMetrics
 	incomingQueueDepth int64
 	maxOutstanding     int64
 	now                func() time.Time
@@ -51,14 +64,6 @@ type TelemetryIn struct {
 	IncomingQueueDepthMetric prometheus.Gauge       `name:"incoming_queue_depth"`
 	ModifiedWRPCount         prometheus.CounterVec  `name:"modified_wrp_count"`
 	IncomingQueueLatency     prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
-}
-type Telemetry struct {
-	ErrorRequests            prometheus.Counter
-	EmptyRequests            prometheus.Counter
-	InvalidCount             prometheus.Counter
-	IncomingQueueDepthMetric prometheus.Gauge
-	ModifiedWRPCount         prometheus.Counter
-	IncomingQueueLatency     prometheus.ObserverVec
 }
 
 func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -90,19 +95,19 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		return
 	}
 
-	sh.telemetry.IncomingQueueDepthMetric.Add(1.0)
-	defer sh.telemetry.IncomingQueueDepthMetric.Add(-1.0)
+	sh.metrics.IncomingQueueDepth.Add(1.0)
+	defer sh.metrics.IncomingQueueDepth.Add(-1.0)
 
 	payload, err := io.ReadAll(request.Body)
 	if err != nil {
-		sh.telemetry.ErrorRequests.Add(1.0)
+		sh.metrics.ErrorRequests.Add(1.0)
 		logger.Error("Unable to retrieve the request body.", zap.Error(err))
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(payload) == 0 {
-		sh.telemetry.EmptyRequests.Add(1.0)
+		sh.metrics.EmptyRequests.Add(1.0)
 		logger.Error("Empty payload.")
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Empty payload.\n"))
@@ -115,7 +120,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = decoder.Decode(msg)
 	if err != nil || msg.MessageType() != 4 {
 		// return a 400
-		sh.telemetry.InvalidCount.Add(1.0)
+		sh.metrics.InvalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		if err != nil {
 			response.Write([]byte("Invalid payload format.\n"))
@@ -130,7 +135,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	err = wrp.UTF8(msg)
 	if err != nil {
 		// return a 400
-		sh.telemetry.InvalidCount.Add(1.0)
+		sh.metrics.InvalidCount.Add(1.0)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte("Strings must be UTF-8.\n"))
 		logger.Debug("Strings must be UTF-8.")
@@ -138,7 +143,7 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	}
 	eventType = msg.FindEventStringSubMatch()
 
-	sh.handleRequest(sh.fixWrp(msg))
+	sh.caduceusHandler.handleRequest(sh.fixWrp(msg))
 
 	// return a 202
 	//TODO: do we need to add error handling because i'm getting this response even when event had not been placed on queue
@@ -148,14 +153,9 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	logger.Debug("event passed to senders.", zap.Any("event", msg))
 }
 
-func (sh *ServerHandler) handleRequest(msg *wrp.Message) {
-	sh.logger.Info("Worker received a request, now passing to sender")
-	sh.sinkWrapper.Queue(msg)
-}
-
 func (sh *ServerHandler) recordQueueLatencyToHistogram(startTime time.Time, eventType string) {
 	endTime := sh.now()
-	sh.telemetry.IncomingQueueLatency.With(prometheus.Labels{metrics.EventLabel: eventType}).Observe(endTime.Sub(startTime).Seconds())
+	sh.metrics.IncomingQueueLatency.With(prometheus.Labels{metrics.EventLabel: eventType}).Observe(endTime.Sub(startTime).Seconds())
 }
 
 func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
@@ -180,7 +180,7 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 	}
 
 	if reason != "" {
-		sh.telemetry.ModifiedWRPCount.With(prometheus.Labels{metrics.ReasonLabel: reason}).Add(1.0)
+		sh.metrics.ModifiedWRPCount.With(prometheus.Labels{metrics.ReasonLabel: reason}).Add(1.0)
 	}
 
 	return msg
@@ -188,30 +188,30 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 
 func Provide() fx.Option {
 	return fx.Provide(
-		func(in TelemetryIn) *Telemetry {
-			return &Telemetry{
-				ErrorRequests:            in.ErrorRequests,
-				EmptyRequests:            in.EmptyRequests,
-				InvalidCount:             in.InvalidCount,
-				IncomingQueueDepthMetric: in.IncomingQueueDepthMetric,
-				ModifiedWRPCount:         in.ModifiedWRPCount,
-				IncomingQueueLatency:     in.IncomingQueueLatency,
+		func(in TelemetryIn) *metrics.ServerHandlerMetrics {
+			return &metrics.ServerHandlerMetrics{
+				ErrorRequests:      in.ErrorRequests,
+				EmptyRequests:      in.EmptyRequests,
+				InvalidCount:       in.InvalidCount,
+				IncomingQueueDepth: in.IncomingQueueDepthMetric,
+				// ModifiedWRPCount:     in.ModifiedWRPCount,
+				IncomingQueueLatency: in.IncomingQueueLatency,
 			}
 		},
 		func(in ServerHandlerIn) (ServerHandlerOut, error) {
 			//Hard coding maxOutstanding and incomingQueueDepth for now
-			handler, err := New(in.SinkWrapper, in.Logger, in.Telemetry, 0.0, 0.0)
+			handler, err := New(in.SinkWrapper, in.Logger, in.Metrics, 0.0, 0.0)
 			return ServerHandlerOut{
 				Handler: handler,
 			}, err
 		},
 	)
 }
-func New(w sink.Wrapper, logger *zap.Logger, t *Telemetry, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
+func New(w sink.Wrapper, logger *zap.Logger, m metrics.ServerHandlerMetrics, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
-		sinkWrapper:        w,
+		caduceusHandler:    &caduceusHandler{},
 		logger:             logger,
-		telemetry:          t,
+		metrics:            m,
 		maxOutstanding:     maxOutstanding,
 		incomingQueueDepth: incomingQueueDepth,
 		now:                time.Now,

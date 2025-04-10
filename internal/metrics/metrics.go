@@ -98,12 +98,12 @@ type GaugeVec interface {
 type ServerHandlerMetrics struct {
 	fx.In
 
-	ErrorRequests        prometheus.Counter     `"error_request_body_count"`
-	EmptyRequests        prometheus.Counter     `"empty_request_body_count"`
-	InvalidCount         prometheus.Counter     `"drops_due_to_invalid_payload"`
-	IncomingQueueDepth   prometheus.Gauge       `"incoming_queue_depth"`
-	ModifiedWRPCount     CounterVec             `"modified_wrp_count"`
-	IncomingQueueLatency prometheus.ObserverVec `"incoming_queue_latency_histogram_seconds"`
+	ErrorRequests        prometheus.Counter     `name:"error_request_body_count"`
+	EmptyRequests        prometheus.Counter     `name:"empty_request_body_count"`
+	InvalidCount         prometheus.Counter     `name:"drops_due_to_invalid_payload"`
+	IncomingQueueDepth   prometheus.Gauge       `name:"incoming_queue_depth"`
+	ModifiedWRPCount     CounterVec             `name:"modified_wrp_count"`
+	IncomingQueueLatency prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
 }
 
 type SenderWrapperMetrics struct {
@@ -249,140 +249,6 @@ func Provide() fx.Option {
 			Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		}, EventLabel),
 	)
-}
-
-func OLDMetrics(tf *touchstone.Factory) (ServerHandlerMetrics, SenderWrapperMetrics, OutboundSenderMetrics, error) {
-	var errs error
-
-	errorRequests, err := tf.NewCounter(prometheus.CounterOpts{
-		Name: ErrorRequestBodyCounter,
-		Help: "Count of the number of errors encountered reading the body.",
-	})
-	errs = errors.Join(errs, err)
-	emptyRequests, err := tf.NewCounter(prometheus.CounterOpts{
-		Name: EmptyRequestBodyCounter,
-		Help: "Count of the number of times the request is an empty body.",
-	})
-	errs = errors.Join(errs, err)
-	invalidCount, err := tf.NewCounter(prometheus.CounterOpts{
-		Name: DropsDueToInvalidPayload,
-		Help: "Count of dropped messages dues to an invalid payload",
-	})
-	errs = errors.Join(errs, err)
-	incomingQueueDepth, err := tf.NewGauge(prometheus.GaugeOpts{
-		Name: IncomingQueueDepth,
-		Help: "The depth of the queue behind the incoming handlers.",
-	})
-	errs = errors.Join(errs, err)
-	modifiedWRPCount, err := tf.NewCounterVec(prometheus.CounterOpts{
-		Name: ModifiedWRPCounter,
-		Help: "Number of times a WRP was modified by Caduceus",
-	}, ReasonLabel)
-	errs = errors.Join(errs, err)
-	incomingQueueLatency, err := tf.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    IncomingQueueLatencyHistogram,
-		Help:    "A histogram of latencies for the incoming queue.",
-		Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
-	}, EventLabel)
-	errs = errors.Join(errs, err)
-
-	sh := ServerHandlerMetrics{
-		ErrorRequests:        errorRequests,
-		EmptyRequests:        emptyRequests,
-		InvalidCount:         invalidCount,
-		IncomingQueueDepth:   incomingQueueDepth,
-		ModifiedWRPCount:     modifiedWRPCount,
-		IncomingQueueLatency: incomingQueueLatency,
-	}
-
-	eventType, err := tf.NewCounterVec(prometheus.CounterOpts{
-		Name: IncomingEventTypeCounter,
-		Help: "Incoming count of events by event type",
-	}, EventLabel)
-	errs = errors.Join(errs, err)
-
-	sw := SenderWrapperMetrics{
-		EventType: eventType,
-	}
-
-	queryLatency, err := tf.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    QueryDurationHistogram,
-		Help:    "A histogram of latencies for queries.",
-		Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
-	}, UrlLabel, CodeLabel)
-	errs = errors.Join(errs, err)
-	deliveryCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
-		Name: DeliveryCounter,
-		Help: "Count of delivered messages to a url with a status code",
-	}, UrlLabel, EventLabel, CodeLabel)
-	errs = errors.Join(errs, err)
-	deliveryRetryCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
-		Name: DeliveryRetryCounter,
-		Help: "Number of delivery retries made",
-	}, UrlLabel, EventLabel)
-	errs = errors.Join(errs, err)
-	deliveryRetryMaxGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: DeliveryRetryMaxGauge,
-		Help: "Maximum number of delivery retries attempted",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	cutOffCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
-		Name: SlowConsumerCounter,
-		Help: "Count of the number of times a consumer has been deemed too slow and is cut off.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	droppedMessage, err := tf.NewCounterVec(prometheus.CounterOpts{
-		Name: SlowConsumerDroppedMsgCounter,
-		Help: "Count of dropped messages due to a slow consumer",
-	}, UrlLabel, ReasonLabel)
-	errs = errors.Join(errs, err)
-	queueDepthGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: OutgoingQueueDepth,
-		Help: "The depth of the queue per outgoing url.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	renewalTimeGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: ConsumerRenewalTimeGauge,
-		Help: "Time when the consumer data was updated.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	deliverUntilGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: ConsumerDeliverUntilGauge,
-		Help: "Time when the consumer's registration expires and events will be dropped.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	dropUntilGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: ConsumerDropUntilGauge,
-		Help: "The time after which events going to a customer will be delivered.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	currentWorkersGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: ConsumerDeliveryWorkersGauge,
-		Help: "The number of active delivery workers for a particular customer.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-	maxWorkersGauge, err := tf.NewGaugeVec(prometheus.GaugeOpts{
-		Name: ConsumerMaxDeliveryWorkersGauge,
-		Help: "The maximum number of delivery workers available for a particular customer.",
-	}, UrlLabel)
-	errs = errors.Join(errs, err)
-
-	os := OutboundSenderMetrics{
-		QueryLatency:          queryLatency,
-		DeliveryCounter:       deliveryCounter,
-		DeliveryRetryCounter:  deliveryRetryCounter,
-		DroppedMessage:        droppedMessage,
-		CutOffCounter:         cutOffCounter,
-		QueueDepthGauge:       queueDepthGauge,
-		RenewalTimeGauge:      renewalTimeGauge,
-		DeliverUntilGauge:     deliverUntilGauge,
-		DropUntilGauge:        dropUntilGauge,
-		MaxWorkersGauge:       maxWorkersGauge,
-		CurrentWorkersGauge:   currentWorkersGauge,
-		DeliveryRetryMaxGauge: deliveryRetryMaxGauge,
-	}
-
-	return sh, sw, os, errs
 }
 
 func GetDoErrReason(err error) string {
