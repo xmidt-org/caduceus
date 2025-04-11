@@ -34,9 +34,6 @@ type ServerHandlerOut struct {
 	Handler *ServerHandler
 }
 
-type RequestHandler interface {
-	handleRequest(*wrp.Message)
-}
 type caduceusHandler struct {
 	sinkWrapper sink.Wrapper
 	logger      *zap.Logger
@@ -49,7 +46,7 @@ func (c *caduceusHandler) handleRequest(msg *wrp.Message) {
 
 // Below is the struct that will implement our ServeHTTP method
 type ServerHandler struct {
-	caduceusHandler    RequestHandler
+	caduceusHandler    *caduceusHandler
 	logger             *zap.Logger
 	metrics            metrics.ServerHandlerMetrics
 	incomingQueueDepth int64
@@ -209,7 +206,10 @@ func Provide() fx.Option {
 }
 func New(w sink.Wrapper, logger *zap.Logger, m metrics.ServerHandlerMetrics, maxOutstanding, incomingQueueDepth int64) (*ServerHandler, error) {
 	return &ServerHandler{
-		caduceusHandler:    &caduceusHandler{},
+		caduceusHandler: &caduceusHandler{
+			sinkWrapper: w,
+			logger:      logger,
+		},
 		logger:             logger,
 		metrics:            m,
 		maxOutstanding:     maxOutstanding,
