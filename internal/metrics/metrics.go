@@ -39,13 +39,15 @@ const (
 )
 
 const (
-	NoErrReason            = "no_err"
+	NoErrReason = "no_err"
+	// TODO remove the do_error case
 	GenericDoReason        = "do_error"
 	EmptyContentTypeReason = "empty_content_type"
 	EmptyUUIDReason        = "empty_uuid"
 	BothEmptyReason        = "empty_uuid_and_content_type"
-	NetworkError           = "network_err"
-	UnknownEventType       = "unknown"
+	// TODO revisit the network_err case
+	NetworkError     = "network_err"
+	UnknownEventType = "unknown"
 	// metric labels
 
 	CodeLabel   = "code"
@@ -55,7 +57,7 @@ const (
 
 	// metric label values
 	// dropped messages reasons
-	genericDoReason                       = "do_error"
+	unknown                               = "unknown"
 	deadlineExceededReason                = "context_deadline_exceeded"
 	contextCanceledReason                 = "context_canceled"
 	addressErrReason                      = "address_error"
@@ -66,13 +68,64 @@ const (
 	connClosedReason                      = "connection_closed"
 	opErrReason                           = "op_error"
 	networkErrReason                      = "unknown_network_err"
-	UpdateRequestURLFailedReason          = "update_request_url_failed"
+	updateRequestURLFailedReason          = "update_request_url_failed"
 	connectionUnexpectedlyClosedEOFReason = "connection_unexpectedly_closed_eof"
-	noErrReason                           = "no_err"
 
 	// dropped message codes
 	MessageDroppedCode = "message_dropped"
 )
+
+type CounterVec interface {
+	prometheus.Collector
+	CurryWith(labels prometheus.Labels) (*prometheus.CounterVec, error)
+	GetMetricWith(labels prometheus.Labels) (prometheus.Counter, error)
+	GetMetricWithLabelValues(lvs ...string) (prometheus.Counter, error)
+	MustCurryWith(labels prometheus.Labels) *prometheus.CounterVec
+	With(labels prometheus.Labels) prometheus.Counter
+	WithLabelValues(lvs ...string) prometheus.Counter
+}
+
+type GaugeVec interface {
+	prometheus.Collector
+	CurryWith(labels prometheus.Labels) (*prometheus.GaugeVec, error)
+	GetMetricWith(labels prometheus.Labels) (prometheus.Gauge, error)
+	GetMetricWithLabelValues(lvs ...string) (prometheus.Gauge, error)
+	MustCurryWith(labels prometheus.Labels) *prometheus.GaugeVec
+	With(labels prometheus.Labels) prometheus.Gauge
+	WithLabelValues(lvs ...string) prometheus.Gauge
+}
+
+type ServerHandlerMetrics struct {
+	fx.In
+
+	ErrorRequests        prometheus.Counter     `name:"error_request_body_count"`
+	EmptyRequests        prometheus.Counter     `name:"empty_request_body_count"`
+	InvalidCount         prometheus.Counter     `name:"drops_due_to_invalid_payload"`
+	IncomingQueueDepth   prometheus.Gauge       `name:"incoming_queue_depth"`
+	ModifiedWRPCount     CounterVec             `name:"modified_wrp_count"`
+	IncomingQueueLatency prometheus.ObserverVec `name:"incoming_queue_latency_histogram_seconds"`
+}
+
+type SenderWrapperMetrics struct {
+	EventType CounterVec `name:"incoming_event_type_count"`
+}
+
+type OutboundSenderMetrics_ struct {
+	fx.In
+
+	QueryLatency              prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
+	DeliveryCounter           *prometheus.CounterVec `name:"delivery_count"`
+	DeliveryRetryCounter      *prometheus.CounterVec `name:"delivery_retry_count"`
+	DroppedMessage            *prometheus.CounterVec `name:"dropped_message_count"`
+	CutOffCounter             *prometheus.CounterVec `name:"slow_consumer_cut_off_count"`
+	QueueDepthGauge           *prometheus.GaugeVec   `name:"queue_depth_gauge"`
+	ConsumerRenewalTimeGauge  *prometheus.GaugeVec   `name:"consumer_renewal_time"`
+	ConsumerDeliverUntilGauge *prometheus.GaugeVec   `name:"consumer_deliver_until"`
+	ConsumerDropUntilGauge    *prometheus.GaugeVec   `name:"consumer_drop_until"`
+	MaxWorkersGauge           *prometheus.GaugeVec   `name:"max_workers_gauge"`
+	CurrentWorkersGauge       *prometheus.GaugeVec   `name:"current_workers_gauge"`
+	DeliveryRetryMaxGauge     *prometheus.GaugeVec   `name:"delivery_retry_max"`
+}
 
 // Metrics provides be used to set up the metrics for each sink.
 type Metrics struct {
@@ -91,6 +144,23 @@ type Metrics struct {
 	ConsumerMaxDeliveryWorkersGauge *prometheus.GaugeVec   `name:"consumer_delivery_workers_max"`
 	OutgoingQueueDepth              *prometheus.GaugeVec   `name:"outgoing_queue_depths"`
 	ConsumerRenewalTimeGauge        *prometheus.GaugeVec   `name:"consumer_renewal_time"`
+}
+
+type OutboundSenderMetrics struct {
+	fx.In
+
+	QueryLatency          prometheus.ObserverVec `name:"query_duration_histogram_seconds"`
+	DeliveryCounter       CounterVec             `name:"delivery_count"`
+	DeliveryRetryCounter  CounterVec             `name:"delivery_retry_count"`
+	DroppedMessage        CounterVec             `name:"slow_consumer_dropped_message_count"`
+	CutOffCounter         CounterVec             `name:"slow_consumer_cut_off_count"`
+	QueueDepthGauge       GaugeVec               `name:"outgoing_queue_depths"`
+	RenewalTimeGauge      GaugeVec               `name:"consumer_renewal_time"`
+	DeliverUntilGauge     GaugeVec               `name:"consumer_deliver_until"`
+	DropUntilGauge        GaugeVec               `name:"consumer_drop_until"`
+	MaxWorkersGauge       GaugeVec               `name:"consumer_delivery_workers_max"`
+	CurrentWorkersGauge   GaugeVec               `name:"consumer_delivery_workers"`
+	DeliveryRetryMaxGauge GaugeVec               `name:"delivery_retry_max"`
 }
 
 // TODO: do these need to be annonated/broken into groups based on where the metrics are being used/called
