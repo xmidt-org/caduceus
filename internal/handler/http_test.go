@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/xmidt-org/caduceus/internal/metrics"
-	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 func exampleRequest(msgType int, list ...string) *http.Request {
@@ -89,7 +89,7 @@ func TestServerHandler(t *testing.T) {
 	for _, tc := range tcs {
 		assert := assert.New(t)
 
-		logger := adapter.DefaultLogger().Logger
+		logger := zap.NewExample()
 		fakeHandler := new(mockHandler)
 		if !tc.throwStatusBadRequest {
 			fakeHandler.On("handleRequest",
@@ -148,7 +148,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := adapter.DefaultLogger().Logger
+	logger := zap.NewExample()
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("handleRequest",
 		mock.AnythingOfType("*wrp.Message")).Return().Once()
@@ -211,7 +211,7 @@ func TestServerHandlerFull(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := adapter.DefaultLogger().Logger
+	logger := zap.NewExample()
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("handleRequest",
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
@@ -266,9 +266,9 @@ func TestServerEmptyPayload(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := adapter.DefaultLogger().Logger
+	logger := zap.NewExample()
 	fakeHandler := new(mockHandler)
-	fakeHandler.On("handleRequest", 
+	fakeHandler.On("handleRequest",
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Times(2)
 
 	fakeEmptyRequests := new(metrics.MockCounter)
@@ -323,7 +323,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := adapter.DefaultLogger().Logger
+	logger := zap.NewExample()
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("handleRequest",
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -379,7 +379,7 @@ func TestServerInvalidBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "localhost:8080", r)
 	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
 
-	logger := adapter.DefaultLogger().Logger
+	logger := zap.NewExample()
 	fakeHandler := new(mockHandler)
 	fakeHandler.On("handleRequest",
 		mock.AnythingOfType("*wrp.Message")).WaitUntil(time.After(time.Second)).Once()
@@ -432,7 +432,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 
 	assert := assert.New(t)
 
-	logger := adapter.DefaultLogger().Logger
+	logger := zap.NewExample()
 	fakeHandler := new(mockHandler)
 
 	fakeQueueDepth := new(metrics.MockGauge)
@@ -440,7 +440,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 	serverWrapper := &ServerHandler{
 		logger:          logger,
 		caduceusHandler: fakeHandler,
-		metrics:  metrics.ServerHandlerMetrics{
+		metrics: metrics.ServerHandlerMetrics{
 			IncomingQueueDepth: fakeQueueDepth,
 		},
 		maxOutstanding: 1,
