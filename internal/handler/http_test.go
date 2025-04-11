@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -145,6 +146,7 @@ func (suite *HandlerSuite) TestServerHandlerBadRequest() {
 }
 
 func (suite *HandlerSuite) TestServerHandlerFull() {
+	suite.handler.incomingQueueDepth = 1
 	suite.fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
 	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
 	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
@@ -158,6 +160,130 @@ func (suite *HandlerSuite) TestServerHandlerFull() {
 	suite.Equal(http.StatusServiceUnavailable, resp.StatusCode)
 	assert.NotNil(suite.T(), resp.Body)
 	suite.fakeQueueLatency.AssertExpectations(suite.T())
+
+}
+
+func (suite *HandlerSuite) TestServerEmptyPaylod() {
+	var buffer bytes.Buffer
+	r := bytes.NewReader(buffer.Bytes())
+	req := httptest.NewRequest("POST", "localhost:8080", r)
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
+
+	suite.fakeEmptyRequests.On("Add", mock.AnythingOfType("float64")).Return().Once()
+	suite.fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
+	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
+	suite.fakeQueueLatency.On("Observe", suite.fakeLatency.Seconds()).Return().Once()
+
+	w := httptest.NewRecorder()
+	suite.handler.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	suite.Equal(http.StatusBadRequest, resp.StatusCode)
+	suite.NotNil(suite.T(), resp.Body)
+
+	suite.fakeQueueLatency.AssertExpectations(suite.T())
+
+}
+
+func (suite *HandlerSuite) TestServerUnableToReadBody() {
+	var buffer bytes.Buffer
+	r := iotest.TimeoutReader(bytes.NewReader(buffer.Bytes()))
+	_, _ = r.Read(nil)
+	req := httptest.NewRequest("POST", "localhost:8080", r)
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
+
+	suite.fakeErrorRequests.On("Add", mock.AnythingOfType("float64")).Return().Once()
+	suite.fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+
+	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
+	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
+	suite.fakeQueueLatency.On("Observe", suite.fakeLatency.Seconds()).Return().Once()
+
+	w := httptest.NewRecorder()
+	suite.handler.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	suite.Equal(http.StatusBadRequest, resp.StatusCode)
+	suite.NotNil(suite.T(), resp.Body)
+
+	suite.fakeQueueLatency.AssertExpectations(suite.T())
+
+}
+
+func (suite *HandlerSuite) TestServerInvalidBody() {
+	r := bytes.NewReader([]byte("Invalid payload."))
+
+	_, _ = r.Read(nil)
+	req := httptest.NewRequest("POST", "localhost:8080", r)
+	req.Header.Set("Content-Type", wrp.MimeTypeMsgpack)
+
+	suite.fakeQueueDepth.On("Add", mock.AnythingOfType("float64")).Return().Times(4)
+	suite.fakeInvalidCount.On("Add", mock.AnythingOfType("float64")).Return().Once()
+	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
+	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
+	suite.fakeQueueLatency.On("Observe", suite.fakeLatency.Seconds()).Return().Once()
+
+	w := httptest.NewRecorder()
+	suite.handler.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	suite.Equal(http.StatusBadRequest, resp.StatusCode)
+	suite.NotNil(suite.T(), resp.Body)
+
+	suite.fakeQueueLatency.AssertExpectations(suite.T())
+
+}
+
+func (suite *HandlerSuite) TestHandlerNoContentType() {
+
+	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
+	suite.handler.metrics.IncomingQueueLatency = suite.fakeQueueLatency
+	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
+	suite.fakeQueueLatency.On("Observe", suite.fakeLatency.Seconds()).Return().Once()
+	w := httptest.NewRecorder()
+	req := suite.exampleRequestFunc(4)
+	req.Header.Del("Content-Type")
+
+	suite.handler.ServeHTTP(w, req)
+	resp := w.Result()
+	suite.Equal(http.StatusUnsupportedMediaType, resp.StatusCode)
+}
+
+func (suite *HandlerSuite) TestHandlerUnSupportedContentType() {
+	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
+	suite.handler.metrics.IncomingQueueLatency = suite.fakeQueueLatency
+	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
+	suite.fakeQueueLatency.On("Observe", suite.fakeLatency.Seconds()).Return().Once()
+	w := httptest.NewRecorder()
+	req := suite.exampleRequestFunc(4)
+	req.Header.Del("Content-Type")
+
+	req.Header.Set("Content-Type", "application/json")
+	suite.handler.ServeHTTP(w, req)
+	resp := w.Result()
+	suite.Equal(http.StatusUnsupportedMediaType, resp.StatusCode)
+}
+
+func (suite *HandlerSuite) TestHandlerMultipleContentTypes() {
+	histogramFunctionCall := prometheus.Labels{metrics.EventLabel: metrics.UnknownEventType}
+	suite.handler.metrics.IncomingQueueLatency = suite.fakeQueueLatency
+	suite.fakeQueueLatency.On("With", histogramFunctionCall).Return().Once()
+	suite.fakeQueueLatency.On("Observe", suite.fakeLatency.Seconds()).Return().Once()
+	w := httptest.NewRecorder()
+	req := suite.exampleRequestFunc(4)
+	req.Header.Del("Content-Type")
+
+	req.Header.Add("Content-Type", "application/msgpack")
+	req.Header.Add("Content-Type", "application/msgpack")
+	req.Header.Add("Content-Type", "application/msgpack")
+
+	suite.handler.ServeHTTP(w, req)
+	resp := w.Result()
+	suite.Equal(http.StatusUnsupportedMediaType, resp.StatusCode)
 
 }
 
