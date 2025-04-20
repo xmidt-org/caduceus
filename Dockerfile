@@ -1,17 +1,24 @@
 ## SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 ## SPDX-License-Identifier: Apache-2.0
-FROM docker.io/library/golang:1.19-alpine as builder
 
+##########################
+# Build an image to download spruce and the ca-certificates.
+##########################
+
+FROM docker.io/library/golang:1.23.2-alpine AS builder
 WORKDIR /src
 
-RUN apk add --no-cache --no-progress \
+RUN apk update && \
+    apk add --no-cache --no-progress \
     ca-certificates \
     curl
 
 # Download spruce here to eliminate the need for curl in the final image
-RUN mkdir -p /go/bin && \
-    curl -L -o /go/bin/spruce https://github.com/geofffranks/spruce/releases/download/v1.29.0/spruce-linux-amd64 && \
-    chmod +x /go/bin/spruce
+RUN mkdir -p /go/bin
+RUN curl -Lo /go/bin/spruce https://github.com/geofffranks/spruce/releases/download/v1.31.1/spruce-linux-$(go env GOARCH)
+RUN chmod +x /go/bin/spruce
+# Error out if spruce download fails by checking the version
+RUN /go/bin/spruce --version
 
 COPY . .
 
