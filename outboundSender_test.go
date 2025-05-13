@@ -100,7 +100,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 	// test dc metric
 	fakeDC := new(mockCounter)
 	fakeDC.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "test", reasonLabel: noErrReason}).Return(fakeDC).
-		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "test\xedoops", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "testoops", reasonLabel: noErrReason}).Return(fakeDC).
 		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "iot", reasonLabel: noErrReason}).Return(fakeDC).
 		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: messageDroppedCode, eventLabel: "iot", reasonLabel: dnsErrReason}).Return(fakeDC).
 		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "unknown"}).Return(fakeDC).
@@ -492,16 +492,16 @@ func TestSimpleWrpWithWildcardMatchers(t *testing.T) {
 	r4.Destination = "event:test"
 	obs.Queue(r4)
 
-	/* This will panic. */
+	// test Invaild UTF8
 	r5 := simpleRequestWithPartnerIDs()
 	r5.TransactionUUID = "1234"
 	r5.Source = "mac:112233445560"
-	r5.Destination = "event:test\xedoops"
+	r5.Destination = "event:test\xed"
 	obs.Queue(r5)
 
 	obs.Shutdown(true)
 
-	assert.Equal(int32(4), trans.i)
+	assert.Equal(int32(5), trans.i)
 }
 
 /*

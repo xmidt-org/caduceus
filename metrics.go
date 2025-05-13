@@ -174,12 +174,12 @@ func Metrics(tf *touchstone.Factory) (ServerHandlerMetrics, SenderWrapperMetrics
 		Name:    QueryDurationHistogram,
 		Help:    "A histogram of latencies for queries.",
 		Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
-	}, urlLabel, codeLabel)
+	}, urlLabel, codeLabel, reasonLabel)
 	errs = errors.Join(errs, err)
 	deliveryCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
 		Name: DeliveryCounter,
 		Help: "Count of delivered messages to a url with a status code",
-	}, urlLabel, eventLabel, codeLabel)
+	}, urlLabel, reasonLabel, eventLabel, codeLabel)
 	errs = errors.Join(errs, err)
 	deliveryRetryCounter, err := tf.NewCounterVec(prometheus.CounterOpts{
 		Name: DeliveryRetryCounter,

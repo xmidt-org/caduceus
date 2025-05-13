@@ -152,7 +152,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
 
 	caduceusOutboundSender := &CaduceusOutboundSender{
-		id:               osf.Listener.Webhook.Config.URL,
+		// since id is only used to enrich metrics and logging, remove invalid UTF-8 characters from the URL
+		id:               strings.ToValidUTF8(osf.Listener.Webhook.Config.URL, ""),
 		listener:         osf.Listener,
 		sender:           osf.Sender,
 		queueSize:        osf.QueueSize,
@@ -520,7 +521,10 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		if r := recover(); nil != r {
 			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: DropsDueToPanic}).Add(1.0)
 			obs.logger.Error("goroutine send() panicked", zap.String("id", obs.id), zap.Any("panic", r))
+			// don't silence the panic
+			panic(r)
 		}
+
 		obs.workers.Release()
 		obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(-1.0)
 	}()
@@ -580,14 +584,14 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		req.Header.Set("X-Webpa-Signature", sig)
 	}
 
-	// find the event "short name"
-	event := msg.FindEventStringSubMatch()
+	// since eventType is only used to enrich metrics and logging, remove invalid UTF-8 characters from the URL
+	eventType := strings.ToValidUTF8(msg.FindEventStringSubMatch(), "")
 
 	retryOptions := xhttp.RetryOptions{
 		Logger:   obs.logger,
 		Retries:  obs.deliveryRetries,
 		Interval: obs.deliveryInterval,
-		Counter:  gokitprometheus.NewCounter(obs.metrics.deliveryRetryCounter.MustCurryWith(prometheus.Labels{urlLabel: obs.id, eventLabel: event})),
+		Counter:  gokitprometheus.NewCounter(obs.metrics.deliveryRetryCounter.MustCurryWith(prometheus.Labels{urlLabel: obs.id, eventLabel: eventType})),
 		// Always retry on failures up to the max count.
 		ShouldRetry:       xhttp.ShouldRetry,
 		ShouldRetryStatus: xhttp.RetryCodes,
@@ -624,7 +628,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		}
 
 		l = obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
-		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: event}
+		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
 		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason}).Add(1)
 	} else {
 		// Report Result
@@ -636,7 +640,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 			resp.Body.Close()
 		}
 
-		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: event}
+		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
 	}
 
 	obs.metrics.deliveryCounter.With(deliveryCounterLabels).Add(1.0)
