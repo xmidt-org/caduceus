@@ -1,32 +1,26 @@
 ## SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 ## SPDX-License-Identifier: Apache-2.0
-FROM docker.io/library/golang:1.19-alpine as builder
 
+##########################
+# Build an image to download spruce and the ca-certificates.
+##########################
+
+FROM docker.io/library/golang:1.23.2-alpine AS builder
 WORKDIR /src
 
-ARG VERSION
-ARG GITCOMMIT
-ARG BUILDTIME
-
-RUN apk add --no-cache --no-progress \
+RUN apk update && \
+    apk add --no-cache --no-progress \
     ca-certificates \
-    make \
-    curl \
-    git \
-    openssh \
-    gcc \
-    libc-dev
-    
+    curl
+
 # Download spruce here to eliminate the need for curl in the final image
-RUN mkdir -p /go/bin && \
-    arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/amd64/) && \
-    curl -L -o /go/bin/spruce https://github.com/geofffranks/spruce/releases/download/v1.30.2/spruce-linux-${arch} && \
-    chmod +x /go/bin/spruce && \
-    sha1sum /go/bin/spruce
+RUN mkdir -p /go/bin
+RUN curl -Lo /go/bin/spruce https://github.com/geofffranks/spruce/releases/download/v1.31.1/spruce-linux-$(go env GOARCH)
+RUN chmod +x /go/bin/spruce
+# Error out if spruce download fails by checking the version
+RUN /go/bin/spruce --version
 
 COPY . .
-
-RUN make test release
 
 ##########################
 # Build the final image.
@@ -36,18 +30,17 @@ FROM alpine:latest
 
 # Copy over the standard things you'd expect.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt  /etc/ssl/certs/
-COPY --from=builder /src/caduceus                       /
-COPY --from=builder /src/.release/docker/entrypoint.sh  /
+COPY caduceus /
+COPY .release/docker/entrypoint.sh  /
 
 # Copy over spruce and the spruce template file used to make the actual configuration file.
-COPY --from=builder /src/.release/docker/caduceus_spruce.yaml  /tmp/caduceus_spruce.yaml
-COPY --from=builder /go/bin/spruce                             /bin/
+COPY .release/docker/caduceus_spruce.yaml  /tmp/caduceus_spruce.yaml
+COPY --from=builder /go/bin/spruce        /bin/
 
 # Include compliance details about the container and what it contains.
-COPY --from=builder /src/Dockerfile \
-                    /src/NOTICE \
-                    /src/LICENSE \
-                    /src/CHANGELOG.md   /
+COPY Dockerfile /
+COPY NOTICE     /
+COPY LICENSE    /
 
 # Make the location for the configuration file that will be used.
 RUN     mkdir /etc/caduceus/ \

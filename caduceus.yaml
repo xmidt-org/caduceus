@@ -242,7 +242,7 @@ zap:
   # "console", as well as any third-party encodings registered via
   # RegisterEncoder.
   encoding: json
-  
+
 ########################################
 #   Authorization Related Configuration
 ########################################
@@ -258,7 +258,7 @@ jwtValidator:
   Config:
     Resolve:
       # Template is a URI template used to fetch keys.  This template may
-	    # use a single parameter named keyID, e.g. http://keys.com/{keyID}.
+      # use a single parameter named keyID, e.g. http://keys.com/{keyID}.
       # This field is required and has no default.
       Template: "http://localhost/{keyID}"
     Refresh:
@@ -276,21 +276,21 @@ jwtValidator:
 authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 
 # capabilityCheck provides the details needed for checking an incoming JWT's
-# capabilities.  If the type of check isn't provided, no checking is done.  The 
-# type can be "monitor" or "enforce".  If it is empty or a different value, no 
-# checking is done.  If "monitor" is provided, the capabilities are checked but 
-# the request isn't rejected when there isn't a valid capability for the 
-# request. Instead, a message is logged.  When "enforce" is provided, a request 
+# capabilities.  If the type of check isn't provided, no checking is done.  The
+# type can be "monitor" or "enforce".  If it is empty or a different value, no
+# checking is done.  If "monitor" is provided, the capabilities are checked but
+# the request isn't rejected when there isn't a valid capability for the
+# request. Instead, a message is logged.  When "enforce" is provided, a request
 # that doesn't have the needed capability is rejected.
 #
 # The capability is expected to have the format:
 #
 # {prefix}{endpoint}:{method}
 #
-# The prefix can be a regular expression.  If it's empty, no capability check 
+# The prefix can be a regular expression.  If it's empty, no capability check
 # is done.  The endpoint is a regular expression that should match the endpoint
-# the request was sent to. The method is usually the method of the request, such as 
-# GET.  The accept all method is a catchall string that indicates the capability 
+# the request was sent to. The method is usually the method of the request, such as
+# GET.  The accept all method is a catchall string that indicates the capability
 # is approved for all methods.
 # (Optional)
 # capabilityCheck:
@@ -298,10 +298,10 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 #   type: "enforce"
 #   # prefix provides the regex to match the capability before the endpoint.
 #   prefix: "prefix Here"
-#   # acceptAllMethod provides a way to have a capability that allows all 
+#   # acceptAllMethod provides a way to have a capability that allows all
 #   # methods for a specific endpoint.
 #   acceptAllMethod: "all"
-#   # endpointBuckets provides regular expressions to use against the request 
+#   # endpointBuckets provides regular expressions to use against the request
 #   # endpoint in order to group requests for a metric label.
 #   endpointBuckets:
 #     - "hook\\b"
@@ -309,18 +309,19 @@ authHeader: ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=", "dXNlcjpwYXNz"]
 #     - "notify\\b"
 
 ##############################################################################
-# Webhooks Related Configuration 
+# Webhooks Related Configuration
 ##############################################################################
 # webhook provides configuration for storing and obtaining webhook
 # information using Argus.
 webhook:
   # JWTParserType establishes which parser type will be used by the JWT token
   # acquirer used by Argus. Options include 'simple' and 'raw'.
-  # Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
+  # Simple: parser assumes token payloads have the following structure:
+  # https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
   # Raw: parser assumes all of the token payload == JWT token
   # (Optional). Defaults to 'simple'.
   JWTParserType: "raw"
-  BasicClientConfig: 
+  BasicClientConfig:
     # listen is the subsection that configures the listening feature of the argus client
     # (Optional)
     listen:
@@ -411,8 +412,8 @@ sender:
   # and marking the delivery a failure
   responseHeaderTimeout: 10s
 
-  # customPIDs is a custom list of allowed PartnerIDs that will be used if a message 
-  # has no partner IDs.  When empty, a message with no partner IDs will not be sent 
+  # customPIDs is a custom list of allowed PartnerIDs that will be used if a message
+  # has no partner IDs.  When empty, a message with no partner IDs will not be sent
   # to any listeners when enforcing the partner ID check.
   customPIDs: []
 
@@ -452,7 +453,7 @@ tracing:
 # timeouts that apply to the Argus HTTP client.
 # (Optional) By default, the values below will be used.
 argusClientTimeout:
-  # clientTimeout is the timeout for requests made through this 
+  # clientTimeout is the timeout for requests made through this
   # HTTP client. This timeout includes connection time, any
   # redirects, and reading the response body.
   clientTimeout: 50s

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla"
@@ -84,6 +85,12 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 				URL:         "http://localhost:9999/foo",
 				ContentType: wrp.MimeTypeJson,
 				Secret:      "123456",
+				AlternativeURLs: []string{
+					"http://localhost:9999/foo",
+					"http://localhost:9999/bar",
+					"http://localhost:9999/faa",
+					"http://localhost:9999/bas",
+				},
 			},
 		},
 		PartnerIDs: []string{"comcast"},
@@ -92,88 +99,100 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 
 	// test dc metric
 	fakeDC := new(mockCounter)
-	fakeDC.On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200", eventLabel, "test"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200", eventLabel, "iot"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200", eventLabel, "unknown"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "failure", eventLabel, "iot"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, eventLabel, "test"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, eventLabel, "iot"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, eventLabel, "unknown"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "201"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "202"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "204"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "429", eventLabel, "iot"}).Return(fakeDC).
-		On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "failure"}).Return(fakeDC)
+	fakeDC.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "test", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "test\xedoops", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "iot", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: messageDroppedCode, eventLabel: "iot", reasonLabel: dnsErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", eventLabel: "unknown"}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "failure", eventLabel: "iot"}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "test"}).Return(fakeDC).
+		On("MustCurryWith", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "test"}).Return(fakeDC).
+		On("MustCurryWith", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "test\xedoops"}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "iot"}).Return(fakeDC).
+		On("MustCurryWith", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "iot"}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "unknown"}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "201", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "202", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "204", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "429", eventLabel: "iot", reasonLabel: noErrReason}).Return(fakeDC).
+		On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "failure"}).Return(fakeDC)
 	fakeDC.On("Add", 1.0).Return()
 	fakeDC.On("Add", 0.0).Return()
 
 	// test slow metric
 	fakeSlow := new(mockCounter)
-	fakeSlow.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakeSlow)
+	fakeSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL}).Return(fakeSlow)
 	fakeSlow.On("Add", 1.0).Return()
 
 	// test dropped metric
 	fakeDroppedSlow := new(mockCounter)
-	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "queue_full"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "cut_off"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "expired"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "expired_before_queueing"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "invalid_config"}).Return(fakeDroppedSlow)
-	fakeDroppedSlow.On("With", []string{urlLabel, w.Webhook.Config.URL, reasonLabel, "network_err"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: "queue_full"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: dnsErrReason}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: "cut_off"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: "expired"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: "expired_before_queueing"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: "invalid_config"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: "network_err"}).Return(fakeDroppedSlow)
+	fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, reasonLabel: DropsDueToPanic}).Return(fakeDroppedSlow)
 	fakeDroppedSlow.On("Add", mock.Anything).Return()
 
 	// IncomingContentType cases
 	fakeContentType := new(mockCounter)
-	fakeContentType.On("With", []string{"content_type", "msgpack"}).Return(fakeContentType)
-	fakeContentType.On("With", []string{"content_type", "json"}).Return(fakeContentType)
-	fakeContentType.On("With", []string{"content_type", "http"}).Return(fakeContentType)
-	fakeContentType.On("With", []string{"content_type", "other"}).Return(fakeContentType)
+	fakeContentType.On("With", prometheus.Labels{"content_type": "msgpack"}).Return(fakeContentType)
+	fakeContentType.On("With", prometheus.Labels{"content_type": "json"}).Return(fakeContentType)
+	fakeContentType.On("With", prometheus.Labels{"content_type": "http"}).Return(fakeContentType)
+	fakeContentType.On("With", prometheus.Labels{"content_type": "other"}).Return(fakeContentType)
 	fakeContentType.On("Add", 1.0).Return()
 
 	// QueueDepth case
 	fakeQdepth := new(mockGauge)
-	fakeQdepth.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakeQdepth)
+	fakeQdepth.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL}).Return(fakeQdepth)
 	fakeQdepth.On("Add", 1.0).Return().On("Add", -1.0).Return()
-
-	// DropsDueToPanic case
-	fakePanicDrop := new(mockCounter)
-	fakePanicDrop.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakePanicDrop)
-	fakePanicDrop.On("Add", 1.0).Return()
+	fakeQdepth.On("Set", mock.Anything).Return()
 
 	// Fake Latency
 	fakeLatency := new(mockHistogram)
-	fakeLatency.On("With", []string{urlLabel, w.Webhook.Config.URL, codeLabel, "200"}).Return(fakeLatency)
-	fakeLatency.On("With", []string{urlLabel, w.Webhook.Config.URL}).Return(fakeLatency)
-	fakeLatency.On("Observe", 1.0).Return()
-
-	// Build a registry and register all fake metrics, these are synymous with the metrics in
-	// metrics.go
-	//
-	// If a new metric within outboundsender is created it must be added here
-	fakeRegistry := new(mockCaduceusMetricsRegistry)
-	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeDC)
-	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeDC)
-	fakeRegistry.On("NewCounter", OutgoingQueueDepth).Return(fakeDC)
-	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeSlow)
-	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeDroppedSlow)
-	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakePanicDrop)
-	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerRenewalTimeGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerDeliverUntilGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeQdepth)
-	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "200", reasonLabel: noErrReason}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: "429", reasonLabel: noErrReason}).Return(fakeLatency)
+	for _, url := range w.Webhook.Config.AlternativeURLs {
+		fakeDC.On("With", prometheus.Labels{urlLabel: url, codeLabel: messageDroppedCode, eventLabel: "iot", reasonLabel: dnsErrReason}).Return(fakeDC)
+		fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: url, reasonLabel: DropsDueToPanic}).Return(fakeDroppedSlow)
+		fakeDC.On("With", prometheus.Labels{urlLabel: url, codeLabel: "200", eventLabel: "test\xedoops", reasonLabel: noErrReason}).Return(fakeDC)
+		fakeDC.On("MustCurryWith", prometheus.Labels{urlLabel: w.Webhook.Config.URL, eventLabel: "test\xedoops"}).Return(fakeDC)
+		fakeDC.On("With", prometheus.Labels{urlLabel: url, codeLabel: "429", eventLabel: "iot", reasonLabel: noErrReason}).Return(fakeDC)
+		fakeLatency.On("With", prometheus.Labels{urlLabel: url, codeLabel: "429", reasonLabel: noErrReason}).Return(fakeLatency)
+		fakeLatency.On("With", prometheus.Labels{urlLabel: url, codeLabel: "200", reasonLabel: noErrReason}).Return(fakeLatency)
+		fakeDC.On("With", prometheus.Labels{urlLabel: url, codeLabel: "200", eventLabel: "test", reasonLabel: noErrReason}).Return(fakeDC)
+		fakeDC.On("With", prometheus.Labels{urlLabel: url, codeLabel: "200", eventLabel: "iot", reasonLabel: noErrReason}).Return(fakeDC)
+		fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: url, reasonLabel: dnsErrReason}).Return(fakeDroppedSlow)
+		fakeDroppedSlow.On("With", prometheus.Labels{urlLabel: url, reasonLabel: "queue_full"}).Return(fakeDroppedSlow)
+		fakeLatency.On("With", prometheus.Labels{urlLabel: url, codeLabel: unknown, reasonLabel: dnsErrReason}).Return(fakeLatency)
+	}
+	fakeLatency.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL, codeLabel: unknown, reasonLabel: dnsErrReason}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: w.Webhook.Config.URL}).Return(fakeLatency)
+	fakeLatency.On("Observe", mock.Anything).Return()
 
 	return &OutboundSenderFactory{
+		Metrics: OutboundSenderMetrics{
+			queryLatency:          fakeLatency,
+			deliveryCounter:       fakeDC,
+			deliveryRetryCounter:  fakeDC,
+			droppedMessage:        fakeDroppedSlow,
+			cutOffCounter:         fakeSlow,
+			queueDepthGauge:       fakeQdepth,
+			renewalTimeGauge:      fakeQdepth,
+			deliverUntilGauge:     fakeQdepth,
+			dropUntilGauge:        fakeQdepth,
+			maxWorkersGauge:       fakeQdepth,
+			currentWorkersGauge:   fakeQdepth,
+			deliveryRetryMaxGauge: fakeQdepth,
+		},
 		Listener:        w,
 		Sender:          doerFunc((&http.Client{Transport: trans}).Do),
 		CutOffPeriod:    cutOffPeriod,
 		NumWorkers:      10,
 		QueueSize:       10,
 		DeliveryRetries: 1,
-		MetricsRegistry: fakeRegistry,
 		Logger:          zap.NewNop(),
 	}
 }

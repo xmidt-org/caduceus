@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 
@@ -58,63 +60,50 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeGauge := new(mockGauge)
 	fakeGauge.On("Add", 1.0).Return().
 		On("Add", -1.0).Return().
-		//On("With", []string{urlLabel, "unknown"}).Return(fakeGauge).
-		On("With", []string{urlLabel, "http://localhost:8888/foo"}).Return(fakeGauge).
-		On("With", []string{urlLabel, "http://localhost:9999/foo"}).Return(fakeGauge)
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeGauge).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeGauge).
+		On("Set", mock.Anything).Return()
 
+	fakeSlow := new(mockCounter)
+	fakeSlow.On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeSlow).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeSlow).
+		On("Add", 1.0).Return(fakeSlow)
 	// Fake Latency
 	fakeLatency := new(mockHistogram)
-	fakeLatency.On("With", []string{urlLabel, "http://localhost:8888/foo", codeLabel, "200"}).Return(fakeLatency)
-	fakeLatency.On("With", []string{urlLabel, "http://localhost:9999/foo", codeLabel, "200"}).Return(fakeLatency)
-	fakeLatency.On("With", []string{urlLabel, "http://localhost:8888/foo"}).Return(fakeLatency)
-	fakeLatency.On("With", []string{urlLabel, "http://localhost:9999/foo"}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", codeLabel: "200"}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", codeLabel: "200"}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeLatency)
 	fakeLatency.On("Observe", 1.0).Return()
 
 	fakeIgnore := new(mockCounter)
 	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
-		On("With", []string{urlLabel, "http://localhost:8888/foo"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", eventLabel, "unknown"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", eventLabel, "unknown"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", reasonLabel, "cut_off"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", reasonLabel, "queue_full"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", reasonLabel, "expired"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", reasonLabel, "expired_before_queueing"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", reasonLabel, "network_err"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", reasonLabel, "invalid_config"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", reasonLabel, "cut_off"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", reasonLabel, "queue_full"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", reasonLabel, "expired"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", reasonLabel, "expired_before_queueing"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", reasonLabel, "network_err"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", reasonLabel, "invalid_config"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:8888/foo", codeLabel, "200", eventLabel, "unknown"}).Return(fakeIgnore).
-		On("With", []string{urlLabel, "http://localhost:9999/foo", codeLabel, "200", eventLabel, "unknown"}).Return(fakeIgnore).
-		On("With", []string{eventLabel, "iot"}).Return(fakeIgnore).
-		On("With", []string{eventLabel, "test/extra-stuff"}).Return(fakeIgnore).
-		On("With", []string{eventLabel, "bob/magic/dog"}).Return(fakeIgnore).
-		On("With", []string{eventLabel, "unknown"}).Return(fakeIgnore).
-		On("With", []string{"content_type", "msgpack"}).Return(fakeIgnore).
-		On("With", []string{"content_type", "json"}).Return(fakeIgnore).
-		On("With", []string{"content_type", "http"}).Return(fakeIgnore).
-		On("With", []string{"content_type", "other"}).Return(fakeIgnore)
-
-	fakeRegistry := new(mockCaduceusMetricsRegistry)
-	fakeRegistry.On("NewCounter", DropsDueToInvalidPayload).Return(fakeDDTIP)
-	fakeRegistry.On("NewCounter", DeliveryRetryCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", DeliveryCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", SlowConsumerCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", SlowConsumerDroppedMsgCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", IncomingEventTypeCounter).Return(fakeIgnore)
-	fakeRegistry.On("NewCounter", DropsDueToPanic).Return(fakeIgnore)
-	fakeRegistry.On("NewGauge", OutgoingQueueDepth).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", DeliveryRetryMaxGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerRenewalTimeGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerDeliverUntilGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerDropUntilGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewGauge", ConsumerMaxDeliveryWorkersGauge).Return(fakeGauge)
-	fakeRegistry.On("NewHistogram", QueryDurationHistogram).Return(fakeLatency)
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "cut_off"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "queue_full"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "expired"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "expired_before_queueing"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "network_err"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "invalid_config"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "cut_off"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "queue_full"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "expired"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "expired_before_queueing"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "network_err"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "invalid_config"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", codeLabel: "200", eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", codeLabel: "200", eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{eventLabel: "iot"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{eventLabel: "test/extra-stuff"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{eventLabel: "bob/magic/dog"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{"content_type": "msgpack"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{"content_type": "json"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{"content_type": "http"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{"content_type": "other"}).Return(fakeIgnore)
 
 	return &SenderWrapperFactory{
 		NumWorkersPerSender: 10,
@@ -122,7 +111,22 @@ func getFakeFactory() *SenderWrapperFactory {
 		CutOffPeriod:        30 * time.Second,
 		Logger:              adapter.DefaultLogger().Logger,
 		Linger:              0 * time.Second,
-		MetricsRegistry:     fakeRegistry,
+		Metrics: SenderWrapperMetrics{
+			eventType: fakeIgnore,
+		},
+		outboundSenderMetrics: OutboundSenderMetrics{
+			queryLatency:          fakeLatency,
+			deliveryCounter:       fakeIgnore,
+			deliveryRetryCounter:  fakeIgnore,
+			renewalTimeGauge:      fakeGauge,
+			deliverUntilGauge:     fakeGauge,
+			dropUntilGauge:        fakeGauge,
+			cutOffCounter:         fakeSlow,
+			queueDepthGauge:       fakeGauge,
+			maxWorkersGauge:       fakeGauge,
+			currentWorkersGauge:   fakeGauge,
+			deliveryRetryMaxGauge: fakeGauge,
+		},
 	}
 }
 

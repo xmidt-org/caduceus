@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
@@ -27,6 +28,7 @@ import (
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/touchstone"
 
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 
@@ -69,8 +71,24 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, Metrics, AnclaHelperMetrics, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
 	)
+
+	promReg, ok := metricsRegistry.(prometheus.Registerer)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "failed to get prometheus registerer")
+		return 1
+	}
+
+	var tsConfig touchstone.Config
+	// Get touchstone & zap configurations
+	v.UnmarshalKey("touchstone", &tsConfig)
+	tf := touchstone.NewFactory(tsConfig, logger, promReg)
+	serverHandlerMetrics, senderWrapperMetrics, outboundSenderMetrics, anclaListnerMetric, err := Metrics(tf)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed metrics setup: %s\n", err)
+		return 1
+	}
 
 	if parseErr, done := printVersion(f, arguments); done {
 		// if we're done, we're exiting no matter what
@@ -116,14 +134,15 @@ func caduceus(arguments []string) int {
 	)
 
 	caduceusSenderWrapper, err := SenderWrapperFactory{
-		NumWorkersPerSender: caduceusConfig.Sender.NumWorkersPerSender,
-		QueueSizePerSender:  caduceusConfig.Sender.QueueSizePerSender,
-		CutOffPeriod:        caduceusConfig.Sender.CutOffPeriod,
-		Linger:              caduceusConfig.Sender.Linger,
-		DeliveryRetries:     caduceusConfig.Sender.DeliveryRetries,
-		DeliveryInterval:    caduceusConfig.Sender.DeliveryInterval,
-		MetricsRegistry:     metricsRegistry,
-		Logger:              logger,
+		NumWorkersPerSender:   caduceusConfig.Sender.NumWorkersPerSender,
+		QueueSizePerSender:    caduceusConfig.Sender.QueueSizePerSender,
+		CutOffPeriod:          caduceusConfig.Sender.CutOffPeriod,
+		Linger:                caduceusConfig.Sender.Linger,
+		DeliveryRetries:       caduceusConfig.Sender.DeliveryRetries,
+		DeliveryInterval:      caduceusConfig.Sender.DeliveryInterval,
+		Metrics:               senderWrapperMetrics,
+		outboundSenderMetrics: outboundSenderMetrics,
+		Logger:                logger,
 		Sender: doerFunc((&http.Client{
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
@@ -137,25 +156,24 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create %v metric: %v \n", IncomingQueueLatencyHistogram, err)
+		return 1
+	}
+
 	serverWrapper := &ServerHandler{
 		Logger: logger,
 		caduceusHandler: &CaduceusHandler{
 			senderWrapper: caduceusSenderWrapper,
 			Logger:        logger,
 		},
-		errorRequests:            metricsRegistry.NewCounter(ErrorRequestBodyCounter),
-		emptyRequests:            metricsRegistry.NewCounter(EmptyRequestBodyCounter),
-		invalidCount:             metricsRegistry.NewCounter(DropsDueToInvalidPayload),
-		incomingQueueDepthMetric: metricsRegistry.NewGauge(IncomingQueueDepth),
-		modifiedWRPCount:         metricsRegistry.NewCounter(ModifiedWRPCounter),
-		maxOutstanding:           0,
-		// 0 is for the unused `buckets` argument in xmetrics.Registry.NewHistogram
-		incomingQueueLatency: metricsRegistry.NewHistogram(IncomingQueueLatencyHistogram, 0),
-		now:                  time.Now,
+		metrics:        serverHandlerMetrics,
+		maxOutstanding: 0,
+		now:            time.Now,
 	}
 
 	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Listener.Measures = NewHelperMeasures(metricsRegistry)
+	caduceusConfig.Listener.Measures = anclaListnerMetric
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
@@ -187,9 +205,9 @@ func caduceus(arguments []string) int {
 		otelmux.WithPropagators(tracing.Propagator()),
 		otelmux.WithTracerProvider(tracing.TracerProvider()),
 	}
-	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing.Propagator(), false))
+	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing, false))
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, serverWrapper, svc, rootRouter, v.GetBool("previousVersionSupport"))
+	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, tf, serverWrapper, svc, rootRouter, v.GetBool("previousVersionSupport"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Handler creation error: %v\n", err)
 		return 1
