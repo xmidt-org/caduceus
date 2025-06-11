@@ -27,12 +27,12 @@ func exampleRequest(msgType int, list ...string) *http.Request {
 	url := "localhost:8080"
 
 	for i := range list {
-		switch {
-		case i == 0:
+		switch i {
+		case 0:
 			trans = list[i]
-		case i == 1:
+		case 1:
 			ct = list[i]
-		case i == 2:
+		case 2:
 			url = list[i]
 		}
 
@@ -132,7 +132,7 @@ func TestServerHandler(t *testing.T) {
 			resp := w.Result()
 
 			assert.Equal(tc.expectedResponse, resp.StatusCode)
-			if nil != resp.Body {
+			if resp.Body != nil {
 				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 			}
@@ -196,7 +196,7 @@ func TestServerHandlerFixWrp(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusAccepted, resp.StatusCode)
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -247,7 +247,7 @@ func TestServerHandlerFull(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -302,7 +302,7 @@ func TestServerEmptyPayload(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -359,7 +359,7 @@ func TestServerUnableToReadBody(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -415,7 +415,7 @@ func TestServerInvalidBody(t *testing.T) {
 		resp := w.Result()
 
 		assert.Equal(http.StatusBadRequest, resp.StatusCode)
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -478,7 +478,7 @@ func TestHandlerUnsupportedMediaType(t *testing.T) {
 			resp := w.Result()
 
 			assert.Equal(http.StatusUnsupportedMediaType, resp.StatusCode)
-			if nil != resp.Body {
+			if resp.Body != nil {
 				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
 			}

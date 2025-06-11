@@ -131,13 +131,13 @@ func (sh *ServerHandler) fixWrp(msg *wrp.Message) *wrp.Message {
 
 	// Default to "application/json" if there is no content type, otherwise
 	// use the one the source specified.
-	if "" == msg.ContentType {
+	if msg.ContentType == "" {
 		msg.ContentType = wrp.MimeTypeJson
 		reason = emptyContentTypeReason
 	}
 
 	// Ensure there is a transaction id even if we make one up
-	if "" == msg.TransactionUUID {
+	if msg.TransactionUUID == "" {
 		msg.TransactionUUID = uuid.NewV4().String()
 		if reason == "" {
 			reason = emptyUUIDReason

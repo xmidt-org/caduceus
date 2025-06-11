@@ -60,42 +60,36 @@ func getFakeFactory() *SenderWrapperFactory {
 	fakeGauge := new(mockGauge)
 	fakeGauge.On("Add", 1.0).Return().
 		On("Add", -1.0).Return().
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeGauge).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeGauge).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL}).Return(fakeGauge).
 		On("Set", mock.Anything).Return()
 
 	fakeSlow := new(mockCounter)
-	fakeSlow.On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeSlow).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeSlow).
+	fakeSlow.On("With", prometheus.Labels{urlLabel: testLocalhostURL}).Return(fakeSlow).
 		On("Add", 1.0).Return(fakeSlow)
 	// Fake Latency
 	fakeLatency := new(mockHistogram)
-	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", codeLabel: "200"}).Return(fakeLatency)
-	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", codeLabel: "200"}).Return(fakeLatency)
-	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeLatency)
-	fakeLatency.On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: testLocalhostURL, codeLabel: "200"}).Return(fakeLatency)
+	fakeLatency.On("With", prometheus.Labels{urlLabel: testLocalhostURL}).Return(fakeLatency)
 	fakeLatency.On("Observe", 1.0).Return()
 
 	fakeIgnore := new(mockCounter)
 	fakeIgnore.On("Add", 1.0).Return().On("Add", 0.0).Return().
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", eventLabel: unknownEventType}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", eventLabel: unknownEventType}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "cut_off"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "queue_full"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "expired"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "expired_before_queueing"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "network_err"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", reasonLabel: "invalid_config"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "cut_off"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "queue_full"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "expired"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "expired_before_queueing"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "network_err"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", reasonLabel: "invalid_config"}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:8888/foo", codeLabel: "200", eventLabel: unknownEventType}).Return(fakeIgnore).
-		On("With", prometheus.Labels{urlLabel: "http://localhost:9999/foo", codeLabel: "200", eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "cut_off"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "queue_full"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "expired"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "expired_before_queueing"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "network_err"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "invalid_config"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "cut_off"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "queue_full"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "expired"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "expired_before_queueing"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "network_err"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, reasonLabel: "invalid_config"}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, codeLabel: "200", eventLabel: unknownEventType}).Return(fakeIgnore).
+		On("With", prometheus.Labels{urlLabel: testLocalhostURL, codeLabel: "200", eventLabel: unknownEventType}).Return(fakeIgnore).
 		On("With", prometheus.Labels{eventLabel: "iot"}).Return(fakeIgnore).
 		On("With", prometheus.Labels{eventLabel: "test/extra-stuff"}).Return(fakeIgnore).
 		On("With", prometheus.Labels{eventLabel: "bob/magic/dog"}).Return(fakeIgnore).
@@ -186,7 +180,7 @@ func TestSwSimple(t *testing.T) {
 	w1 := ancla.InternalWebhook{
 		Webhook: ancla.Webhook{
 			Config: ancla.DeliveryConfig{
-				URL:         "http://localhost:8888/foo",
+				URL:         testLocalhostURL,
 				ContentType: wrp.MimeTypeJson,
 			},
 			Duration: 6 * time.Second,
@@ -203,7 +197,7 @@ func TestSwSimple(t *testing.T) {
 			Events:   []string{"iot", "test/extra-stuff", "wrp"},
 		},
 	}
-	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	w2.Webhook.Config.URL = testLocalhostURL
 	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 	w2.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
@@ -225,7 +219,7 @@ func TestSwSimple(t *testing.T) {
 	w3 := ancla.InternalWebhook{
 		Webhook: ancla.Webhook{},
 	}
-	w3.Webhook.Config.URL = "http://localhost:9999/foo"
+	w3.Webhook.Config.URL = testLocalhostURL
 	w3.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	// We get a registration
