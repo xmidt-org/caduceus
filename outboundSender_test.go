@@ -24,6 +24,8 @@ import (
 	"time"
 )
 
+const testLocalhostURL = "http://localhost:9999/foo"
+
 // TODO Improve all of these tests
 
 // Make a simple RoundTrip implementation that let's me short-circuit the network
@@ -82,11 +84,11 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"iot", "test"},
 			Config: ancla.DeliveryConfig{
-				URL:         "http://localhost:9999/foo",
+				URL:         testLocalhostURL,
 				ContentType: wrp.MimeTypeJson,
 				Secret:      "123456",
 				AlternativeURLs: []string{
-					"http://localhost:9999/foo",
+					testLocalhostURL,
 					"http://localhost:9999/bar",
 					"http://localhost:9999/faa",
 					"http://localhost:9999/bas",
@@ -381,10 +383,10 @@ func TestAltURL(t *testing.T) {
 		},
 		PartnerIDs: []string{"comcast"},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 	w.Webhook.Config.AlternativeURLs = []string{
-		"http://localhost:9999/foo",
+		testLocalhostURL,
 		"http://localhost:9999/bar",
 		"http://localhost:9999/faa",
 		"http://localhost:9999/bas",
@@ -599,7 +601,7 @@ func TestInvalidEventRegex(t *testing.T) {
 			Events: []string{"[[:123"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obs, err := OutboundSenderFactory{
@@ -680,7 +682,7 @@ func TestInvalidLogger(t *testing.T) {
 			Events: []string{"iot"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
@@ -705,7 +707,7 @@ func TestFailureURL(t *testing.T) {
 			Events:     []string{"iot"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
@@ -726,7 +728,7 @@ func TestInvalidEvents(t *testing.T) {
 			Until: time.Now().Add(60 * time.Second),
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
@@ -744,7 +746,7 @@ func TestInvalidEvents(t *testing.T) {
 			Events: []string{"iot(.*"},
 		},
 	}
-	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	w2.Webhook.Config.URL = testLocalhostURL
 	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf = simpleFactorySetup(trans, time.Second, nil)
@@ -768,7 +770,7 @@ func TestUpdate(t *testing.T) {
 			Events: []string{"iot", "test"},
 		},
 	}
-	w1.Webhook.Config.URL = "http://localhost:9999/foo"
+	w1.Webhook.Config.URL = testLocalhostURL
 	w1.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	later := time.Now().Add(30 * time.Second)
@@ -778,7 +780,7 @@ func TestUpdate(t *testing.T) {
 			Events: []string{"more", "messages"},
 		},
 	}
-	w2.Webhook.Config.URL = "http://localhost:9999/foo"
+	w2.Webhook.Config.URL = testLocalhostURL
 	w2.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	trans := &transport{}
@@ -812,7 +814,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 			Events: []string{"iot", "test"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
@@ -861,7 +863,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 			Events:     []string{"iot", "test"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -907,7 +909,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 			Events:     []string{"iot", "test"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 	w.Webhook.Config.Secret = "123456"
 
@@ -946,7 +948,7 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 			Events:     []string{"iot", "test"},
 		},
 	}
-	w.Webhook.Config.URL = "http://localhost:9999/foo"
+	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, time.Second, nil)
@@ -973,11 +975,11 @@ func TestOverflow(t *testing.T) {
 	block := int32(0)
 	trans := &transport{}
 	trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
-		if req.URL.String() == "http://localhost:9999/foo" {
+		if req.URL.String() == testLocalhostURL {
 			assert.Equal([]string{"01234"}, req.Header["X-Webpa-Transaction-Id"])
 
 			// Sleeping until we're told to return
-			for 0 == atomic.LoadInt32(&block) {
+			for atomic.LoadInt32(&block) == 0 {
 				time.Sleep(time.Microsecond)
 			}
 		}
@@ -993,7 +995,7 @@ func TestOverflow(t *testing.T) {
 		FailureURL: "http://localhost:12345/bar",
 		Events:     []string{"iot", "test"},
 	}
-	w.Config.URL = "http://localhost:9999/foo"
+	w.Config.URL = testLocalhostURL
 	w.Config.ContentType = wrp.MimeTypeJson
 
 	obsf := simpleFactorySetup(trans, 4*time.Second, nil)

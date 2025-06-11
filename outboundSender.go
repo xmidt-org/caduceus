@@ -133,7 +133,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return nil, err
 	}
 
-	if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); nil != err {
+	if _, err = url.ParseRequestURI(osf.Listener.Webhook.Config.URL); err != nil {
 		return nil, err
 	}
 
@@ -141,12 +141,12 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return nil, errors.New("nil Sender()")
 	}
 
-	if 0 == osf.CutOffPeriod.Nanoseconds() {
-		return nil, errors.New("Invalid CutOffPeriod")
+	if osf.CutOffPeriod.Nanoseconds() == 0 {
+		return nil, errors.New("invalid CutOffPeriod")
 	}
 
 	if nil == osf.Logger {
-		return nil, errors.New("Logger required")
+		return nil, errors.New("logger required")
 	}
 
 	decoratedLogger := osf.Logger.With(zap.String("webhook.address", osf.Listener.Webhook.Address))
@@ -185,7 +185,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender.queue.Store(make(chan *wrp.Message, osf.QueueSize))
 
-	if err = caduceusOutboundSender.Update(osf.Listener); nil != err {
+	if err = caduceusOutboundSender.Update(osf.Listener); err != nil {
 		return nil, err
 	}
 
@@ -201,8 +201,8 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) {
 
 	// Validate the failure URL, if present
-	if "" != wh.Webhook.FailureURL {
-		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); nil != err {
+	if wh.Webhook.FailureURL != "" {
+		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); err != nil {
 			return
 		}
 	}
@@ -212,28 +212,28 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 	var events []*regexp.Regexp
 	for _, event := range wh.Webhook.Events {
 		var re *regexp.Regexp
-		if re, err = regexp.Compile(event); nil != err {
+		if re, err = regexp.Compile(event); err != nil {
 			return
 		}
 
 		events = append(events, re)
 	}
 	if len(events) < 1 {
-		err = errors.New("events must not be empty.")
+		err = errors.New("events must not be empty")
 		return
 	}
 
 	// Create the matcher regex objects
 	matcher := []*regexp.Regexp{}
 	for _, item := range wh.Webhook.Matcher.DeviceID {
-		if ".*" == item {
+		if item == ".*" {
 			// Match everything - skip the filtering
 			matcher = []*regexp.Regexp{}
 			break
 		}
 
 		var re *regexp.Regexp
-		if re, err = regexp.Compile(item); nil != err {
+		if re, err = regexp.Compile(item); err != nil {
 			err = fmt.Errorf("invalid matcher item: '%s'", item)
 			return
 		}
@@ -275,7 +275,7 @@ func (obs *CaduceusOutboundSender) Update(wh ancla.InternalWebhook) (err error) 
 		obs.matcher = matcher
 	}
 
-	if 0 == urlCount {
+	if urlCount == 0 {
 		obs.urls = ring.New(1)
 		obs.urls.Value = obs.id
 	} else {
@@ -443,19 +443,15 @@ func (obs *CaduceusOutboundSender) Empty(droppedCounter prometheus.Counter) {
 func (obs *CaduceusOutboundSender) dispatcher() {
 	defer obs.wg.Done()
 	var (
-		msg            *wrp.Message
 		urls           *ring.Ring
 		secret, accept string
-		ok             bool
 	)
 
 Loop:
 	for {
 		// Always pull a new queue in case we have been cutoff or are shutting
 		// down.
-		msgQueue := obs.queue.Load().(chan *wrp.Message)
-		// nolint:gosimple
-		select {
+		msg, ok := <-obs.queue.Load().(chan *wrp.Message)
 		// The dispatcher cannot get stuck blocking here forever (caused by an
 		// empty queue that is replaced and then Queue() starts adding to the
 		// new queue) because:
@@ -474,40 +470,38 @@ Loop:
 		//      - If the first queue has messages, we drop a message as expired
 		//        pull in the new queue which is empty and closed, break the
 		//        loop, gather workers, and exit.
-		case msg, ok = <-msgQueue:
-			// This is only true when a queue is empty and closed, which for us
-			// only happens on Shutdown().
-			if !ok {
-				break Loop
-			}
-			obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(-1.0)
-			obs.mutex.RLock()
-			urls = obs.urls
-			// Move to the next URL to try 1st the next time.
-			// This is okay because we run a single dispatcher and it's the
-			// only one updating this field.
-			obs.urls = obs.urls.Next()
-			deliverUntil := obs.deliverUntil
-			dropUntil := obs.dropUntil
-			secret = obs.listener.Webhook.Config.Secret
-			accept = obs.listener.Webhook.Config.ContentType
-			obs.mutex.RUnlock()
-
-			now := time.Now()
-
-			if now.Before(dropUntil) {
-				obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}).Add(1.0)
-				continue
-			}
-			if now.After(deliverUntil) {
-				obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "expired"}))
-				continue
-			}
-			obs.workers.Acquire()
-			obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
-
-			go obs.send(urls, secret, accept, msg)
+		// This is only true when a queue is empty and closed, which for us
+		// only happens on Shutdown().
+		if !ok {
+			break Loop
 		}
+		obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(-1.0)
+		obs.mutex.RLock()
+		urls = obs.urls
+		// Move to the next URL to try 1st the next time.
+		// This is okay because we run a single dispatcher and it's the
+		// only one updating this field.
+		obs.urls = obs.urls.Next()
+		deliverUntil := obs.deliverUntil
+		dropUntil := obs.dropUntil
+		secret = obs.listener.Webhook.Config.Secret
+		accept = obs.listener.Webhook.Config.ContentType
+		obs.mutex.RUnlock()
+
+		now := time.Now()
+
+		if now.Before(dropUntil) {
+			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}).Add(1.0)
+			continue
+		}
+		if now.After(deliverUntil) {
+			obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "expired"}))
+			continue
+		}
+		obs.workers.Acquire()
+		obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
+
+		go obs.send(urls, secret, accept, msg)
 	}
 	for i := 0; i < obs.maxWorkers; i++ {
 		obs.workers.Acquire()
@@ -548,7 +542,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	payloadReader = bytes.NewReader(body)
 
 	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
-	if nil != err {
+	if err != nil {
 		// Report drop
 		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "invalid_config"}).Add(1.0)
 		obs.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", obs.id), zap.Error(err))
@@ -620,7 +614,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 	code := messageDroppedCode
 	reason := noErrReason
 	l := obs.logger
-	if nil != err {
+	if err != nil {
 		// Report failure
 		reason = getDoErrReason(err)
 		if resp != nil {
@@ -635,7 +629,7 @@ func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType stri
 		code = strconv.Itoa(resp.StatusCode)
 		// read until the response is complete before closing to allow
 		// connection reuse
-		if nil != resp.Body {
+		if resp.Body != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
@@ -670,20 +664,20 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}))
 
 	msg, err := json.Marshal(failureMsg)
-	if nil != err {
+	if err != nil {
 		obs.logger.Error("Cut-off notification json.Marshal failed", zap.Any("failureMessage", obs.failureMsg), zap.String("for", obs.id), zap.Error(err))
 		return
 	}
 
 	// if no URL to send cut off notification to, do nothing
-	if "" == failureURL {
+	if failureURL == "" {
 		return
 	}
 
 	// Send a "you've been cut off" warning message
 	payload := bytes.NewReader(msg)
 	req, err := http.NewRequest("POST", failureURL, payload)
-	if nil != err {
+	if err != nil {
 		// Failure
 		obs.logger.Error("Unable to send cut-off notification", zap.String("notification",
 			failureURL), zap.String("for", obs.id), zap.Error(err))
@@ -691,7 +685,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 	req.Header.Set("Content-Type", wrp.MimeTypeJson)
 
-	if "" != secret {
+	if secret != "" {
 		h := hmac.New(sha1.New, []byte(secret))
 		h.Write(msg)
 		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
@@ -699,13 +693,13 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 	}
 
 	resp, err := obs.sender.Do(req)
-	if nil != err {
+	if err != nil {
 		// Failure
 		obs.logger.Error("Unable to send cut-off notification", zap.String("notification", failureURL), zap.String("for", obs.id), zap.Error(err))
 		return
 	}
 
-	if nil == resp {
+	if resp == nil {
 		// Failure
 		obs.logger.Error("Unable to send cut-off notification, nil response", zap.String("notification", failureURL))
 		return
@@ -713,7 +707,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	// Success
 
-	if nil != resp.Body {
+	if resp.Body != nil {
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 

@@ -82,7 +82,7 @@ type CaduceusSenderWrapper struct {
 // based on the factory configuration.
 func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 	if swf.Linger <= 0 {
-		return nil, errors.New("Linger must be positive.")
+		return nil, errors.New("linger must be positive")
 	}
 
 	sw := &CaduceusSenderWrapper{
@@ -144,7 +144,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		if !ok {
 			osf.Listener = inValue.Listener
 			obs, err := osf.New()
-			if nil == err {
+			if err == nil {
 				sw.senders[inValue.ID] = obs
 			}
 			continue
