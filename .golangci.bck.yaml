@@ -1,0 +1,66 @@
+## SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
+## SPDX-License-Identifier: Apache-2.0
+---
+linters-settings:
+  misspell:
+    locale: US
+
+linters:
+  enable:
+    - bodyclose
+    - dupl
+    - errorlint
+    # - funlen
+    - goconst
+    - gosec
+    - misspell
+    - unconvert
+    - prealloc
+  disable:
+    - errcheck
+    - ineffassign
+
+issues:
+  exclude-rules:
+    - path: _test.go
+      linters:
+        - dupl
+        # - funlen
+
+    - path: main\.go
+      # Accept TLSClientConfig with InsecureSkipVerify
+      text: "G402:"
+
+    - path: main\.go
+      # Accept pprof is automatically exposed
+      text: "G108:"
+
+    - path: outboundSender\.go
+      # Accept sha1 for signature
+      text: "G505:"
+
+    - path: outboundSender\.go
+      # Acceptable case for the deprecated constant
+      text: "wrp.MimeTypeWrp is deprecated"
+
+    - path: outboundSender\.go
+      # Accept normal random function for determining a starting node
+      text: "G404:"
+
+    - path: outboundSender\.go
+      # Ingore the ask to preallocate events
+      text: "Consider preallocating `events`"
+
+    - path: outboundSender\.go
+      # The linter doesn't figure out that the closure below this code is valid.
+      source: ".*xhttp.RetryTransactor.*"
+      text: "response body must be closed"
+
+    - path: outboundSender_test\.go
+      # Accept sha1 for signature
+      linters:
+        - goconst
+
+    - path: senderWrapper_test\.go
+      # Ignore unused fn member as it is used
+      text: "`fn` is unused"
