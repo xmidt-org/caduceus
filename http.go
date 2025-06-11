@@ -5,6 +5,7 @@ package main
 import (
 	"io"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -107,7 +108,8 @@ func (sh *ServerHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		logger.Debug("Strings must be UTF-8.")
 		return
 	}
-	eventType = msg.FindEventStringSubMatch()
+	// since eventType is only used to enrich metrics and logging, remove invalid UTF-8 characters from the URL
+	eventType = strings.ToValidUTF8(msg.FindEventStringSubMatch(), "")
 
 	sh.caduceusHandler.HandleRequest(0, sh.fixWrp(msg))
 
