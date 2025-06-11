@@ -1,66 +1,62 @@
 ## SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 ## SPDX-License-Identifier: Apache-2.0
----
-linters-settings:
-  misspell:
-    locale: US
 
+version: "2"
 linters:
   enable:
     - bodyclose
     - dupl
     - errorlint
-    # - funlen
     - goconst
     - gosec
     - misspell
-    - unconvert
     - prealloc
+    - unconvert
   disable:
     - errcheck
     - ineffassign
-
-issues:
-  exclude-rules:
-    - path: _test.go
-      linters:
-        - dupl
-        # - funlen
-
-    - path: main\.go
-      # Accept TLSClientConfig with InsecureSkipVerify
-      text: "G402:"
-
-    - path: main\.go
-      # Accept pprof is automatically exposed
-      text: "G108:"
-
-    - path: outboundSender\.go
-      # Accept sha1 for signature
-      text: "G505:"
-
-    - path: outboundSender\.go
-      # Acceptable case for the deprecated constant
-      text: "wrp.MimeTypeWrp is deprecated"
-
-    - path: outboundSender\.go
-      # Accept normal random function for determining a starting node
-      text: "G404:"
-
-    - path: outboundSender\.go
-      # Ingore the ask to preallocate events
-      text: "Consider preallocating `events`"
-
-    - path: outboundSender\.go
-      # The linter doesn't figure out that the closure below this code is valid.
-      source: ".*xhttp.RetryTransactor.*"
-      text: "response body must be closed"
-
-    - path: outboundSender_test\.go
-      # Accept sha1 for signature
-      linters:
-        - goconst
-
-    - path: senderWrapper_test\.go
-      # Ignore unused fn member as it is used
-      text: "`fn` is unused"
+  settings:
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+        path: _test.go
+      - path: main\.go
+        text: 'G402:'
+      - path: main\.go
+        text: 'G108:'
+      - path: outboundSender\.go
+        text: 'G505:'
+      - path: outboundSender\.go
+        text: wrp.MimeTypeWrp is deprecated
+      - path: outboundSender\.go
+        text: 'G404:'
+      - path: outboundSender\.go
+        text: Consider preallocating `events`
+      - path: outboundSender\.go
+        text: response body must be closed
+        source: .*xhttp.RetryTransactor.*
+      - linters:
+          - goconst
+        path: outboundSender_test\.go
+      - path: senderWrapper_test\.go
+        text: '`fn` is unused'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
