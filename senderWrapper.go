@@ -114,7 +114,7 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Sender:            sw.sender,
+		Sender:            sw.sender, // ** REMOVE *** Dispatcher goes here - dispatcher factory?
 		CutOffPeriod:      sw.cutOffPeriod,
 		NumWorkers:        sw.numWorkersPerSender,
 		QueueSize:         sw.queueSizePerSender,
@@ -153,6 +153,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	}
 }
 
+// *** REMOVE - wrp.Message entrypoint ****//
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
@@ -161,6 +162,7 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 
 	sw.metrics.eventType.With(prometheus.Labels{eventLabel: msg.FindEventStringSubMatch()}).Add(1)
 
+	// easiest thing to do might be to add a method to CaduceusSenderWrapper to add the pre-defined outbound senders?
 	for _, v := range sw.senders {
 		v.Queue(msg)
 	}

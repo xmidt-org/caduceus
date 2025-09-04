@@ -830,7 +830,12 @@ func TestOverflowNoFailureURL(t *testing.T) {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	whs, err := NewWebhookOutboundSender(obs.(*CaduceusOutboundSender))
+	if err != nil {
+		assert.Fail("Error returned by NewWebhookOutboundSender")
+	}
+
+	whs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
 	assert.NotNil(output.String())
 }
 
@@ -876,7 +881,13 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	whs, err := NewWebhookOutboundSender(obs.(*CaduceusOutboundSender))
+	if err != nil {
+		assert.Fail("Error returned by NewWebhookOutboundSender")
+	}
+
+	whs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
+
 	assert.NotNil(output.String())
 }
 
@@ -923,7 +934,12 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	whs, err := NewWebhookOutboundSender(obs.(*CaduceusOutboundSender))
+	if err != nil {
+		assert.Fail("Error returned by NewWebhookOutboundSender")
+	}
+
+	whs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
 	assert.NotNil(output.String())
 }
 
@@ -961,7 +977,13 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	whs, err := NewWebhookOutboundSender(obs.(*CaduceusOutboundSender))
+	if err != nil {
+		assert.Fail("Error returned by NewWebhookOutboundSender")
+	}
+
+	whs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
+
 	assert.NotNil(output.String())
 }
 
