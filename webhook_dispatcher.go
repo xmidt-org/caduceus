@@ -144,7 +144,7 @@ func (d *WebhookDispatcher) Send(urls *ring.Ring, secret, acceptType string, msg
 	client := d.obs.clientMiddleware(doerFunc(retryer))
 	resp, err := client.Do(req)
 	defer func() {
-		if resp.Body != nil {
+		if resp != nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}

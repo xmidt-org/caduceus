@@ -24,6 +24,7 @@ type WebhookOutboundSender struct {
 	obs *CaduceusOutboundSender
 }
 
+// this needs to be a factory and you should not be able to create it any other way
 func NewWebhookOutboundSender(obs *CaduceusOutboundSender) (OutboundSender, error) {
 	dispatcher := NewWebhookDispatcher(obs)
 

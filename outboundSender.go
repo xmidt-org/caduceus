@@ -187,7 +187,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 	caduceusOutboundSender.workers = semaphore.New(caduceusOutboundSender.maxWorkers)
 	caduceusOutboundSender.wg.Add(1)
 
-	return caduceusOutboundSender, nil
+	return NewWebhookOutboundSender(caduceusOutboundSender)
 }
 
 func (obs *CaduceusOutboundSender) Dispatch(d Dispatcher) {
