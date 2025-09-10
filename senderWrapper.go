@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/caduceus/internal/kinesis"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -41,8 +42,14 @@ type SenderWrapperFactory struct {
 	// The logger implementation to share with OutboundSenders.
 	Logger *zap.Logger
 
-	// The http client Do() function to share with OutboundSenders.
+	// The http client Do() function to share with WebhookOutboundSenders.
 	Sender httpClient
+
+	// The kinesis client to share with StreamOutboundSenders.
+	StreamSender kinesis.KinesisClientAPI
+
+	// kinesis stream format version
+	StreamVersion string
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -61,6 +68,8 @@ type SenderWrapper interface {
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
 	sender                httpClient
+	streamSender          kinesis.KinesisClientAPI
+	streamVersion         string
 	numWorkersPerSender   int
 	queueSizePerSender    int
 	deliveryRetries       int
@@ -87,6 +96,8 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 
 	sw := &CaduceusSenderWrapper{
 		sender:                swf.Sender,
+		streamSender:          swf.StreamSender,
+		streamVersion:         swf.StreamVersion,
 		numWorkersPerSender:   swf.NumWorkersPerSender,
 		queueSizePerSender:    swf.QueueSizePerSender,
 		deliveryRetries:       swf.DeliveryRetries,
@@ -124,6 +135,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
+		IsStream:          false,
 	}
 
 	ids := make([]struct {
@@ -179,6 +191,10 @@ func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
 		delete(sw.senders, k)
 	}
 	close(sw.shutdown)
+}
+
+func (sw *CaduceusSenderWrapper) loadStreams() {
+
 }
 
 // undertaker looks at the OutboundSenders periodically and prunes the ones

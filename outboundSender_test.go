@@ -791,13 +791,13 @@ func TestUpdate(t *testing.T) {
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*WebhookOutboundSender); !ok {
+	if _, ok := obs.(*webhookOutboundSender); !ok {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	assert.Equal(now, obs.(*WebhookOutboundSender).obs.deliverUntil, "Delivery should match original value.")
+	assert.Equal(now, obs.(*webhookOutboundSender).obs.deliverUntil, "Delivery should match original value.")
 	obs.Update(w2)
-	assert.Equal(later, obs.(*WebhookOutboundSender).obs.deliverUntil, "Delivery should match new value.")
+	assert.Equal(later, obs.(*webhookOutboundSender).obs.deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }
@@ -827,7 +827,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 
 	assert.Nil(err)
 
-	if _, ok := obs.(*WebhookOutboundSender); !ok {
+	if _, ok := obs.(*webhookOutboundSender); !ok {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
@@ -873,11 +873,11 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*WebhookOutboundSender); !ok {
+	if _, ok := obs.(*webhookOutboundSender); !ok {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
+	obs.(*webhookOutboundSender).obs.dispatcher.QueueOverflow()
 
 	assert.NotNil(output.String())
 }
@@ -921,11 +921,11 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*WebhookOutboundSender); !ok {
+	if _, ok := obs.(*webhookOutboundSender); !ok {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
+	obs.(*webhookOutboundSender).obs.dispatcher.QueueOverflow()
 	assert.NotNil(output.String())
 }
 
@@ -959,11 +959,11 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*WebhookOutboundSender); !ok {
+	if _, ok := obs.(*webhookOutboundSender); !ok {
 		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*WebhookOutboundSender).obs.dispatcher.QueueOverflow()
+	obs.(*webhookOutboundSender).obs.dispatcher.QueueOverflow()
 
 	assert.NotNil(output.String())
 }

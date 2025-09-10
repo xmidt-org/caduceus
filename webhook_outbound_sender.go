@@ -20,15 +20,15 @@ import (
 
 const Secret = "XxxxxX"
 
-type WebhookOutboundSender struct {
+type webhookOutboundSender struct {
 	obs *CaduceusOutboundSender
 }
 
-// this needs to be a factory and you should not be able to create it any other way
+// TODO - you should not be able to create it any other way
 func NewWebhookOutboundSender(obs *CaduceusOutboundSender) (OutboundSender, error) {
 	dispatcher := NewWebhookDispatcher(obs)
 
-	whSender := &WebhookOutboundSender{
+	whSender := &webhookOutboundSender{
 		obs: obs,
 	}
 
@@ -37,26 +37,26 @@ func NewWebhookOutboundSender(obs *CaduceusOutboundSender) (OutboundSender, erro
 	return whSender, nil
 }
 
-func (s *WebhookOutboundSender) RetiredSince() time.Time {
+func (s *webhookOutboundSender) RetiredSince() time.Time {
 	s.obs.mutex.RLock()
 	deliverUntil := s.obs.deliverUntil
 	s.obs.mutex.RUnlock()
 	return deliverUntil
 }
 
-func (s *WebhookOutboundSender) Dispatch(d Dispatcher) {
+func (s *webhookOutboundSender) Dispatch(d Dispatcher) {
 	s.obs.Dispatch(d)
 }
 
-func (s *WebhookOutboundSender) Queue(msg *wrp.Message) {
+func (s *webhookOutboundSender) Queue(msg *wrp.Message) {
 	s.obs.Queue(msg)
 }
 
-func (s *WebhookOutboundSender) Shutdown(gentle bool) {
+func (s *webhookOutboundSender) Shutdown(gentle bool) {
 	s.obs.Shutdown(gentle)
 }
 
-func (s *WebhookOutboundSender) Update(wh ancla.InternalWebhook) (err error) {
+func (s *webhookOutboundSender) Update(wh ancla.InternalWebhook) (err error) {
 	// Validate the failure URL, if present
 	if wh.Webhook.FailureURL != "" {
 		if _, err = url.ParseRequestURI(wh.Webhook.FailureURL); err != nil {

@@ -167,7 +167,6 @@ func (d *WebhookDispatcher) Send(urls *ring.Ring, secret, acceptType string, msg
 	} else {
 		// Report Result
 		code = strconv.Itoa(resp.StatusCode)
-
 		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
 	}
 

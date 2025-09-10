@@ -70,7 +70,7 @@ func TestNewNoAwsRole(t *testing.T) {
 		Endpoint: "http://localhost",
 	}
 
-	kc, err := New(cfg, logger)
+	kc, err := New(&cfg, logger)
 	kclient := kc.(*KinesisClient)
 
 	assert.Nil(t, err)

@@ -40,7 +40,7 @@ type KinesisAPI interface {
 type KinesisClient struct {
 	svc           KinesisAPI
 	logger        *zap.Logger
-	config        Config
+	config        *Config
 	credsExpireAt time.Time
 }
 
@@ -62,7 +62,7 @@ type Item struct {
 	Item         []byte
 }
 
-func New(cfg Config, logger *zap.Logger) (KinesisClientAPI, error) {
+func New(cfg *Config, logger *zap.Logger) (KinesisClientAPI, error) {
 	k, credsExpireAt, err := getClient(cfg, logger)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func New(cfg Config, logger *zap.Logger) (KinesisClientAPI, error) {
 	}, nil
 }
 
-func getClient(cfg Config, logger *zap.Logger) (KinesisAPI, time.Time, error) {
+func getClient(cfg *Config, logger *zap.Logger) (KinesisAPI, time.Time, error) {
 	ctx := context.Background()
 
 	// try removing this, not sure why we need it

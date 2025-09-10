@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule/basculehelper"
+	"github.com/xmidt-org/caduceus/internal/kinesis"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/sallust"
@@ -114,6 +115,19 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
+	kinesisConfig := new(kinesis.Config)
+	err = v.Unmarshal(kinesisConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to unmarshal kinesis configuration data into struct: %s\n", err)
+		return 1
+	}
+
+	streamSender, err := kinesis.New(kinesisConfig, logger)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to kinesis client: %s\n", err)
+		return 1
+	}
+
 	tracing, err := loadTracing(v, applicationName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to build tracing component: %v \n", err)
@@ -147,6 +161,7 @@ func caduceus(arguments []string) int {
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do),
+		StreamSender:      streamSender,
 		CustomPIDs:        caduceusConfig.Sender.CustomPIDs,
 		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
 	}.New()

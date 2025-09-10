@@ -13,18 +13,3 @@ type Dispatcher interface {
 	QueueOverflow()
 	Send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message)
 }
-
-func DispatcherFactory(webhook bool, obs *CaduceusOutboundSender) Dispatcher {
-
-	if webhook {
-		return &WebhookDispatcher{
-			obs: obs,
-		}
-	}
-
-	// TODO
-	return &WebhookDispatcher{
-		obs: obs,
-	}
-
-}
