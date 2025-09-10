@@ -4,10 +4,16 @@
 package main
 
 import (
+	"time"
+
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
-	"time"
 )
+
+type StreamSenderConfig struct {
+	// these senders are not really webhooks, but we can treat them as such
+	OutboundStreamSenders []ancla.InternalWebhook
+}
 
 type streamOutboundSender struct {
 	obs *CaduceusOutboundSender

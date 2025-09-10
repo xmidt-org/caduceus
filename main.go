@@ -122,7 +122,14 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	streamSender, err := kinesis.New(kinesisConfig, logger)
+	streamSenderConfig := new(StreamSenderConfig)
+	err = v.Unmarshal(streamSenderConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to unmarshal stream sender config data into struct: %s\n", err)
+		return 1
+	}
+
+	streamClient, err := kinesis.New(kinesisConfig, logger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to kinesis client: %s\n", err)
 		return 1
@@ -161,9 +168,10 @@ func caduceus(arguments []string) int {
 			Transport: tr,
 			Timeout:   caduceusConfig.Sender.ClientTimeout,
 		}).Do),
-		StreamSender:      streamSender,
-		CustomPIDs:        caduceusConfig.Sender.CustomPIDs,
-		DisablePartnerIDs: caduceusConfig.Sender.DisablePartnerIDs,
+		StreamClient:       streamClient,
+		StreamSenderConfig: streamSenderConfig,
+		CustomPIDs:         caduceusConfig.Sender.CustomPIDs,
+		DisablePartnerIDs:  caduceusConfig.Sender.DisablePartnerIDs,
 	}.New()
 
 	if err != nil {

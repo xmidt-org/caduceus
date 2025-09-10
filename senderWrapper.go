@@ -46,10 +46,13 @@ type SenderWrapperFactory struct {
 	Sender httpClient
 
 	// The kinesis client to share with StreamOutboundSenders.
-	StreamSender kinesis.KinesisClientAPI
+	StreamClient kinesis.KinesisClientAPI
 
 	// kinesis stream format version
 	StreamVersion string
+
+	// config for predefined stream senders
+	StreamSenderConfig *StreamSenderConfig
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -70,6 +73,7 @@ type CaduceusSenderWrapper struct {
 	sender                httpClient
 	streamSender          kinesis.KinesisClientAPI
 	streamVersion         string
+	streamSenderConfig    *StreamSenderConfig
 	numWorkersPerSender   int
 	queueSizePerSender    int
 	deliveryRetries       int
@@ -96,7 +100,7 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 
 	sw := &CaduceusSenderWrapper{
 		sender:                swf.Sender,
-		streamSender:          swf.StreamSender,
+		streamSender:          swf.StreamClient,
 		streamVersion:         swf.StreamVersion,
 		numWorkersPerSender:   swf.NumWorkersPerSender,
 		queueSizePerSender:    swf.QueueSizePerSender,
@@ -114,6 +118,9 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 	}
 
 	sw.wg.Add(1)
+
+	sw.loadStreamSenders()
+
 	go undertaker(sw)
 
 	return sw, nil
@@ -123,6 +130,13 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
 func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
+	sw.updateSenders(list, false)
+}
+
+// Update is called when we get changes to our webhook listeners with either
+// additions, or updates.  This code takes care of building new OutboundSenders
+// and maintaining the existing OutboundSenders.
+func (sw *CaduceusSenderWrapper) updateSenders(list []ancla.InternalWebhook, stream bool) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Sender:            sw.sender, // ** REMOVE *** Dispatcher goes here - dispatcher factory?
@@ -135,7 +149,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
-		IsStream:          false,
+		IsStream:          stream,
 	}
 
 	ids := make([]struct {
@@ -193,8 +207,10 @@ func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
 	close(sw.shutdown)
 }
 
-func (sw *CaduceusSenderWrapper) loadStreams() {
-
+// load predefined event listeners which write output to streams instead of
+// webhook callbacks
+func (sw *CaduceusSenderWrapper) loadStreamSenders() {
+	sw.updateSenders(sw.streamSenderConfig.OutboundStreamSenders, true)
 }
 
 // undertaker looks at the OutboundSenders periodically and prunes the ones
