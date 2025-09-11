@@ -26,6 +26,8 @@ import (
 
 const testLocalhostURL = "http://localhost:9999/foo"
 
+//const testLocalhostStreamURL = "http://localhost:8888/someStream"
+
 // TODO Improve all of these tests
 
 // Make a simple RoundTrip implementation that let's me short-circuit the network

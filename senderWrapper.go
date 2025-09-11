@@ -101,6 +101,7 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 	sw := &CaduceusSenderWrapper{
 		sender:                swf.Sender,
 		streamSender:          swf.StreamClient,
+		streamSenderConfig:    swf.StreamSenderConfig,
 		streamVersion:         swf.StreamVersion,
 		numWorkersPerSender:   swf.NumWorkersPerSender,
 		queueSizePerSender:    swf.QueueSizePerSender,
@@ -179,7 +180,6 @@ func (sw *CaduceusSenderWrapper) updateSenders(list []ancla.InternalWebhook, str
 	}
 }
 
-// *** REMOVE - wrp.Message entrypoint ****//
 // Queue is used to send all the possible outbound senders a request.  This
 // function performs the fan-out and filtering to multiple possible endpoints.
 func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {

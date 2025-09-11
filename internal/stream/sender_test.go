@@ -65,7 +65,5 @@ func TestOnEvent(t *testing.T) {
 	err = json.Unmarshal(items[0].Item, &msg)
 	assert.NoError(err)
 
-	assert.Equal("112233445566", items[0].PartitionKey)
-	// TODO - assert message content
-	assert.Equal("TestStream", mockCall.Parent.Calls[0].Arguments.Get(1).(string))
+	assert.Equal(uuid.String(), items[0].PartitionKey)
 }

@@ -99,7 +99,21 @@ func getFakeFactory() *SenderWrapperFactory {
 		On("With", prometheus.Labels{"content_type": "http"}).Return(fakeIgnore).
 		On("With", prometheus.Labels{"content_type": "other"}).Return(fakeIgnore)
 
+	streamSenderConfig := &StreamSenderConfig{
+		// OutboundStreamSenders: []ancla.InternalWebhook{
+		// 	{
+		// 		Webhook: ancla.Webhook{
+		// 			Config: ancla.DeliveryConfig{
+		// 				URL:         testLocalhostStreamURL,
+		// 			},
+		// 			Events:   []string{"iot"},
+		// 		},
+		// 	},
+		// },
+	}
+
 	return &SenderWrapperFactory{
+		StreamSenderConfig:  streamSenderConfig,
 		NumWorkersPerSender: 10,
 		QueueSizePerSender:  10,
 		CutOffPeriod:        30 * time.Second,

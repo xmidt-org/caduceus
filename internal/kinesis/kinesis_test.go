@@ -14,11 +14,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
 )
 
 const SomeStream = "some-stream"
 
-var logger, _ = zap.NewProduction()
+var logger = zap.NewExample()
 
 var shardId = "shardId"
 var sequenceNumber = "123"
@@ -77,7 +78,31 @@ func TestNewNoAwsRole(t *testing.T) {
 	assert.NotNil(t, kclient.svc)
 }
 
-func TestPutRecords(t *testing.T) {
+type KinesisSuite struct {
+	suite.Suite
+	kc          KinesisClient
+	mockKinesis *mockKinesis
+}
+
+func TestKinesisSuite(t *testing.T) {
+	suite.Run(t, new(KinesisSuite))
+}
+
+func (suite *KinesisSuite) SetupTest() {
+	m := newMockKinesis()
+	kc := KinesisClient{
+		logger: logger,
+		svc:    m,
+		config: &Config{
+			Region:   "na",
+			Endpoint: "http://localhost",
+		},
+	}
+	suite.kc = kc
+	suite.mockKinesis = m
+}
+
+func (suite *KinesisSuite) TestPutRecords() {
 	items := []Item{{PartitionKey: "mac1", Item: []byte("test1")}, {PartitionKey: "mac2", Item: []byte("test2")}}
 	stream := SomeStream
 
@@ -87,20 +112,15 @@ func TestPutRecords(t *testing.T) {
 		FailedRecordCount: &failedRecordInputCount,
 	}
 
-	m := newMockKinesis()
-	m.On("PutRecords", mock.Anything, mock.Anything, mock.Anything).Return(putRecordsOutput, nil)
-	kc := KinesisClient{
-		logger: logger,
-		svc:    m,
-	}
+	suite.mockKinesis.On("PutRecords", mock.Anything, mock.Anything, mock.Anything).Return(putRecordsOutput, nil)
 
-	failedRecordCount, err := kc.PutRecords(items, stream)
-	t.Log(err)
-	assert.Nil(t, err)
-	assert.Equal(t, 10, failedRecordCount)
+	failedRecordCount, err := suite.kc.PutRecords(items, stream)
+	suite.T().Log(err)
+	suite.Nil(err)
+	suite.Equal(10, failedRecordCount)
 }
 
-func TestPutRecordsError(t *testing.T) {
+func (suite *KinesisSuite) TestPutRecordsError() {
 	items := []Item{{PartitionKey: "mac1", Item: []byte("test1")}, {PartitionKey: "mac2", Item: []byte("test2")}}
 	stream := SomeStream
 
@@ -110,50 +130,36 @@ func TestPutRecordsError(t *testing.T) {
 		FailedRecordCount: &failedRecordInputCount,
 	}
 
-	m := newMockKinesis()
-	m.On("PutRecords", mock.Anything, mock.Anything, mock.Anything).Return(putRecordsOutput, errors.New("some db error"))
-	kc := KinesisClient{
-		logger: logger,
-		svc:    m,
-	}
+	suite.mockKinesis.On("PutRecords", mock.Anything, mock.Anything, mock.Anything).Return(putRecordsOutput, errors.New("some db error"))
 
-	failedRecordCount, err := kc.PutRecords(items, stream)
-	t.Log(err)
-	assert.NotNil(t, err)
-	assert.Equal(t, 0, failedRecordCount)
+	failedRecordCount, err := suite.kc.PutRecords(items, stream)
+	suite.T().Log(err)
+	suite.NotNil(err)
+	suite.Equal(0, failedRecordCount)
 }
 
-func TestPutRecordsErrorNilOutput(t *testing.T) {
+func (suite *KinesisSuite) TestPutRecordsErrorNilOutput() {
 	items := []Item{{PartitionKey: "mac1", Item: []byte("test1")}, {PartitionKey: "mac2", Item: []byte("test2")}}
 	stream := SomeStream
 
 	putRecordsOutput := (*kinesis.PutRecordsOutput)(nil)
-	m := newMockKinesis()
-	m.On("PutRecords", mock.Anything, mock.Anything, mock.Anything).Return(putRecordsOutput, errors.New("some db error"))
-	kc := KinesisClient{
-		logger: logger,
-		svc:    m,
-	}
 
-	failedRecordCount, err := kc.PutRecords(items, stream)
-	t.Log(err)
-	assert.NotNil(t, err)
-	assert.Equal(t, 0, failedRecordCount)
+	suite.mockKinesis.On("PutRecords", mock.Anything, mock.Anything, mock.Anything).Return(putRecordsOutput, errors.New("some db error"))
+
+	failedRecordCount, err := suite.kc.PutRecords(items, stream)
+	suite.T().Log(err)
+	suite.NotNil(err)
+	suite.Equal(0, failedRecordCount)
 }
 
-func TestPutRecord(t *testing.T) {
+func (suite *KinesisSuite) TestPutRecord() {
 	event := []byte("test")
 	stream := SomeStream
 	partitionKey := "some-key"
 
-	m := newMockKinesis()
-	m.On("PutRecord", mock.Anything, mock.Anything, mock.Anything).Return(&putRecordOutput)
-	kc := KinesisClient{
-		logger: logger,
-		svc:    m,
-	}
+	suite.mockKinesis.On("PutRecord", mock.Anything, mock.Anything, mock.Anything).Return(&putRecordOutput)
 
-	_, err := kc.PutRecord(event, stream, partitionKey)
-	t.Log(err)
-	assert.Nil(t, err)
+	_, err := suite.kc.PutRecord(event, stream, partitionKey)
+	suite.T().Log(err)
+	suite.Nil(err)
 }
