@@ -3,6 +3,7 @@
 package main
 
 import (
+	"container/ring"
 	"time"
 	"unicode/utf8"
 
@@ -258,4 +259,18 @@ func mockTime(one, two time.Time) func() time.Time {
 		called = true
 		return one
 	}
+}
+
+// mock dispatcher
+
+type mockDispatcher struct {
+	mock.Mock
+}
+
+func (m *mockDispatcher) Send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
+	m.Called(urls, secret, acceptType, msg)
+}
+
+func (m *mockDispatcher) QueueOverflow() {
+	m.Called()
 }

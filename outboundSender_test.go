@@ -53,7 +53,7 @@ func getNewTestOutputLogger(out io.Writer) *zap.Logger {
 }
 
 func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (OutboundSender, error) {
-	return simpleFactorySetup(trans, cutOffPeriod, matcher).New()
+	return simpleFactorySetup(trans, cutOffPeriod, matcher, false).New()
 }
 
 // simpleFactorySetup sets up a outboundSender with metrics.
@@ -71,7 +71,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 //     case 2: On("With", []string{eventLabel, unknown}
 //  4. Mimic the metric behavior using On:
 //     fakeSlow.On("Add", 1.0).Return()
-func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
+func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string, stream bool) *OutboundSenderFactory {
 	if nil == trans.fn {
 		trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 			resp = &http.Response{Status: "200 OK",
@@ -198,6 +198,7 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		QueueSize:       10,
 		DeliveryRetries: 1,
 		Logger:          zap.NewNop(),
+		IsStream:        stream,
 	}
 
 }
@@ -668,7 +669,7 @@ func TestInvalidSender(t *testing.T) {
 	assert := assert.New(t)
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Sender = nil
 	obs, err := obsf.New()
 	assert.Nil(obs)
@@ -689,7 +690,7 @@ func TestInvalidLogger(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obsf.Logger = nil
@@ -714,7 +715,7 @@ func TestFailureURL(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
@@ -735,7 +736,7 @@ func TestInvalidEvents(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
@@ -752,7 +753,7 @@ func TestInvalidEvents(t *testing.T) {
 	w2.Webhook.Config.URL = testLocalhostURL
 	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	obsf = simpleFactorySetup(trans, time.Second, nil)
+	obsf = simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w2
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err = obsf.New()
@@ -787,7 +788,7 @@ func TestUpdate(t *testing.T) {
 	w2.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w1
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
@@ -821,7 +822,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obsf.Sender = doerFunc((&http.Client{}).Do)
@@ -869,7 +870,7 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
@@ -917,7 +918,7 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 	w.Webhook.Config.Secret = "123456"
 
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
@@ -955,7 +956,7 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
@@ -1003,7 +1004,7 @@ func TestOverflow(t *testing.T) {
 	w.Config.URL = testLocalhostURL
 	w.Config.ContentType = wrp.MimeTypeJson
 
-	obsf := simpleFactorySetup(trans, 4*time.Second, nil)
+	obsf := simpleFactorySetup(trans, 4*time.Second, nil, false)
 	obsf.NumWorkers = 1
 	obsf.QueueSize = 2
 	obsf.Logger = logger

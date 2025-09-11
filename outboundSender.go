@@ -205,12 +205,7 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		return NewStreamOutboundSender(caduceusOutboundSender)
 	}
 
-	return NewWebhookOutboundSender(caduceusOutboundSender)
-}
-
-func (obs *CaduceusOutboundSender) Dispatch(d Dispatcher) {
-	obs.dispatcher = d
-	go obs.dispatch()
+	return NewWebhookOutboundSender(caduceusOutboundSender) // TODO
 }
 
 // Update applies user configurable values for the outbound sender when a

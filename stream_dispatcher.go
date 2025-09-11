@@ -24,6 +24,7 @@ type StreamDispatcher struct {
 
 func NewStreamDispatcher(obs *CaduceusOutboundSender) (Dispatcher, error) {
 	url := obs.urls.Value.(string)
+	// TODO - sender should hit alternatives (east vs west) if kinesis is down
 	sender, err := stream.New(url, obs.streamVersion, obs.streamSender, obs.logger)
 	if err != nil {
 		obs.logger.Error("error creating stream sender", zap.Error(err))

@@ -30,7 +30,8 @@ func NewStreamOutboundSender(obs *CaduceusOutboundSender) (OutboundSender, error
 		obs: obs,
 	}
 
-	sender.Dispatch(dispatcher)
+	obs.dispatcher = dispatcher
+	go obs.dispatch()
 
 	return sender, nil
 }
@@ -42,10 +43,6 @@ func (s *streamOutboundSender) RetiredSince() time.Time {
 	s.obs.deliverUntil = deliverUntil
 	s.obs.mutex.RUnlock()
 	return deliverUntil
-}
-
-func (s *streamOutboundSender) Dispatch(d Dispatcher) {
-	s.obs.Dispatch(d)
 }
 
 func (s *streamOutboundSender) Queue(msg *wrp.Message) {

@@ -32,7 +32,8 @@ func NewWebhookOutboundSender(obs *CaduceusOutboundSender) (OutboundSender, erro
 		obs: obs,
 	}
 
-	whSender.Dispatch(dispatcher)
+	obs.dispatcher = dispatcher
+	go obs.dispatch()
 
 	return whSender, nil
 }
@@ -42,10 +43,6 @@ func (s *webhookOutboundSender) RetiredSince() time.Time {
 	deliverUntil := s.obs.deliverUntil
 	s.obs.mutex.RUnlock()
 	return deliverUntil
-}
-
-func (s *webhookOutboundSender) Dispatch(d Dispatcher) {
-	s.obs.Dispatch(d)
 }
 
 func (s *webhookOutboundSender) Queue(msg *wrp.Message) {
