@@ -274,3 +274,19 @@ func (m *mockDispatcher) Send(urls *ring.Ring, secret, acceptType string, msg *w
 func (m *mockDispatcher) QueueOverflow() {
 	m.Called()
 }
+
+// mock event sender
+
+type mockStreamSender struct {
+	mock.Mock
+}
+
+func (m *mockStreamSender) OnEvent(msg []*wrp.Message, url string) (int, error) {
+	args := m.Called(msg, url)
+	return args.Get(0).(int), args.Error(1)
+}
+
+func (m *mockStreamSender) GetUrl() string {
+	args := m.Called()
+	return args.Get(0).(string)
+}

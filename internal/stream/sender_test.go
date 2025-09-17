@@ -18,6 +18,8 @@ import (
 	mykinesis "github.com/xmidt-org/caduceus/internal/kinesis"
 )
 
+const testUrl = "http://localhost:9999"
+
 type mockKinesisClient struct{ mock.Mock }
 
 func newMockKinesisClient() *mockKinesisClient { return &mockKinesisClient{} }
@@ -50,13 +52,13 @@ func TestOnEvent(t *testing.T) {
 
 	var kc = newMockKinesisClient()
 
-	sender, err := New("", "", kc, zap.NewExample())
+	sender, err := New("", kc, zap.NewExample())
 	assert.Nil(err)
 
 	mockCall := kc.On("PutRecords", mock.Anything, mock.Anything).Return(0, nil)
 
 	events := []*wrp.Message{e}
-	failedRecordCount, err := sender.OnEvent(events)
+	failedRecordCount, err := sender.OnEvent(events, testUrl)
 	assert.Equal(0, failedRecordCount)
 	assert.Nil(err)
 

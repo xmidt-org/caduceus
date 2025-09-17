@@ -19,13 +19,13 @@ import (
 
 type StreamDispatcher struct {
 	obs    *CaduceusOutboundSender
-	sender stream.EventSender
+	sender stream.StreamSender
 }
 
 func NewStreamDispatcher(obs *CaduceusOutboundSender) (Dispatcher, error) {
-	url := obs.urls.Value.(string)
+
 	// TODO - sender should hit alternatives (east vs west) if kinesis is down
-	sender, err := stream.New(url, obs.streamVersion, obs.streamSender, obs.logger)
+	sender, err := stream.New(obs.streamVersion, obs.streamSender, obs.logger)
 	if err != nil {
 		obs.logger.Error("error creating stream sender", zap.Error(err))
 		return nil, err
@@ -54,11 +54,17 @@ func (d *StreamDispatcher) Send(urls *ring.Ring, secret, acceptType string, msg 
 		d.obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: d.obs.id}).Add(-1.0)
 	}()
 
+	url := urls.Value.(string)
+
+	d.sendToEndpoint(url, msg)
+}
+
+func (d *StreamDispatcher) sendToEndpoint(url string, msg *wrp.Message) {
 	// Send it
 	d.obs.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 
 	msgs := []*wrp.Message{msg}
-	failedRecordCount, err := d.sender.OnEvent(msgs)
+	failedRecordCount, err := d.sender.OnEvent(msgs, url)
 
 	eventType := strings.ToValidUTF8(msg.FindEventStringSubMatch(), "")
 	var deliveryCounterLabels prometheus.Labels
@@ -67,20 +73,20 @@ func (d *StreamDispatcher) Send(urls *ring.Ring, secret, acceptType string, msg 
 	l := d.obs.logger
 	if err != nil {
 		reason = "send_error"
-		l = d.obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
-		deliveryCounterLabels = prometheus.Labels{urlLabel: d.sender.GetUrl(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
-		d.obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: d.sender.GetUrl(), reasonLabel: reason}).Add(1)
+		d.obs.logger.Error("error writing to stream", zap.String(reasonLabel, reason), zap.Error(err))
+		deliveryCounterLabels = prometheus.Labels{urlLabel: url, reasonLabel: reason, codeLabel: code, eventLabel: eventType}
+		d.obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: url, reasonLabel: reason}).Add(1)
 	} else if failedRecordCount > 0 {
 		reason = "some_records_failed"
-		l = d.obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
-		deliveryCounterLabels = prometheus.Labels{urlLabel: d.sender.GetUrl(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
-		d.obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: d.sender.GetUrl(), reasonLabel: reason}).Add(1)
+		d.obs.logger.Error("some records failed to write to stream", zap.String(reasonLabel, reason), zap.Int("failedRecordCount", failedRecordCount))
+		deliveryCounterLabels = prometheus.Labels{urlLabel: url, reasonLabel: reason, codeLabel: code, eventLabel: eventType}
+		d.obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: url, reasonLabel: reason}).Add(1)
 	} else {
-		deliveryCounterLabels = prometheus.Labels{urlLabel: d.sender.GetUrl(), reasonLabel: reason, codeLabel: "success", eventLabel: eventType}
+		deliveryCounterLabels = prometheus.Labels{urlLabel: url, reasonLabel: reason, codeLabel: "200", eventLabel: eventType}
 	}
 
 	d.obs.metrics.deliveryCounter.With(deliveryCounterLabels).Add(1.0)
-	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", d.sender.GetUrl()))
+	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", url))
 }
 
 // queueOverflow handles the logic of what to do when a queue overflows:

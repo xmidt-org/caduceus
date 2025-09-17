@@ -13,6 +13,8 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
+const iotEvent = "event:iot"
+
 type StreamOutboundSenderSuite struct {
 	suite.Suite
 	streamOutboundSender *streamOutboundSender
@@ -51,7 +53,7 @@ func (suite *StreamOutboundSenderSuite) TestShutdown() {
 func (suite *StreamOutboundSenderSuite) TestQueue() {
 	suite.mockDispatcher.On("Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	req := simpleRequestWithPartnerIDs()
-	req.Destination = "event:iot"
+	req.Destination = iotEvent
 	suite.streamOutboundSender.Queue(req)
 	time.Sleep(100 * time.Millisecond)
 	suite.mockDispatcher.AssertCalled(suite.T(), "Send", mock.Anything, mock.Anything, mock.Anything, mock.Anything)

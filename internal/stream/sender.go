@@ -17,16 +17,14 @@ import (
 const schemaVersion = "1.1"
 const retries = 3
 
-type StreamEventSender struct {
+type EventStreamSender struct {
 	kc            kinesis.KinesisClientAPI
-	url           string
 	schemaVersion string
 	logger        *zap.Logger
 }
 
-type EventSender interface {
-	OnEvent(event []*wrp.Message) (int, error)
-	GetUrl() string
+type StreamSender interface {
+	OnEvent(event []*wrp.Message, url string) (int, error)
 }
 
 var kPutRunner, _ = retry.NewRunner[int](
@@ -36,24 +34,19 @@ var kPutRunner, _ = retry.NewRunner[int](
 	}),
 )
 
-func New(url string, version string, kc kinesis.KinesisClientAPI, logger *zap.Logger) (EventSender, error) {
+func New(version string, kc kinesis.KinesisClientAPI, logger *zap.Logger) (StreamSender, error) {
 	if schemaVersion == "" {
 		version = schemaVersion
 	}
-	return &StreamEventSender{
+	return &EventStreamSender{
 		kc:            kc,
-		url:           url,
 		schemaVersion: version,
 		logger:        logger,
 	}, nil
 }
 
-func (s *StreamEventSender) GetUrl() string {
-	return s.url
-}
-
 // TODO - add a queue and a channel instead
-func (s *StreamEventSender) OnEvent(msgs []*wrp.Message) (int, error) {
+func (s *EventStreamSender) OnEvent(msgs []*wrp.Message, url string) (int, error) {
 	items := []kinesis.Item{}
 	for _, m := range msgs {
 		data, err := json.Marshal(m)
@@ -69,7 +62,7 @@ func (s *StreamEventSender) OnEvent(msgs []*wrp.Message) (int, error) {
 		context.Background(),
 		func(_ context.Context) (int, error) {
 			attempts++
-			failedRecordCount, err := s.kc.PutRecords(items, s.url)
+			failedRecordCount, err := s.kc.PutRecords(items, url)
 			if err != nil {
 				s.logger.Error("kinesis.PutRecords error", zap.Int("attempt", attempts), zap.Error(err))
 			}
