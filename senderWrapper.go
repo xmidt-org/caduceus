@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla"
+	"github.com/xmidt-org/caduceus/internal/kinesis"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -41,8 +42,17 @@ type SenderWrapperFactory struct {
 	// The logger implementation to share with OutboundSenders.
 	Logger *zap.Logger
 
-	// The http client Do() function to share with OutboundSenders.
+	// The http client Do() function to share with WebhookOutboundSenders.
 	Sender httpClient
+
+	// The kinesis client to share with StreamOutboundSenders.
+	StreamClient kinesis.KinesisClientAPI
+
+	// kinesis stream format version
+	StreamVersion string
+
+	// config for predefined stream senders
+	StreamSenderConfig *StreamSenderConfig
 
 	// CustomPIDs is a custom list of allowed PartnerIDs that will be used if a message
 	// has no partner IDs.
@@ -61,6 +71,9 @@ type SenderWrapper interface {
 // CaduceusSenderWrapper contains no external parameters.
 type CaduceusSenderWrapper struct {
 	sender                httpClient
+	streamSender          kinesis.KinesisClientAPI
+	streamVersion         string
+	streamSenderConfig    *StreamSenderConfig
 	numWorkersPerSender   int
 	queueSizePerSender    int
 	deliveryRetries       int
@@ -87,6 +100,9 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 
 	sw := &CaduceusSenderWrapper{
 		sender:                swf.Sender,
+		streamSender:          swf.StreamClient,
+		streamSenderConfig:    swf.StreamSenderConfig,
+		streamVersion:         swf.StreamVersion,
 		numWorkersPerSender:   swf.NumWorkersPerSender,
 		queueSizePerSender:    swf.QueueSizePerSender,
 		deliveryRetries:       swf.DeliveryRetries,
@@ -103,6 +119,9 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 	}
 
 	sw.wg.Add(1)
+
+	sw.loadStreamSenders()
+
 	go undertaker(sw)
 
 	return sw, nil
@@ -112,9 +131,16 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
 func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
+	sw.updateSenders(list, false)
+}
+
+// Update is called when we get changes to our webhook listeners with either
+// additions, or updates.  This code takes care of building new OutboundSenders
+// and maintaining the existing OutboundSenders.
+func (sw *CaduceusSenderWrapper) updateSenders(list []ancla.InternalWebhook, stream bool) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
-		Sender:            sw.sender,
+		Sender:            sw.sender, // ** REMOVE *** Dispatcher goes here - dispatcher factory?
 		CutOffPeriod:      sw.cutOffPeriod,
 		NumWorkers:        sw.numWorkersPerSender,
 		QueueSize:         sw.queueSizePerSender,
@@ -124,6 +150,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 		Logger:            sw.logger,
 		CustomPIDs:        sw.customPIDs,
 		DisablePartnerIDs: sw.disablePartnerIDs,
+		IsStream:          stream,
 	}
 
 	ids := make([]struct {
@@ -161,6 +188,7 @@ func (sw *CaduceusSenderWrapper) Queue(msg *wrp.Message) {
 
 	sw.metrics.eventType.With(prometheus.Labels{eventLabel: msg.FindEventStringSubMatch()}).Add(1)
 
+	// easiest thing to do might be to add a method to CaduceusSenderWrapper to add the pre-defined outbound senders?
 	for _, v := range sw.senders {
 		v.Queue(msg)
 	}
@@ -177,6 +205,12 @@ func (sw *CaduceusSenderWrapper) Shutdown(gentle bool) {
 		delete(sw.senders, k)
 	}
 	close(sw.shutdown)
+}
+
+// load predefined event listeners which write output to streams instead of
+// webhook callbacks
+func (sw *CaduceusSenderWrapper) loadStreamSenders() {
+	sw.updateSenders(sw.streamSenderConfig.OutboundStreamSenders, true)
 }
 
 // undertaker looks at the OutboundSenders periodically and prunes the ones
