@@ -421,6 +421,21 @@ sender:
   # Defaults to 'false'.
   disablePartnerIDs: false
 
+# subcategory of senders that are predefined, listen for events and send to streams
+# instead of webhook callbacks
+outbound_stream_senders:
+   - PartnerIDs:
+     - comcast
+     - sky-italia
+     - cox
+     - rogers
+     Webhook:
+       Address: http://some-address
+       Events:
+         - ".*"
+       
+   
+  
 # (Deprecated)
 # profilerFrequency: 15
 # profilerDuration: 15
