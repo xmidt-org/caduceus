@@ -1843,8 +1843,8 @@ go.opentelemetry.io/contrib v0.19.0/go.mod h1:G/EtFaa6qaN7+LxqfIAT3GiZa7Wv5DTBUz
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.19.0/go.mod h1:ze4w2zyQP+FvZjaahHaUVD7h4razLhDOsZD3qFKXc3c=
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.38.0/go.mod h1:iUSPEXZM7sckWSTCtzog1lU42Qaiu9U2WY6vdqwFHDI=
 go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.40.0/go.mod h1:RK3vgddjxVcF1q7IBVppzG6k2cW/NBnZHQ3X4g+EYBQ=
-go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.61.0 h1:4biLRyCkHnLDYE56ry1Q33POTcthaCZevuPkat6zC3o=
-go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.61.0/go.mod h1:TKkgBolVx05oiVBeH/H2t2py4zxRyxAT4Ey1igzD6BQ=
+go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.63.0 h1:rATLgFjv0P9qyXQR/aChJ6JVbMtXOQjt49GgT36cBbk=
+go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.63.0/go.mod h1:34csimR1lUhdT5HH4Rii9aKPrvBcnFRwxLwcevsU+Kk=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.19.0/go.mod h1:7RDsakVbjb124lYDEjKuHTuzdqf04hLMEvPv/ufmqMs=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.38.0/go.mod h1:w6xNm+kC506KNs5cknSHal6dtdRnc4uema0uN9GSQc0=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0/go.mod h1:pcQ3MM3SWvrA71U4GDqv9UFDJ3HQsW7y5ZO3tDTlUdI=
@@ -1886,8 +1886,8 @@ go.opentelemetry.io/otel/exporters/stdout v0.19.0/go.mod h1:UI2JnNRaSt9ChIHkk4+u
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.11.2/go.mod h1:bx//lU66dPzNT+Y0hHA12ciKoMOH9iixEwCqC1OeQWQ=
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.14.0/go.mod h1:oCslUcizYdpKYyS9e8srZEqM6BB8fq41VJBjLAE6z1w=
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.16.0/go.mod h1:hqgzBPTf4yONMFgdZvL/bK42R/iinTyVQtiWihs3SZc=
-go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0 h1:G8Xec/SgZQricwWBJF/mHZc7A02YHedfFDENwJEdRA0=
-go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0/go.mod h1:PD57idA/AiFD5aqoxGxCvT/ILJPeHy3MjqU/NS7KogY=
+go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0 h1:kJxSDN4SgWWTjG/hPp3O7LCGLcHXFlvS2/FFOrwL+SE=
+go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0/go.mod h1:mgIOzS7iZeKJdeB8/NYHrJ48fdGc71Llo5bJ1J4DWUE=
 go.opentelemetry.io/otel/exporters/trace/jaeger v0.19.0/go.mod h1:BliRm9d7rH44N6CzBQ0OPEPfMqSzf4WvFFvyoocOW9Y=
 go.opentelemetry.io/otel/exporters/trace/zipkin v0.19.0/go.mod h1:ONsRnXqWLUtdSaLOziKSCaw3r20gFBhnXr8rj6L9cZQ=
 go.opentelemetry.io/otel/exporters/zipkin v1.11.2/go.mod h1:I60/FdYilVKkuDOzenyp8LqJLryRC/Mr918G5hchvkM=
