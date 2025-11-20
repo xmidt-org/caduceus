@@ -14,7 +14,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.11.1
-	github.com/xmidt-org/ancla v0.3.12
+	github.com/xmidt-org/ancla v0.4.0
 	github.com/xmidt-org/bascule v0.11.6
 	github.com/xmidt-org/candlelight v0.2.1
 	github.com/xmidt-org/clortho v0.0.4
@@ -97,6 +97,8 @@ require (
 	github.com/xmidt-org/argus v0.10.18 // indirect
 	github.com/xmidt-org/arrange v0.4.0 // indirect
 	github.com/xmidt-org/chronon v0.1.4 // indirect
+	github.com/xmidt-org/urlegit v0.1.28 // indirect
+	github.com/xmidt-org/webhook-schema v0.1.1-0.20250408163841-a0762984a7fb // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
