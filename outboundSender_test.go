@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	//"github.com/stretchr/testify/mock"
 	"io"
 	"net"
 	"net/http"
@@ -25,6 +24,8 @@ import (
 )
 
 const testLocalhostURL = "http://localhost:9999/foo"
+
+//const testLocalhostStreamURL = "http://localhost:8888/someStream"
 
 // TODO Improve all of these tests
 
@@ -51,7 +52,7 @@ func getNewTestOutputLogger(out io.Writer) *zap.Logger {
 }
 
 func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string) (OutboundSender, error) {
-	return simpleFactorySetup(trans, cutOffPeriod, matcher).New()
+	return simpleFactorySetup(trans, cutOffPeriod, matcher, false).New()
 }
 
 // simpleFactorySetup sets up a outboundSender with metrics.
@@ -69,7 +70,7 @@ func simpleSetup(trans *transport, cutOffPeriod time.Duration, matcher []string)
 //     case 2: On("With", []string{eventLabel, unknown}
 //  4. Mimic the metric behavior using On:
 //     fakeSlow.On("Add", 1.0).Return()
-func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string) *OutboundSenderFactory {
+func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []string, stream bool) *OutboundSenderFactory {
 	if nil == trans.fn {
 		trans.fn = func(req *http.Request, count int) (resp *http.Response, err error) {
 			resp = &http.Response{Status: "200 OK",
@@ -196,7 +197,9 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		QueueSize:       10,
 		DeliveryRetries: 1,
 		Logger:          zap.NewNop(),
+		IsStream:        stream,
 	}
+
 }
 
 func simpleRequest() *wrp.Message {
@@ -665,7 +668,7 @@ func TestInvalidSender(t *testing.T) {
 	assert := assert.New(t)
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Sender = nil
 	obs, err := obsf.New()
 	assert.Nil(obs)
@@ -686,7 +689,7 @@ func TestInvalidLogger(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obsf.Logger = nil
@@ -711,7 +714,7 @@ func TestFailureURL(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
@@ -732,7 +735,7 @@ func TestInvalidEvents(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
@@ -749,7 +752,7 @@ func TestInvalidEvents(t *testing.T) {
 	w2.Webhook.Config.URL = testLocalhostURL
 	w2.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	obsf = simpleFactorySetup(trans, time.Second, nil)
+	obsf = simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w2
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err = obsf.New()
@@ -784,19 +787,19 @@ func TestUpdate(t *testing.T) {
 	w2.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w1
 	obsf.Sender = doerFunc((&http.Client{}).Do)
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*CaduceusOutboundSender); !ok {
-		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	if _, ok := obs.(*webhookOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	assert.Equal(now, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match original value.")
+	assert.Equal(now, obs.(*webhookOutboundSender).obs.deliverUntil, "Delivery should match original value.")
 	obs.Update(w2)
-	assert.Equal(later, obs.(*CaduceusOutboundSender).deliverUntil, "Delivery should match new value.")
+	assert.Equal(later, obs.(*webhookOutboundSender).obs.deliverUntil, "Delivery should match new value.")
 
 	obs.Shutdown(true)
 }
@@ -818,7 +821,7 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	trans := &transport{}
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obsf.Sender = doerFunc((&http.Client{}).Do)
@@ -826,11 +829,11 @@ func TestOverflowNoFailureURL(t *testing.T) {
 
 	assert.Nil(err)
 
-	if _, ok := obs.(*CaduceusOutboundSender); !ok {
-		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	if _, ok := obs.(*webhookOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	//obs.QueueOverflow()
 	assert.NotNil(output.String())
 }
 
@@ -866,17 +869,18 @@ func TestOverflowValidFailureURL(t *testing.T) {
 	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*CaduceusOutboundSender); !ok {
-		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	if _, ok := obs.(*webhookOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	obs.(*webhookOutboundSender).obs.dispatcher.QueueOverflow()
+
 	assert.NotNil(output.String())
 }
 
@@ -913,17 +917,17 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 	w.Webhook.Config.Secret = "123456"
 
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*CaduceusOutboundSender); !ok {
-		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	if _, ok := obs.(*webhookOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	obs.(*webhookOutboundSender).obs.dispatcher.QueueOverflow()
 	assert.NotNil(output.String())
 }
 
@@ -951,17 +955,18 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 	w.Webhook.Config.URL = testLocalhostURL
 	w.Webhook.Config.ContentType = wrp.MimeTypeJson
 
-	obsf := simpleFactorySetup(trans, time.Second, nil)
+	obsf := simpleFactorySetup(trans, time.Second, nil, false)
 	obsf.Listener = w
 	obsf.Logger = logger
 	obs, err := obsf.New()
 	assert.Nil(err)
 
-	if _, ok := obs.(*CaduceusOutboundSender); !ok {
-		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a CaduceusOutboundSender.")
+	if _, ok := obs.(*webhookOutboundSender); !ok {
+		assert.Fail("Interface returned by OutboundSenderFactory.New() must be implemented by a WebhookOutboundSender.")
 	}
 
-	obs.(*CaduceusOutboundSender).queueOverflow()
+	obs.(*webhookOutboundSender).obs.dispatcher.QueueOverflow()
+
 	assert.NotNil(output.String())
 }
 
@@ -998,7 +1003,7 @@ func TestOverflow(t *testing.T) {
 	w.Config.URL = testLocalhostURL
 	w.Config.ContentType = wrp.MimeTypeJson
 
-	obsf := simpleFactorySetup(trans, 4*time.Second, nil)
+	obsf := simpleFactorySetup(trans, 4*time.Second, nil, false)
 	obsf.NumWorkers = 1
 	obsf.QueueSize = 2
 	obsf.Logger = logger

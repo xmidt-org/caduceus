@@ -3,36 +3,28 @@
 package main
 
 import (
-	"bytes"
 	"container/ring"
-	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
+	"strings"
+
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
-	"net/http"
+
 	"net/url"
 	"regexp"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
 
-	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/webpa-common/v2/device"
+	"github.com/xmidt-org/caduceus/internal/kinesis"
 
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
-	"github.com/xmidt-org/webpa-common/v2/xhttp"
+
 	"github.com/xmidt-org/wrp-go/v3"
-	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
 
 // failureText is human readable text for the failure message
@@ -60,6 +52,12 @@ type OutboundSenderFactory struct {
 	// The http client Do() function to use for outbound requests.
 	// Sender func(*http.Request) (*http.Response, error)
 	Sender httpClient
+
+	// The kinesis client to use for outbound requests.
+	StreamSender kinesis.KinesisClientAPI
+
+	// version
+	StreamVersion string
 
 	// The number of delivery workers to create and use.
 	NumWorkers int
@@ -90,6 +88,12 @@ type OutboundSenderFactory struct {
 
 	// DisablePartnerIDs dictates whether or not to enforce the partner ID check.
 	DisablePartnerIDs bool
+
+	// Dispatcher sends the events
+	Dispatcher Dispatcher
+
+	// whether or not this is a webhook or a stream
+	IsStream bool
 }
 
 type OutboundSender interface {
@@ -106,7 +110,9 @@ type CaduceusOutboundSender struct {
 	listener          ancla.InternalWebhook
 	deliverUntil      time.Time
 	dropUntil         time.Time
-	sender            httpClient
+	httpSender        httpClient
+	streamSender      kinesis.KinesisClientAPI
+	streamVersion     string
 	events            []*regexp.Regexp
 	matcher           []*regexp.Regexp
 	queueSize         int
@@ -124,6 +130,7 @@ type CaduceusOutboundSender struct {
 	customPIDs        []string
 	disablePartnerIDs bool
 	clientMiddleware  func(httpClient) httpClient
+	dispatcher        Dispatcher
 }
 
 // New creates a new OutboundSender object from the factory, or returns an error.
@@ -155,7 +162,9 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 		// since id is only used to enrich metrics and logging, remove invalid UTF-8 characters from the URL
 		id:               strings.ToValidUTF8(osf.Listener.Webhook.Config.URL, ""),
 		listener:         osf.Listener,
-		sender:           osf.Sender,
+		httpSender:       osf.Sender,
+		streamSender:     osf.StreamSender,
+		streamVersion:    osf.StreamVersion,
 		queueSize:        osf.QueueSize,
 		cutOffPeriod:     osf.CutOffPeriod,
 		deliverUntil:     osf.Listener.Webhook.Until,
@@ -191,9 +200,12 @@ func (osf OutboundSenderFactory) New() (obs OutboundSender, err error) {
 
 	caduceusOutboundSender.workers = semaphore.New(caduceusOutboundSender.maxWorkers)
 	caduceusOutboundSender.wg.Add(1)
-	go caduceusOutboundSender.dispatcher()
 
-	return caduceusOutboundSender, nil
+	if osf.IsStream {
+		return NewStreamOutboundSender(caduceusOutboundSender)
+	}
+
+	return NewWebhookOutboundSender(caduceusOutboundSender) // TODO
 }
 
 // Update applies user configurable values for the outbound sender when a
@@ -408,7 +420,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 		obs.logger.Debug("event added to outbound queue", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
 	default:
 		obs.logger.Debug("queue full. event dropped", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-		obs.queueOverflow()
+		obs.dispatcher.QueueOverflow()
 		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "queue_full"}).Add(1.0)
 	}
 }
@@ -440,7 +452,7 @@ func (obs *CaduceusOutboundSender) Empty(droppedCounter prometheus.Counter) {
 	obs.metrics.queueDepthGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(0.0)
 }
 
-func (obs *CaduceusOutboundSender) dispatcher() {
+func (obs *CaduceusOutboundSender) dispatch() {
 	defer obs.wg.Done()
 	var (
 		urls           *ring.Ring
@@ -501,215 +513,9 @@ Loop:
 		obs.workers.Acquire()
 		obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
 
-		go obs.send(urls, secret, accept, msg)
+		go obs.dispatcher.Send(urls, secret, accept, msg)
 	}
 	for i := 0; i < obs.maxWorkers; i++ {
 		obs.workers.Acquire()
-	}
-}
-
-// worker is the routine that actually takes the queued messages and delivers
-// them to the listeners outside webpa
-func (obs *CaduceusOutboundSender) send(urls *ring.Ring, secret, acceptType string, msg *wrp.Message) {
-	defer func() {
-		if r := recover(); nil != r {
-			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: DropsDueToPanic}).Add(1.0)
-			obs.logger.Error("goroutine send() panicked", zap.String("id", obs.id), zap.Any("panic", r))
-			// don't silence the panic
-			panic(r)
-		}
-
-		obs.workers.Release()
-		obs.metrics.currentWorkersGauge.With(prometheus.Labels{urlLabel: obs.id}).Add(-1.0)
-	}()
-
-	payload := msg.Payload
-	body := payload
-	var payloadReader *bytes.Reader
-
-	// Use the internal content type unless the accept type is wrp
-	contentType := msg.ContentType
-	switch acceptType {
-	case "wrp", wrp.MimeTypeMsgpack, wrp.MimeTypeWrp:
-		// WTS - We should pass the original, raw WRP event instead of
-		// re-encoding it.
-		contentType = wrp.MimeTypeMsgpack
-		buffer := bytes.NewBuffer([]byte{})
-		encoder := wrp.NewEncoder(buffer, wrp.Msgpack)
-		encoder.Encode(msg)
-		body = buffer.Bytes()
-	}
-	payloadReader = bytes.NewReader(body)
-
-	req, err := http.NewRequest("POST", urls.Value.(string), payloadReader)
-	if err != nil {
-		// Report drop
-		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "invalid_config"}).Add(1.0)
-		obs.logger.Error("Invalid URL", zap.String("url", urls.Value.(string)), zap.String("id", obs.id), zap.Error(err))
-		return
-	}
-
-	req.Header.Set("Content-Type", contentType)
-
-	// Add x-Midt-* headers
-	wrphttp.AddMessageHeaders(req.Header, msg)
-
-	// Provide the old headers for now
-	req.Header.Set("X-Webpa-Event", strings.TrimPrefix(msg.Destination, "event:"))
-	req.Header.Set("X-Webpa-Transaction-Id", msg.TransactionUUID)
-
-	// Add the device id without the trailing service
-	id, _ := device.ParseID(msg.Source)
-	// Deprecated: X-Webpa-Device-Id should only be used for backwards compatibility.
-	// Use X-Webpa-Source instead.
-	req.Header.Set("X-Webpa-Device-Id", string(id))
-	// Deprecated: X-Webpa-Device-Name should only be used for backwards compatibility.
-	// Use X-Webpa-Source instead.
-	req.Header.Set("X-Webpa-Device-Name", string(id))
-	req.Header.Set("X-Webpa-Source", msg.Source)
-	req.Header.Set("X-Webpa-Destination", msg.Destination)
-
-	// Apply the secret
-
-	if secret != "" {
-		s := hmac.New(sha1.New, []byte(secret))
-		s.Write(body)
-		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(s.Sum(nil)))
-		req.Header.Set("X-Webpa-Signature", sig)
-	}
-
-	// since eventType is only used to enrich metrics and logging, remove invalid UTF-8 characters from the URL
-	eventType := strings.ToValidUTF8(msg.FindEventStringSubMatch(), "")
-
-	retryOptions := xhttp.RetryOptions{
-		Logger:   obs.logger,
-		Retries:  obs.deliveryRetries,
-		Interval: obs.deliveryInterval,
-		Counter:  gokitprometheus.NewCounter(obs.metrics.deliveryRetryCounter.MustCurryWith(prometheus.Labels{urlLabel: obs.id, eventLabel: eventType})),
-		// Always retry on failures up to the max count.
-		ShouldRetry:       xhttp.ShouldRetry,
-		ShouldRetryStatus: xhttp.RetryCodes,
-	}
-
-	// update subsequent requests with the next url in the list upon failure
-	retryOptions.UpdateRequest = func(request *http.Request) {
-		urls = urls.Next()
-		tmp, err := url.Parse(urls.Value.(string))
-		if err != nil {
-			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: updateRequestURLFailedReason}).Add(1)
-			obs.logger.Error("failed to update url", zap.String("url", urls.Value.(string)), zap.Error(err))
-			return
-		}
-		request.URL = tmp
-	}
-
-	// Send it
-	obs.logger.Debug("attempting to send event", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination))
-
-	retryer := xhttp.RetryTransactor(retryOptions, obs.sender.Do)
-	client := obs.clientMiddleware(doerFunc(retryer))
-	resp, err := client.Do(req)
-
-	var deliveryCounterLabels prometheus.Labels
-	code := messageDroppedCode
-	reason := noErrReason
-	l := obs.logger
-	if err != nil {
-		// Report failure
-		reason = getDoErrReason(err)
-		if resp != nil {
-			code = strconv.Itoa(resp.StatusCode)
-		}
-
-		l = obs.logger.With(zap.String(reasonLabel, reason), zap.Error(err))
-		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
-		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason}).Add(1)
-	} else {
-		// Report Result
-		code = strconv.Itoa(resp.StatusCode)
-		// read until the response is complete before closing to allow
-		// connection reuse
-		if resp.Body != nil {
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}
-
-		deliveryCounterLabels = prometheus.Labels{urlLabel: req.URL.String(), reasonLabel: reason, codeLabel: code, eventLabel: eventType}
-	}
-
-	obs.metrics.deliveryCounter.With(deliveryCounterLabels).Add(1.0)
-	l.Debug("event sent-ish", zap.String("event.source", msg.Source), zap.String("event.destination", msg.Destination), zap.String("code", code), zap.String("url", req.URL.String()))
-}
-
-// queueOverflow handles the logic of what to do when a queue overflows:
-// cutting off the webhook for a time and sending a cut off notification
-// to the failure URL.
-func (obs *CaduceusOutboundSender) queueOverflow() {
-	obs.mutex.Lock()
-	if time.Now().Before(obs.dropUntil) {
-		obs.mutex.Unlock()
-		return
-	}
-	obs.dropUntil = time.Now().Add(obs.cutOffPeriod)
-	obs.metrics.dropUntilGauge.With(prometheus.Labels{urlLabel: obs.id}).Set(float64(obs.dropUntil.Unix()))
-	secret := obs.listener.Webhook.Config.Secret
-	failureMsg := obs.failureMsg
-	failureURL := obs.listener.Webhook.FailureURL
-	obs.mutex.Unlock()
-
-	obs.metrics.cutOffCounter.With(prometheus.Labels{urlLabel: obs.id}).Add(1.0)
-
-	// We empty the queue but don't close the channel, because we're not
-	// shutting down.
-	obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}))
-
-	msg, err := json.Marshal(failureMsg)
-	if err != nil {
-		obs.logger.Error("Cut-off notification json.Marshal failed", zap.Any("failureMessage", obs.failureMsg), zap.String("for", obs.id), zap.Error(err))
-		return
-	}
-
-	// if no URL to send cut off notification to, do nothing
-	if failureURL == "" {
-		return
-	}
-
-	// Send a "you've been cut off" warning message
-	payload := bytes.NewReader(msg)
-	req, err := http.NewRequest("POST", failureURL, payload)
-	if err != nil {
-		// Failure
-		obs.logger.Error("Unable to send cut-off notification", zap.String("notification",
-			failureURL), zap.String("for", obs.id), zap.Error(err))
-		return
-	}
-	req.Header.Set("Content-Type", wrp.MimeTypeJson)
-
-	if secret != "" {
-		h := hmac.New(sha1.New, []byte(secret))
-		h.Write(msg)
-		sig := fmt.Sprintf("sha1=%s", hex.EncodeToString(h.Sum(nil)))
-		req.Header.Set("X-Webpa-Signature", sig)
-	}
-
-	resp, err := obs.sender.Do(req)
-	if err != nil {
-		// Failure
-		obs.logger.Error("Unable to send cut-off notification", zap.String("notification", failureURL), zap.String("for", obs.id), zap.Error(err))
-		return
-	}
-
-	if resp == nil {
-		// Failure
-		obs.logger.Error("Unable to send cut-off notification, nil response", zap.String("notification", failureURL))
-		return
-	}
-
-	// Success
-
-	if resp.Body != nil {
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-
 	}
 }
