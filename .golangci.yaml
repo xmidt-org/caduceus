@@ -28,6 +28,7 @@ linters:
     rules:
       - linters:
           - dupl
+          - prealloc
         path: _test.go
       - path: main\.go
         text: 'G402:'
