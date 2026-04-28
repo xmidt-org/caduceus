@@ -1750,8 +1750,8 @@ github.com/xmidt-org/candlelight v0.0.13/go.mod h1:FelQ+nb3rRuQx50zvp3hjEm2DBUU1
 github.com/xmidt-org/candlelight v0.0.15/go.mod h1:yYzrElo3KP1BZ5GAPus7PXehhe7SJYwt7JwCb/+BWQ0=
 github.com/xmidt-org/candlelight v0.0.16/go.mod h1:uKs19MQmcrKxFGJhnkVVpEmFJbav5y3jJs30O7204Vo=
 github.com/xmidt-org/candlelight v0.0.18/go.mod h1:9gFzBUMOdUrQzwPAHvQVzxKUyNlmEXix15Skfqeqtw8=
-github.com/xmidt-org/candlelight v0.2.10 h1:9pa9pVsYKi/dzuxemPiFY2surYBwJ6JxcOvwCJ+9nPM=
-github.com/xmidt-org/candlelight v0.2.10/go.mod h1:5OMLPpvD87Ic5Ve3WeaAcFAElw50EDUad71ANjaG3DY=
+github.com/xmidt-org/candlelight v0.2.11 h1:JTOlz5SECMuz9bS/6ICyMKopoETa/3h49UyHvrpe7Mo=
+github.com/xmidt-org/candlelight v0.2.11/go.mod h1:5OMLPpvD87Ic5Ve3WeaAcFAElw50EDUad71ANjaG3DY=
 github.com/xmidt-org/chronon v0.1.1/go.mod h1:8VF1skJAouQihpKfXE8oZZkbQpV1TSR/7QltNxq8T4k=
 github.com/xmidt-org/chronon v0.1.12 h1:zWC9YExmIz5h2oB5Z/eBK4hXjb3Z+sx4GtiJk0cU9go=
 github.com/xmidt-org/chronon v0.1.12/go.mod h1:KYdgUzy0q+sv7Zp5mXo22oam8zRVRvzv36MlJeRY+vc=
