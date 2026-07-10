@@ -23,7 +23,7 @@ require (
 	github.com/xmidt-org/touchstone v0.1.8
 	github.com/xmidt-org/webpa-common/v2 v2.7.0
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
-	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.68.0
+	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
 	go.uber.org/zap v1.28.0
 )
@@ -103,7 +103,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0 // indirect
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.43.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/zipkin v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
