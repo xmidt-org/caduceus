@@ -1758,8 +1758,8 @@ github.com/xmidt-org/chronon v0.1.1/go.mod h1:8VF1skJAouQihpKfXE8oZZkbQpV1TSR/7Q
 github.com/xmidt-org/chronon v0.1.13 h1:e6bW7sPIfZqVf9npbTvlAYPteqjSRIh/mR0BEb9lgQo=
 github.com/xmidt-org/chronon v0.1.13/go.mod h1:KYdgUzy0q+sv7Zp5mXo22oam8zRVRvzv36MlJeRY+vc=
 github.com/xmidt-org/clortho v0.0.4/go.mod h1:1YypMcDmHVrSqSzpMp4fvwloSKc5PQnHmoaPcKWchHk=
-github.com/xmidt-org/clortho v0.1.14 h1:gSIogWNcMFupvfXi4dT2x48nELe+QwiqulSXXkBtzzQ=
-github.com/xmidt-org/clortho v0.1.14/go.mod h1:UiZFWR8O548RV+1B2FAJ/N1J3kYyVQEUKkwo+6yTVK4=
+github.com/xmidt-org/clortho v0.1.15 h1:509Lb8ZhcmPL3KQ3n1ZMj7ThC4uGfWVYD82o+oyDxu8=
+github.com/xmidt-org/clortho v0.1.15/go.mod h1:ha9mAM2UINtTpFZHmSWNddQQy264M/S0ZRNLENNv9vk=
 github.com/xmidt-org/httpaux v0.1.2/go.mod h1:qZnH2uObGPwHnOz8HcPNlbcd3gKEvdmxbIK3rgbQhto=
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
 github.com/xmidt-org/httpaux v0.3.2/go.mod h1:qmlPisXf80FTi3y4gX43eYbCVruSQyvu+FPx1jzvQG8=
