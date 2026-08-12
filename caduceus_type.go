@@ -14,6 +14,13 @@ import (
 
 // Below is the struct we're using to contain the data from a provided config file
 // TODO: Try to figure out how to make bucket ranges configurable
+// ClientTLSConfig holds TLS material for outbound mTLS connections.
+type ClientTLSConfig struct {
+	CertificateFile string
+	KeyFile         string
+	Mtls            *MtlsConfig
+}
+
 type CaduceusConfig struct {
 	AuthHeader       []string
 	NumWorkerThreads int
@@ -23,6 +30,7 @@ type CaduceusConfig struct {
 	Webhook          ancla.Config
 	Listener         ancla.ListenerConfig
 	AllowInsecureTLS bool
+	ArgusClientTLS   *ClientTLSConfig
 }
 
 type SenderConfig struct {

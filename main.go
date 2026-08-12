@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -180,7 +181,7 @@ func caduceus(arguments []string) int {
 		return 1
 	}
 
-	caduceusConfig.Webhook.BasicClientConfig.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
+	caduceusConfig.Webhook.BasicClientConfig.HTTPClient = newHTTPClient(argusClientTimeout, tracing, caduceusConfig.ArgusClientTLS)
 	svc, err := ancla.NewService(caduceusConfig.Webhook, getLogger)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
@@ -211,6 +212,15 @@ func caduceus(arguments []string) int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Handler creation error: %v\n", err)
 		return 1
+	}
+
+	if v.IsSet("primary.mtls") {
+		var primaryMtls MtlsConfig
+		if parseErr := v.UnmarshalKey("primary.mtls", &primaryMtls); parseErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to parse primary.mtls config: %v\n", parseErr)
+			return 1
+		}
+		applyPrimaryMtls(webPA, &primaryMtls)
 	}
 
 	_, runnable, done := webPA.Prepare(logger, nil, metricsRegistry, primaryHandler)
@@ -298,8 +308,15 @@ func newArgusClientTimeout(v *viper.Viper) (httpClientTimeout, error) {
 
 }
 
-func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *http.Client {
+func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing, tlsCfg *ClientTLSConfig) *http.Client {
+	tlsConfig, err := buildClientTLSConfig(tlsCfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to build argus client TLS config: %v\n", err)
+		os.Exit(1)
+	}
+
 	var transport http.RoundTripper = &http.Transport{
+		TLSClientConfig: tlsConfig,
 		Dial: (&net.Dialer{
 			Timeout: timeouts.NetDialerTimeout,
 		}).Dial,
@@ -314,6 +331,40 @@ func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *htt
 		Timeout:   timeouts.ClientTimeout,
 		Transport: transport,
 	}
+}
+
+func buildClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+
+	tlsConfig := &tls.Config{}
+
+	if (cfg.Mtls == nil || !cfg.Mtls.DisableRequire) && cfg.CertificateFile != "" && cfg.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.CertificateFile, cfg.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("loading client key pair: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	if cfg.Mtls != nil {
+		if cfg.Mtls.DisableVerify {
+			tlsConfig.InsecureSkipVerify = true // #nosec G402 -- controlled by explicit config
+		} else if cfg.Mtls.ClientCACertificateFile != "" {
+			pem, err := os.ReadFile(cfg.Mtls.ClientCACertificateFile)
+			if err != nil {
+				return nil, fmt.Errorf("reading root CA: %w", err)
+			}
+			pool := x509.NewCertPool()
+			if !pool.AppendCertsFromPEM(pem) {
+				return nil, fmt.Errorf("unable to add certificates from %s", cfg.Mtls.ClientCACertificateFile)
+			}
+			tlsConfig.RootCAs = pool
+		}
+	}
+
+	return tlsConfig, nil
 }
 
 func printVersion(f *pflag.FlagSet, arguments []string) (error, bool) {

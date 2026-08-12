@@ -50,8 +50,15 @@ primary:
   #
   # keyFile provides the private key that matches the certificateFile
   # (Optional)
-  # certificateFile: "/etc/caduceus/public.pem"
-  # keyFile: "/etc/caduceus/private.pem"
+  # certificateFile: "/etc/caduceus/tls/server.crt"
+  # keyFile: "/etc/caduceus/tls/server.key"
+  #
+  # mTLS controls — require and optionally verify a client certificate.
+  # Requires certificateFile/keyFile to be set for TLS to be active.
+  # mtls:
+  #   clientCACertificateFile: /etc/caduceus/tls/clients-ca.crt
+  #   disableRequire: false
+  #   disableVerify: false
 
 ########################################
 #   health endpoint Configuration
@@ -356,7 +363,16 @@ webhook:
   #
   #      # buffer is the length of time before a token expires to get a new token.
   #      buffer: "2m"
-
+# argusClientTLS configures mTLS for the outbound HTTP client used to talk to Argus.
+# When set, caduceus presents a client certificate and/or uses a custom root CA.
+# (Optional)
+# argusClientTLS:
+#   certificateFile: /etc/caduceus/tls/client.crt
+#   keyFile: /etc/caduceus/tls/client.key
+#   mtls:
+#     clientCACertificateFile: /etc/caduceus/tls/argus-ca.crt
+#     disableRequire: false
+#     disableVerify: false
 ########################################
 #   Delivery Pipeline Related Configuration
 ########################################
