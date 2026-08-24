@@ -1754,11 +1754,11 @@ github.com/xmidt-org/candlelight v0.0.18/go.mod h1:9gFzBUMOdUrQzwPAHvQVzxKUyNlmE
 github.com/xmidt-org/candlelight v0.2.18 h1:izN9JoHLRhhVdC/hZWqCt2POGX8kw0ZsHW/chdkSTCY=
 github.com/xmidt-org/candlelight v0.2.18/go.mod h1:UmY0Hp4BwKfOz+OglcUcPla60XwYA/Ab5jyxQ8Usj14=
 github.com/xmidt-org/chronon v0.1.1/go.mod h1:8VF1skJAouQihpKfXE8oZZkbQpV1TSR/7QltNxq8T4k=
-github.com/xmidt-org/chronon v0.1.13 h1:e6bW7sPIfZqVf9npbTvlAYPteqjSRIh/mR0BEb9lgQo=
-github.com/xmidt-org/chronon v0.1.13/go.mod h1:KYdgUzy0q+sv7Zp5mXo22oam8zRVRvzv36MlJeRY+vc=
+github.com/xmidt-org/chronon v0.1.14 h1:QH+VYvtBM7BYAvOhCymdWu6ZQ7gSxMqsW94JOkFpzEo=
+github.com/xmidt-org/chronon v0.1.14/go.mod h1:puYF7LYX/DOjgUw7Q31AqVaPkrwN+4uac9UkZ7ViNKY=
 github.com/xmidt-org/clortho v0.0.4/go.mod h1:1YypMcDmHVrSqSzpMp4fvwloSKc5PQnHmoaPcKWchHk=
-github.com/xmidt-org/clortho v0.1.16 h1:Rrn5slXwgGzTbuy5M4eOWQitwmHGaKqlcdpChgr0WZ8=
-github.com/xmidt-org/clortho v0.1.16/go.mod h1:lGSAl0JcHpHbLBUSpfLX+khlhVyWLVi3G6xmYn5VUog=
+github.com/xmidt-org/clortho v0.1.17 h1:SgG0OVcoMs5KUACgbogJJt4gYoyyLus8n9VrAklSOAc=
+github.com/xmidt-org/clortho v0.1.17/go.mod h1:CDetCRDLUHWCA0EtimbAz3nOd5CklpSrkpRv+ukfO4Y=
 github.com/xmidt-org/httpaux v0.1.2/go.mod h1:qZnH2uObGPwHnOz8HcPNlbcd3gKEvdmxbIK3rgbQhto=
 github.com/xmidt-org/httpaux v0.2.1/go.mod h1:mviIlg5fHGb3lAv3l0sbiwVG/q9rqvXaudEYxVrzXdE=
 github.com/xmidt-org/httpaux v0.3.2/go.mod h1:qmlPisXf80FTi3y4gX43eYbCVruSQyvu+FPx1jzvQG8=
