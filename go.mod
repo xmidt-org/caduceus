@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/xmidt-org/ancla v0.3.12
 	github.com/xmidt-org/bascule v0.11.6
-	github.com/xmidt-org/candlelight v0.2.19
+	github.com/xmidt-org/candlelight v0.2.20
 	github.com/xmidt-org/clortho v0.1.18
 	github.com/xmidt-org/httpaux v0.4.5
 	github.com/xmidt-org/sallust v0.2.10
