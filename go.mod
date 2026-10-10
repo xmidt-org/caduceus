@@ -1,6 +1,6 @@
 module github.com/xmidt-org/caduceus
 
-go 1.26.0
+go 1.27.1
 
 require (
 	emperror.dev/emperror v0.33.0
@@ -14,7 +14,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.12.1
-	github.com/xmidt-org/ancla v0.3.12
+	github.com/xmidt-org/ancla v0.5.2
 	github.com/xmidt-org/bascule v0.11.6
 	github.com/xmidt-org/candlelight v0.2.21
 	github.com/xmidt-org/clortho v0.1.18
@@ -80,8 +80,8 @@ require (
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/common v0.70.1 // indirect
-	github.com/prometheus/procfs v0.21.1 // indirect
+	github.com/prometheus/common v0.71.0 // indirect
+	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
@@ -96,6 +96,8 @@ require (
 	github.com/xmidt-org/argus v0.10.18 // indirect
 	github.com/xmidt-org/arrange v0.4.0 // indirect
 	github.com/xmidt-org/chronon v0.1.15 // indirect
+	github.com/xmidt-org/urlegit v0.1.31 // indirect
+	github.com/xmidt-org/webhook-schema v0.2.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
