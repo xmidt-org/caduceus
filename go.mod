@@ -1,6 +1,6 @@
 module github.com/xmidt-org/caduceus
 
-go 1.26.5
+go 1.27.1
 
 require (
 	emperror.dev/emperror v0.33.0
@@ -14,7 +14,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.12.1
-	github.com/xmidt-org/ancla v0.3.12
+	github.com/xmidt-org/ancla v0.5.5
 	github.com/xmidt-org/bascule v0.11.6
 	github.com/xmidt-org/candlelight v0.4.2
 	github.com/xmidt-org/clortho v0.1.18
@@ -97,6 +97,8 @@ require (
 	github.com/xmidt-org/argus v0.10.18 // indirect
 	github.com/xmidt-org/arrange v0.4.0 // indirect
 	github.com/xmidt-org/chronon v0.1.15 // indirect
+	github.com/xmidt-org/urlegit v0.1.31 // indirect
+	github.com/xmidt-org/webhook-schema v0.2.6 // indirect
 	github.com/xmidt-org/wrp-go/v5 v5.4.7 // indirect
 	github.com/xmidt-org/wrphttp v0.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
