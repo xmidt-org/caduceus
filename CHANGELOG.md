@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Removed deprecated Bascule helper usage to avoid the legacy JOSE initialization panic on Go 1.27, preserving authentication configuration, v3/v4 responses, capability matching, and auth metrics.
 
 ## [v0.7.0]
 - Added zap logger and basculehelper package [#403] (https://github.com/xmidt-org/caduceus/pull/403)
