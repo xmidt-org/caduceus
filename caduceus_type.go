@@ -7,8 +7,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/xmidt-org/ancla"
-
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -20,8 +18,8 @@ type CaduceusConfig struct {
 	JobQueueSize     int
 	Sender           SenderConfig
 	JWTValidators    []JWTValidator
-	Webhook          ancla.Config
-	Listener         ancla.ListenerConfig
+	Webhook          WebhookConfig
+	Listener         ListenerConfig
 	AllowInsecureTLS bool
 }
 

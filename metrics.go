@@ -7,7 +7,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/touchstone"
 )
 
@@ -116,7 +115,7 @@ type OutboundSenderMetrics struct {
 	deliveryRetryMaxGauge GaugeVec
 }
 
-func Metrics(tf *touchstone.Factory) (ServerHandlerMetrics, SenderWrapperMetrics, OutboundSenderMetrics, ancla.Measures, error) {
+func Metrics(tf *touchstone.Factory) (ServerHandlerMetrics, SenderWrapperMetrics, OutboundSenderMetrics, WebhookMeasures, error) {
 	var errs error
 
 	errorRequests, err := tf.NewCounter(prometheus.CounterOpts{
@@ -249,22 +248,22 @@ func Metrics(tf *touchstone.Factory) (ServerHandlerMetrics, SenderWrapperMetrics
 
 	webhookListSizeGauge, err := tf.NewGauge(
 		prometheus.GaugeOpts{
-			Name: ancla.WebhookListSizeGaugeName,
-			Help: ancla.WebhookListSizeGaugeHelp,
+			Name: webhookListSizeGaugeName,
+			Help: webhookListSizeGaugeHelp,
 		})
 	errs = errors.Join(errs, err)
 	pollsTotalCounter, err := tf.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: ancla.ChrysomPollsTotalCounterName,
-			Help: ancla.ChrysomPollsTotalCounterHelp,
+			Name: chrysomPollsTotalCounterName,
+			Help: chrysomPollsTotalCounterHelp,
 		},
-		ancla.OutcomeLabel,
+		outcomeLabel,
 	)
 	errs = errors.Join(errs, err)
 
-	al := ancla.Measures{
-		WebhookListSizeGaugeName:     webhookListSizeGauge,
-		ChrysomPollsTotalCounterName: pollsTotalCounter,
+	al := WebhookMeasures{
+		ListSize:   webhookListSizeGauge,
+		PollsTotal: pollsTotalCounter,
 	}
 
 	return sh, sw, os, al, errs

@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 
 	"github.com/xmidt-org/wrp-go/v3"
@@ -177,9 +176,9 @@ func TestSwSimple(t *testing.T) {
 
 	assert.Equal(int32(0), trans.i)
 
-	w1 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
-			Config: ancla.DeliveryConfig{
+	w1 := InternalWebhook{
+		Webhook: Webhook{
+			Config: DeliveryConfig{
 				URL:         testLocalhostURL,
 				ContentType: wrp.MimeTypeJson,
 			},
@@ -190,8 +189,8 @@ func TestSwSimple(t *testing.T) {
 	}
 	w1.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w2 := InternalWebhook{
+		Webhook: Webhook{
 			Duration: 4 * time.Second,
 			Until:    time.Now().Add(4 * time.Second),
 			Events:   []string{"iot", "test/extra-stuff", "wrp"},
@@ -202,7 +201,7 @@ func TestSwSimple(t *testing.T) {
 	w2.Webhook.Matcher.DeviceID = []string{"mac:112233445566"}
 
 	// Add 2 listeners
-	list := []ancla.InternalWebhook{w1, w2}
+	list := []InternalWebhook{w1, w2}
 
 	sw.Update(list)
 
@@ -216,14 +215,14 @@ func TestSwSimple(t *testing.T) {
 	// Send it again
 	sw.Queue(test)
 
-	w3 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{},
+	w3 := InternalWebhook{
+		Webhook: Webhook{},
 	}
 	w3.Webhook.Config.URL = testLocalhostURL
 	w3.Webhook.Config.ContentType = wrp.MimeTypeJson
 
 	// We get a registration
-	list2 := []ancla.InternalWebhook{w3}
+	list2 := []InternalWebhook{w3}
 	sw.Update(list2)
 	time.Sleep(time.Second)
 
