@@ -37,7 +37,7 @@ linters:
       - path: outboundSender\.go
         text: 'G505:'
       - path: outboundSender\.go
-        text: wrp.MimeTypeWrp is deprecated
+        text: MimeTypeWrp is deprecated
       - path: outboundSender\.go
         text: 'G404:'
       - path: outboundSender\.go
@@ -47,7 +47,9 @@ linters:
         source: .*xhttp.RetryTransactor.*
       - linters:
           - goconst
-        path: outboundSender_test\.go
+        path: _test\.go
+      - path: authentication\.go
+        text: xmetrics is deprecated
       - path: senderWrapper_test\.go
         text: '`fn` is unused'
     paths:

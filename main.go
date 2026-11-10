@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/ancla"
-	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/sallust"
@@ -71,7 +70,7 @@ func caduceus(arguments []string) int {
 		f = pflag.NewFlagSet(applicationName, pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, basculehelper.AuthCapabilitiesMetrics, basculehelper.AuthValidationMetrics)
+		logger, metricsRegistry, webPA, err = server.Initialize(applicationName, arguments, f, v, authCapabilitiesMetrics, authValidationMetrics)
 	)
 
 	promReg, ok := metricsRegistry.(prometheus.Registerer)
@@ -300,9 +299,9 @@ func newArgusClientTimeout(v *viper.Viper) (httpClientTimeout, error) {
 
 func newHTTPClient(timeouts httpClientTimeout, tracing candlelight.Tracing) *http.Client {
 	var transport http.RoundTripper = &http.Transport{
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout: timeouts.NetDialerTimeout,
-		}).Dial,
+		}).DialContext,
 	}
 
 	transport = otelhttp.NewTransport(transport,

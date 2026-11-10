@@ -35,6 +35,8 @@ import (
 	"github.com/xmidt-org/wrp-go/v3/wrphttp"
 )
 
+const cutOffReason = "cut_off"
+
 // failureText is human readable text for the failure message
 const failureText = `Unfortunately, your endpoint is not able to keep up with the ` +
 	`traffic being sent to it.  Due to this circumstance, all notification traffic ` +
@@ -416,7 +418,7 @@ func (obs *CaduceusOutboundSender) Queue(msg *wrp.Message) {
 func (obs *CaduceusOutboundSender) isValidTimeWindow(now, dropUntil, deliverUntil time.Time) bool {
 	if !now.After(dropUntil) {
 		// client was cut off
-		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}).Add(1.0)
+		obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: cutOffReason}).Add(1.0)
 		return false
 	}
 
@@ -491,7 +493,7 @@ Loop:
 		now := time.Now()
 
 		if now.Before(dropUntil) {
-			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}).Add(1.0)
+			obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: cutOffReason}).Add(1.0)
 			continue
 		}
 		if now.After(deliverUntil) {
@@ -661,7 +663,7 @@ func (obs *CaduceusOutboundSender) queueOverflow() {
 
 	// We empty the queue but don't close the channel, because we're not
 	// shutting down.
-	obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: "cut_off"}))
+	obs.Empty(obs.metrics.droppedMessage.With(prometheus.Labels{urlLabel: obs.id, reasonLabel: cutOffReason}))
 
 	msg, err := json.Marshal(failureMsg)
 	if err != nil {

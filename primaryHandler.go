@@ -22,7 +22,6 @@ import (
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/bascule/basculechecks"
-	"github.com/xmidt-org/bascule/basculehelper"
 	"github.com/xmidt-org/bascule/basculehttp"
 	"github.com/xmidt-org/clortho"
 	"github.com/xmidt-org/clortho/clorthometrics"
@@ -83,9 +82,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 		return nil, errors.New("nil registry")
 	}
 
-	basculeMeasures := basculehelper.NewAuthValidationMeasures(registry)
-	capabilityCheckMeasures := basculehelper.NewAuthCapabilityCheckMeasures(registry)
-	listener := basculehelper.NewMetricListener(basculeMeasures)
+	listener := authMetricListener{counter: registry.NewCounter("auth_validation")}
 
 	basicAllowed := make(map[string]string)
 	basicAuth := v.GetStringSlice("authHeader")
@@ -194,7 +191,7 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 	v.UnmarshalKey("capabilityCheck", &capabilityCheck)
 	if capabilityCheck.Type == "enforce" || capabilityCheck.Type == "monitor" {
 		var endpoints []*regexp.Regexp
-		c, err := basculehelper.NewEndpointRegexCheck(capabilityCheck.Prefix, capabilityCheck.AcceptAllMethod)
+		prefix, err := regexp.Compile("^" + capabilityCheck.Prefix + "(.+):(.+?)$")
 		if err != nil {
 
 			// nolint:errorlint
@@ -208,12 +205,15 @@ func authenticationMiddleware(v *viper.Viper, logger *zap.Logger, registry xmetr
 			}
 			endpoints = append(endpoints, r)
 		}
-		m := basculehelper.MetricValidator{
-			C:         basculehelper.CapabilitiesValidator{Checker: c},
-			Measures:  capabilityCheckMeasures,
-			Endpoints: endpoints,
+		m := capabilityMetricValidator{
+			checker: basculechecks.CapabilitiesValidator{Checker: capabilityEndpointCheck{
+				prefix: prefix, allMethod: capabilityCheck.AcceptAllMethod,
+			}},
+			counter:   registry.NewCounter("auth_capability_check"),
+			endpoints: endpoints,
+			enforce:   capabilityCheck.Type == "enforce",
 		}
-		bearerRules = append(bearerRules, m.CreateValidator(capabilityCheck.Type == "enforce"))
+		bearerRules = append(bearerRules, m)
 	}
 
 	authEnforcer := basculehttp.NewEnforcer(

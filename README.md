@@ -32,6 +32,12 @@ Caduceus has one function: to deliver events to a consumer.
 To enable this, caduceus has three endpoints: 1) receive events, 2) register webhooks,
 and 3) get webhooks.
 
+Authentication uses Bascule's HTTP middleware and capability validators without
+the deprecated `basculehelper` package or its legacy JOSE dependency. Existing
+`authHeader`, `jwtValidator`, and `capabilityCheck` configuration remains unchanged,
+as do v3/v4 authentication responses and auth metric names and labels. No client
+changes or dependency forks are required.
+
 #### Notify - `api/v3/notify` endpoint
 The notify endpoint will accept a `msgpack` encoding of a [WRP Message](https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol).
 If a webhook is registered and matches the device regex and event regex, the event
