@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/httpaux/recovery"
 	"github.com/xmidt-org/sallust"
@@ -83,7 +82,7 @@ func caduceus(arguments []string) int {
 	// Get touchstone & zap configurations
 	v.UnmarshalKey("touchstone", &tsConfig)
 	tf := touchstone.NewFactory(tsConfig, logger, promReg)
-	serverHandlerMetrics, senderWrapperMetrics, outboundSenderMetrics, anclaListnerMetric, err := Metrics(tf)
+	serverHandlerMetrics, senderWrapperMetrics, outboundSenderMetrics, webhookMeasures, err := Metrics(tf)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed metrics setup: %s\n", err)
 		return 1
@@ -171,21 +170,16 @@ func caduceus(arguments []string) int {
 		now:            time.Now,
 	}
 
-	caduceusConfig.Webhook.Logger = logger
-	caduceusConfig.Listener.Measures = anclaListnerMetric
 	argusClientTimeout, err := newArgusClientTimeout(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to parse argus client timeout config values: %v \n", err)
 		return 1
 	}
 
-	caduceusConfig.Webhook.BasicClientConfig.HTTPClient = newHTTPClient(argusClientTimeout, tracing)
-	svc, err := ancla.NewService(caduceusConfig.Webhook, getLogger)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
-		return 1
-	}
-	stopWatches, err := svc.StartListener(caduceusConfig.Listener, setLoggerInContext(), caduceusSenderWrapper)
+	stopWatches, err := startWebhookListener(
+		caduceusConfig.Webhook, caduceusConfig.Listener, webhookMeasures,
+		newHTTPClient(argusClientTimeout, tracing),
+		logger, getLogger, setLoggerInContext(), caduceusSenderWrapper)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Webhook service start listener error: %v\n", err)
 		return 1
@@ -206,7 +200,7 @@ func caduceus(arguments []string) int {
 	}
 	rootRouter.Use(otelmux.Middleware("primary", otelMuxOptions...), candlelight.EchoFirstTraceNodeInfo(tracing, false))
 
-	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, tf, serverWrapper, svc, rootRouter, v.GetBool("previousVersionSupport"))
+	primaryHandler, err := NewPrimaryHandler(logger, v, metricsRegistry, tf, serverWrapper, rootRouter, v.GetBool("previousVersionSupport"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Handler creation error: %v\n", err)
 		return 1

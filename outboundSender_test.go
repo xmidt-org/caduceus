@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -79,11 +78,11 @@ func simpleFactorySetup(trans *transport, cutOffPeriod time.Duration, matcher []
 		}
 	}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"iot", "test"},
-			Config: ancla.DeliveryConfig{
+			Config: DeliveryConfig{
 				URL:         testLocalhostURL,
 				ContentType: wrp.MimeTypeJson,
 				Secret:      "123456",
@@ -376,8 +375,8 @@ func TestAltURL(t *testing.T) {
 
 	urls := map[string]int{}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{".*"},
 		},
@@ -595,8 +594,8 @@ func TestInvalidEventRegex(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"[[:123"},
 		},
@@ -621,8 +620,8 @@ func TestInvalidUrl(t *testing.T) {
 
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"iot"},
 		},
@@ -640,8 +639,8 @@ func TestInvalidUrl(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w2 := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"iot"},
 		},
@@ -676,8 +675,8 @@ func TestInvalidSender(t *testing.T) {
 func TestInvalidLogger(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"iot"},
 		},
@@ -700,8 +699,8 @@ func TestInvalidLogger(t *testing.T) {
 func TestFailureURL(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:      time.Now().Add(60 * time.Second),
 			FailureURL: "invalid",
 			Events:     []string{"iot"},
@@ -723,8 +722,8 @@ func TestFailureURL(t *testing.T) {
 func TestInvalidEvents(t *testing.T) {
 	assert := assert.New(t)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until: time.Now().Add(60 * time.Second),
 		},
 	}
@@ -740,8 +739,8 @@ func TestInvalidEvents(t *testing.T) {
 	assert.Nil(obs)
 	assert.NotNil(err)
 
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w2 := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now().Add(60 * time.Second),
 			Events: []string{"iot(.*"},
 		},
@@ -764,8 +763,8 @@ func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 
 	now := time.Now()
-	w1 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w1 := InternalWebhook{
+		Webhook: Webhook{
 			Until:  now,
 			Events: []string{"iot", "test"},
 		},
@@ -774,8 +773,8 @@ func TestUpdate(t *testing.T) {
 	w1.Webhook.Config.ContentType = wrp.MimeTypeMsgpack
 
 	later := time.Now().Add(30 * time.Second)
-	w2 := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w2 := InternalWebhook{
+		Webhook: Webhook{
 			Until:  later,
 			Events: []string{"more", "messages"},
 		},
@@ -808,8 +807,8 @@ func TestOverflowNoFailureURL(t *testing.T) {
 	var output bytes.Buffer
 	logger := getNewTestOutputLogger(&output)
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:  time.Now(),
 			Events: []string{"iot", "test"},
 		},
@@ -856,8 +855,8 @@ func TestOverflowValidFailureURL(t *testing.T) {
 		return
 	}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:      time.Now(),
 			FailureURL: "http://localhost:12345/bar",
 			Events:     []string{"iot", "test"},
@@ -902,8 +901,8 @@ func TestOverflowValidFailureURLWithSecret(t *testing.T) {
 		return
 	}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:      time.Now(),
 			FailureURL: "http://localhost:12345/bar",
 			Events:     []string{"iot", "test"},
@@ -941,8 +940,8 @@ func TestOverflowValidFailureURLError(t *testing.T) {
 		return
 	}
 
-	w := ancla.InternalWebhook{
-		Webhook: ancla.Webhook{
+	w := InternalWebhook{
+		Webhook: Webhook{
 			Until:      time.Now(),
 			FailureURL: "http://localhost:12345/bar",
 			Events:     []string{"iot", "test"},
@@ -990,7 +989,7 @@ func TestOverflow(t *testing.T) {
 		return
 	}
 
-	w := ancla.Webhook{
+	w := Webhook{
 		Until:      time.Now().Add(30 * time.Second),
 		FailureURL: "http://localhost:12345/bar",
 		Events:     []string{"iot", "test"},

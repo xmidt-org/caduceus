@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 	"go.uber.org/zap"
 )
@@ -53,7 +52,7 @@ type SenderWrapperFactory struct {
 }
 
 type SenderWrapper interface {
-	Update([]ancla.InternalWebhook)
+	Update([]InternalWebhook)
 	Queue(*wrp.Message)
 	Shutdown(bool)
 }
@@ -111,7 +110,7 @@ func (swf SenderWrapperFactory) New() (SenderWrapper, error) {
 // Update is called when we get changes to our webhook listeners with either
 // additions, or updates.  This code takes care of building new OutboundSenders
 // and maintaining the existing OutboundSenders.
-func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
+func (sw *CaduceusSenderWrapper) Update(list []InternalWebhook) {
 	// We'll like need this, so let's get one ready
 	osf := OutboundSenderFactory{
 		Sender:            sw.sender,
@@ -127,7 +126,7 @@ func (sw *CaduceusSenderWrapper) Update(list []ancla.InternalWebhook) {
 	}
 
 	ids := make([]struct {
-		Listener ancla.InternalWebhook
+		Listener InternalWebhook
 		ID       string
 	}, len(list))
 

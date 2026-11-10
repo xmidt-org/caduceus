@@ -9,7 +9,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -27,7 +26,7 @@ type mockSenderWrapper struct {
 	mock.Mock
 }
 
-func (m *mockSenderWrapper) Update(list []ancla.InternalWebhook) {
+func (m *mockSenderWrapper) Update(list []InternalWebhook) {
 	m.Called(list)
 }
 
