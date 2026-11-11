@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Removed deprecated Bascule helper usage to avoid the legacy JOSE initialization panic on Go 1.27, preserving authentication configuration, v3/v4 responses, capability matching, and auth metrics.
-- Upgraded ancla to v0.5.5. Webhooks stored in Argus by ancla 0.3.x and by ancla 0.5.x (schema v1 and v2) are all read; the webhook config layout, metric names and cut-off notification format are unchanged. Schema v2 registrations that use hash distribution, DNS SRV receivers or matchers other than destination/source are skipped with a warning.
+- Upgraded ancla to v0.7.1 and replaced the custom item decoder with `schema.ItemToSchema`. Webhooks stored in Argus by ancla 0.3.x and by ancla 0.5.x and later (schema v1 and v2) are all read; the webhook config layout, metric names and cut-off notification format are unchanged. Schema v2 registrations that use hash distribution, DNS SRV receivers or matchers other than destination/source are skipped with a warning.
 
 ## [v0.7.0]
 - Added zap logger and basculehelper package [#403] (https://github.com/xmidt-org/caduceus/pull/403)
