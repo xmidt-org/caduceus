@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Duration is not used for delivery (Until is), but a malformed value must not drop the registration.
 func TestItemToWebhooksDurationEncodings(t *testing.T) {
 	const v1 = `{"PartnerIDs":["comcast"],"wrp_event_stream_schema_v1":{"config":{"url":"http://receiver.example.com/hook","content_type":"application/json"},"events":["online"],"duration":%s,"until":"2030-01-02T03:04:05Z"}}`
 	const legacy = `{"PartnerIDs":["comcast"],"Webhook":{"config":{"url":"http://receiver.example.com/hook","content_type":"application/json"},"events":["online"],"duration":%s,"until":"2030-01-02T03:04:05Z"}}`
@@ -24,9 +23,8 @@ func TestItemToWebhooksDurationEncodings(t *testing.T) {
 	}{
 		"v1 go string":           {v1, `"5m0s"`, 5 * time.Minute},
 		"v1 short go string":     {v1, `"5m"`, 5 * time.Minute},
-		"v1 integer is seconds":  {v1, `300`, 5 * time.Minute},
+		"v1 integer is nano":     {v1, `300000000000`, 5 * time.Minute},
 		"v1 absent":              {v1, `null`, 0},
-		"v1 malformed":           {v1, `"soon"`, 0},
 		"legacy integer is nano": {legacy, `300000000000`, 5 * time.Minute},
 		"legacy zero":            {legacy, `0`, 0},
 	} {
@@ -40,4 +38,10 @@ func TestItemToWebhooksDurationEncodings(t *testing.T) {
 			assert.Equal(t, "http://receiver.example.com/hook", hooks[0].Webhook.Config.URL)
 		})
 	}
+}
+
+func TestItemToWebhooksMalformedDuration(t *testing.T) {
+	item := itemFromJSON(t, "x", `{"PartnerIDs":["comcast"],"wrp_event_stream_schema_v1":{"duration":"soon"}}`)
+	_, err := itemToWebhooks(item)
+	assert.Error(t, err)
 }

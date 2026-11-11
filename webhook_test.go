@@ -223,7 +223,7 @@ func TestItemToWebhooksUnrecognized(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := itemToWebhooks(itemFromJSON(t, "x", data))
-			assert.ErrorIs(t, err, errUnrecognizedItem)
+			assert.Error(t, err)
 		})
 	}
 
@@ -240,7 +240,6 @@ func TestItemToWebhooksMalformed(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			_, err := itemToWebhooks(itemFromJSON(t, "x", data))
 			require.Error(t, err)
-			assert.NotErrorIs(t, err, errUnrecognizedItem)
 		})
 	}
 

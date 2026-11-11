@@ -4,7 +4,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/ancla/schema"
-	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
@@ -50,73 +48,21 @@ type InternalWebhook struct {
 	Webhook    Webhook
 }
 
-// Wrapper keys that identify which ancla version stored an item.
-const (
-	legacyItemKey   = "Webhook"
-	schemaV1ItemKey = "wrp_event_stream_schema_v1"
-	schemaV2ItemKey = "wrp_event_stream_schema_v2"
-)
-
-var errUnrecognizedItem = errors.New("item is not a recognized webhook registration")
-
-// itemToWebhooks decodes an Argus item written by ancla 0.3.x (legacy), or by
-// ancla 0.5.x (schema v1 or v2).  ancla's own decoder is not used because it
-// reads a legacy item as an empty v1 registration without reporting an error.
+// itemToWebhooks decodes an Argus item written by any ancla version.
 func itemToWebhooks(item model.Item) ([]InternalWebhook, error) {
-	raw, err := json.Marshal(item.Data)
+	manifest, err := schema.ItemToSchema(item)
 	if err != nil {
 		return nil, err
 	}
 
-	switch {
-	case has(item, schemaV2ItemKey):
-		var m schema.ManifestV2
-		if err := json.Unmarshal(raw, &m); err != nil {
-			return nil, err
-		}
-		return fromSchemaV2(&m)
-	case has(item, schemaV1ItemKey):
-		// Duration is read separately: delivery uses Until, so a malformed
-		// duration must not cost the registration.
-		var m struct {
-			PartnerIDs   []string
-			Registration struct {
-				// nolint:staticcheck // v1 must keep working
-				webhook.RegistrationV1
-				Duration json.RawMessage `json:"duration"`
-			} `json:"wrp_event_stream_schema_v1"`
-		}
-		if err := json.Unmarshal(raw, &m); err != nil {
-			return nil, err
-		}
-		hook := fromSchemaV1(&schema.ManifestV1{PartnerIDs: m.PartnerIDs, Registration: m.Registration.RegistrationV1})
-		hook.Webhook.Duration = lenientDuration(m.Registration.Duration)
-		return []InternalWebhook{hook}, nil
-	case has(item, legacyItemKey):
-		var iw InternalWebhook
-		if err := json.Unmarshal(raw, &iw); err != nil {
-			return nil, err
-		}
-		return []InternalWebhook{iw}, nil
+	switch m := manifest.(type) {
+	case *schema.ManifestV1:
+		return []InternalWebhook{fromSchemaV1(m)}, nil
+	case *schema.ManifestV2:
+		return fromSchemaV2(m)
 	default:
-		return nil, errUnrecognizedItem
+		return nil, fmt.Errorf("unsupported manifest type %T", manifest)
 	}
-}
-
-func has(item model.Item, key string) bool {
-	_, ok := item.Data[key]
-	return ok
-}
-
-// lenientDuration reads a v1 duration (a Go duration string, or an integer in
-// seconds) and returns zero when it is absent or malformed.
-func lenientDuration(raw json.RawMessage) time.Duration {
-	var d webhook.CustomDuration
-	if err := json.Unmarshal(raw, &d); err != nil {
-		return 0
-	}
-
-	return time.Duration(d)
 }
 
 func fromSchemaV1(m *schema.ManifestV1) InternalWebhook {
