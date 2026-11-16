@@ -555,8 +555,8 @@ github.com/xmidt-org/touchstone v0.1.9 h1:4ziNLcZxmxeVtCtiXhFX2gBovzrPMFyrykvpBJ
 github.com/xmidt-org/touchstone v0.1.9/go.mod h1:qlgAd8c/5JEX6ZajuysVAK85bvE0v5vZVmyKvqx4Yhw=
 github.com/xmidt-org/urlegit v0.1.32 h1:cVr5O7JlhiH2zSgwOY+/woaEpfbVGwn7rMj4l3FGDio=
 github.com/xmidt-org/urlegit v0.1.32/go.mod h1:dBxr5GgVGhASxE7hFZuuN/oTL41VGJiiMRbHj/4Cb5c=
-github.com/xmidt-org/webhook-schema v0.2.7 h1:pXcXig6TEt06ggmuzTRWGfqEvbnhxGo2yBEHYch6fAE=
-github.com/xmidt-org/webhook-schema v0.2.7/go.mod h1:CW38BBM0LbucZVcEuaGJd/TpC3rkbscgNjKhMI+Hj5o=
+github.com/xmidt-org/webhook-schema v0.2.8 h1:fjbxIGuNRXFCdqpYOI6693kOD26JI72aANi3FH39idI=
+github.com/xmidt-org/webhook-schema v0.2.8/go.mod h1:cP/rF3ElMtn7P0llu82C9XO7g3x7Q8CE4RLwN4Zc2Tk=
 github.com/xmidt-org/webpa-common/v2 v2.7.0 h1:mltl3D7TKDaDuvFIl9t/3wHLM2JyD8rGsTkNt6r+1oo=
 github.com/xmidt-org/webpa-common/v2 v2.7.0/go.mod h1:1cmQapNOF1XwcNc82hbxLudhoYwg+yb3YHdk+DbL32k=
 github.com/xmidt-org/wrp-go/v3 v3.7.0 h1:m9ghdq79Zzb0WjomUJ02rzFpI0RK8KTjArYpNIwx1fc=
