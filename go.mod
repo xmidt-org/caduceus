@@ -23,7 +23,7 @@ require (
 	github.com/xmidt-org/httpaux v0.4.6
 	github.com/xmidt-org/sallust v0.2.10
 	github.com/xmidt-org/touchstone v0.1.9
-	github.com/xmidt-org/webhook-schema v0.2.7
+	github.com/xmidt-org/webhook-schema v0.2.8
 	github.com/xmidt-org/webpa-common/v2 v2.7.0
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux v0.72.0
